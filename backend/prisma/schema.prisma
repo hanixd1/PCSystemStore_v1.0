@@ -1,0 +1,261 @@
+generator client {
+  provider = "prisma-client-js"
+  // ¡Asegúrate de NO tener ninguna línea de previewFeatures aquí!
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") 
+}
+
+// Enum para categorizar rápidamente sin joins complejos
+enum CategoryType {
+  CPU
+  MOTHERBOARD
+  RAM
+  GPU
+  STORAGE
+  PSU
+  CASE
+  COOLER
+  PERIPHERAL
+  MONITOR
+}
+
+// --- TABLA PRINCIPAL DE PRODUCTOS ---
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  slug        String   @unique
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int
+  images      String[]
+  category    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  cpuSpecs         CpuSpecs?
+  motherboardSpecs MotherboardSpecs?
+  ramSpecs         RamSpecs?
+  gpuSpecs         GpuSpecs?
+  psuSpecs         PsuSpecs?
+  caseSpecs        CaseSpecs?
+  coolerSpecs      CoolerSpecs?
+  storageSpecs     StorageSpecs?
+  laptopSpecs      LaptopSpecs?
+  desktopSpecs     DesktopSpecs?
+  softwareSpecs    SoftwareSpecs?
+  monitorSpecs     MonitorSpecs?
+  keyboardSpecs    KeyboardSpecs?
+  mouseSpecs       MouseSpecs?
+  headsetSpecs     HeadsetSpecs?
+  microphoneSpecs  MicrophoneSpecs?
+  speakerSpecs     SpeakerSpecs?
+}
+
+model CpuSpecs {
+  id        String  @id @default(uuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  socket             String  // AM5, LGA1700 (Select)
+  cores              Int
+  frequency          String
+  tdp                Int     // Watts (Vital para elegir cooler y fuente)
+  integratedGraphics Boolean // Tiene video integrado?
+  includesCooler     Boolean // Viene con cooler de stock?
+}
+
+model MotherboardSpecs {
+  id        String  @id @default(uuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  socket      String // Debe coincidir con CPU
+  formFactor  String // ATX, mATX (Vital para el Case)
+  memoryType  String // DDR4, DDR5
+  memorySlots Int    // 2, 4, 8
+  m2Slots     Int    // Cantidad de puertos M.2
+}
+
+model RamSpecs {
+  id        String  @id @default(uuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  memoryType String  // DDR4, DDR5
+  capacity   Int     // GB Totales
+  speed      Int     // MHz
+  modules    Int     // 1 (Single), 2 (Dual Kit), 4 (Quad)
+  hasRGB     Boolean
+}
+
+model GpuSpecs {
+  id        String  @id @default(uuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  chipset   String // NVIDIA, AMD
+  vram      Int    // GB
+  length    Int    // Milímetros (Vital para el Case)
+  tdp       Int    // Watts (Vital para la Fuente)
+  fans      Int    // Cantidad de ventiladores
+}
+
+model PsuSpecs {
+  id        String  @id @default(uuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  wattage       Int     // Watts reales
+  certification String  // 80+ Bronze, Gold, etc.
+  modular       String  // Full, Semi, No
+  formFactor    String  // ATX, SFX
+}
+
+model CaseSpecs {
+  id        String  @id @default(uuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  formFactor   String  // ATX, mATX (Lo que soporta)
+  maxGpuLength Int     // mm (Límite para la gráfica)
+  includesPsu  Boolean // Viene con fuente?
+  includedFans Int     // Ventiladores incluidos
+}
+
+model CoolerSpecs {
+  id        String  @id @default(uuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  type         String // AIR, AIO (Liquida)
+  socketSupport String // String largo con sockets soportados
+  fanCount     Int
+  radiatorSize Int?   // Solo si es AIO (120, 240, 360)
+  hasRGB       Boolean
+  hasScreen    Boolean // Pantallita LCD
+  tdpCapacity  Int?    // Cuántos watts puede enfriar (aprox)
+}
+
+model StorageSpecs {
+  id        String  @id @default(uuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  type      String // SSD 2.5, NVMe M.2, HDD
+  capacity  Int    // GB
+  interface String // SATA, PCIe 3.0, PCIe 4.0, PCIe 5.0
+  readSpeed Int?   // MB/s
+}
+
+model LaptopSpecs {
+  id            String  @id @default(uuid())
+  productId     String  @unique
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  processor     String
+  ram           String
+  storage       String
+  screenSize    String
+  refreshRate   Int
+  panelType     String
+  hasDedicatedGpu Boolean @default(false)
+  gpuBrand      String?
+  gpuModel      String?
+}
+
+model DesktopSpecs {
+  id            String  @id @default(uuid())
+  productId     String  @unique
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  processor     String
+  ram           String
+  storage       String
+  hasDedicatedGpu Boolean @default(false)
+  gpuBrand      String?
+  gpuModel      String?
+}
+
+model SoftwareSpecs {
+  id            String  @id @default(uuid())
+  productId     String  @unique
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  licenseType   String
+  platform      String
+}
+
+model MonitorSpecs {
+  id            String  @id @default(uuid())
+  productId     String  @unique
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  screenSize    String
+  resolution    String
+  panelType     String
+  refreshRate   Int
+}
+
+model KeyboardSpecs {
+  id            String  @id @default(uuid())
+  productId     String  @unique
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  connection    String
+  switchType    String
+  layout        String
+  hasRGB        Boolean
+}
+
+model MouseSpecs {
+  id            String  @id @default(uuid())
+  productId     String  @unique
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  connection    String
+  dpi           Int
+  sensor        String
+  hasRGB        Boolean
+}
+
+model HeadsetSpecs {
+  id            String  @id @default(uuid())
+  productId     String  @unique
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  connection    String
+  driverSize    Int
+  impedance     Int
+  micType       String
+  noiseCancel   Boolean
+  hasRGB        Boolean
+}
+
+model MicrophoneSpecs {
+  id            String  @id @default(uuid())
+  productId     String  @unique
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  connection    String
+  micType       String
+  hasRGB        Boolean
+}
+
+model SpeakerSpecs {
+  id            String  @id @default(uuid())
+  productId     String  @unique
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  connection    String
+  wattage       Int
+  hasRGB        Boolean
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   
+  name      String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+
+  // Recuperacion de contra
+  resetToken       String?   @unique // El código temporal
+  resetTokenExpiry DateTime?
+}

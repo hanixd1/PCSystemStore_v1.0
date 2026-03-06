@@ -1,0 +1,15 @@
+/* frontend/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos base para toda la web */
+body {
+  background-color: #f9fafb; /* bg-gray-50 */
+  color: #111827; /* text-gray-900 */
+}
+
+/* Opcional: Para que el scroll sea suave al navegar */
+html {
+  scroll-behavior: smooth;
+}
