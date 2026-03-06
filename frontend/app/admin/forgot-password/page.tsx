@@ -10,7 +10,7 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:3000/users/forgot-password', { email });
+      await axios.post('https://pcsystemstore.onrender.com', { email });
       setMessage('✅ Revisa la consola de tu Backend para ver el link.');
     } catch (error) {
       setMessage('❌ Error: Usuario no encontrado');

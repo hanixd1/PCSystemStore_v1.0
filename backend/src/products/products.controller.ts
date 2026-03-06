@@ -1,36 +1,30 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  UseInterceptors, // <--- FALTABA ESTE
-  UploadedFiles    // <--- FALTABA ESTE
-} from '@nestjs/common';
-import { ProductsService } from './products.service';
+import { Controller, Post, Body, Get, Param, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { ProductsService } from './products.service';
+import { uploadToCloudinary } from '../utils/cloudinary.util';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  @UseInterceptors(FilesInterceptor('images')) // Ahora sí funcionará
-  create(@Body() createProductDto: any, @UploadedFiles() files: Array<Express.Multer.File>) {
+  @UseInterceptors(FilesInterceptor('images', 5, { storage: memoryStorage() }))
+  async create(@Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
     
-    // Si subieron archivos, creamos URLs falsas (o reales si configuras S3/Cloudinary)
-    const imageUrls = files ? files.map(f => `https://fake-cloud.com/${f.originalname}`) : [];
-    
-    // Si el usuario mandó URLs de texto manuales, aquí podríamos combinarlas
-    // Por ahora, le damos prioridad a los archivos subidos si existen
-    
-    // Pasamos todo al servicio
-    return this.productsService.create({ 
-      ...createProductDto, 
-      uploadedImages: imageUrls 
-    });
+    // AQUÍ ESTÁ EL CAMBIO: Le decimos explícitamente que es un array de strings
+    const imageUrls: string[] = []; 
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        const url = await uploadToCloudinary(file);
+        imageUrls.push(url); // ¡El error desaparece!
+      }
+    }
+
+    body.uploadedImages = imageUrls;
+
+    return this.productsService.create(body);
   }
 
   @Get()
@@ -41,15 +35,5 @@ export class ProductsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateProductDto: any) {
-    return this.productsService.update(id, updateProductDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productsService.remove(id);
   }
 }

@@ -65,7 +65,7 @@ export default function ProductPage() {
 
   useEffect(() => {
     if (!id) return;
-    axios.get(`http://localhost:3000/products/${id}`)
+    axios.get(`https://pcsystemstore.onrender.com${id}`)
       .then(res => setProduct(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));

@@ -34,7 +34,7 @@ export default function PCBuilderPage() {
   const [build, setBuild] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    axios.get('http://localhost:3000/products')
+    axios.get('https://pcsystemstore.onrender.com')
       .then(res => setProducts(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));

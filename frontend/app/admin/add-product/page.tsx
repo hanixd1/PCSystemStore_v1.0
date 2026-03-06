@@ -211,7 +211,7 @@ export default function AddProductPage() {
         formDataToSend.append('images', file);
       });
       
-      await axios.post('http://localhost:3000/products', formDataToSend, {
+      await axios.post('https://pcsystemstore.onrender.com', formDataToSend, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

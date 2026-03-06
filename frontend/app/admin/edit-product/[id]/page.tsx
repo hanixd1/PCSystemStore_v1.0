@@ -23,7 +23,7 @@ export default function EditProductPage() {
   // 1. Cargar datos actuales del producto
   useEffect(() => {
     if (id) {
-      axios.get(`http://localhost:3000/products/${id}`)
+      axios.get(`https://pcsystemstore.onrender.com${id}`)
         .then((res) => {
           const p = res.data;
           setFormData({

@@ -15,7 +15,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const res = await axios.post('http://localhost:3000/users/login', formData);
+      const res = await axios.post('https://pcsystemstore.onrender.com', formData);
       
       // Guardamos la "sesión" en el navegador
       localStorage.setItem('adminSession', JSON.stringify(res.data.user));

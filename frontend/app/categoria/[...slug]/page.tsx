@@ -159,7 +159,7 @@ export default function CategoryPage() {
     if (!fullSlug) return;
 
     setLoading(true);
-    axios.get('http://localhost:3000/products')
+    axios.get('https://pcsystemstore.onrender.com')
       .then(res => {
         const allProducts: any[] = res.data;
         

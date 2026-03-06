@@ -12,7 +12,7 @@ function ResetForm() {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:3000/users/reset-password', { token, newPassword: pass });
+      await axios.post('https://pcsystemstore.onrender.com', { token, newPassword: pass });
       alert('✅ Contraseña cambiada. Ahora inicia sesión.');
       router.push('/admin/login');
     } catch (error) {
