@@ -116,7 +116,7 @@ export default function Home() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await axios.get('https://pcsystemstore.onrender.com');
+        const res = await axios.get('http://localhost:3000/products');
         setProducts(res.data);
       } catch (error) {
         console.error("Error cargando productos de la API:", error);

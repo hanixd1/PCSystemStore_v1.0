@@ -248,14 +248,30 @@ model SpeakerSpecs {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String   
-  name      String
-  role      String   @default("ADMIN")
-  createdAt DateTime @default(now())
-
-  // Recuperacion de contra
-  resetToken       String?   @unique // El código temporal
+  id             String      @id @default(uuid())
+  email          String      @unique
+  password       String   
+  name           String
+  role           String      @default("EDITOR")   // Roles: "ADMIN" o "EDITOR"
+  status         String      @default("ACTIVE")   // Opciones: "ACTIVE" o "INACTIVE"
+  resetToken       String?     @unique
   resetTokenExpiry DateTime?
+  
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // Relación: Un usuario puede tener muchas acciones registradas en el historial
+  logs           ActionLog[] 
+}
+
+model ActionLog {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  action      String   // Ej: "CREATE", "UPDATE", "DELETE", "LOGIN"
+  entity      String   // Ej: "PRODUCT", "USER"
+  details     String   // Ej: "Actualizó el precio de Ryzen 5 9600X a S/. 950"
+  
+  createdAt   DateTime @default(now())
 }

@@ -7,34 +7,43 @@ async function main() {
   console.log('🌱 Iniciando seed...');
 
   // Limpiar base de datos antes de empezar
-  // Usamos deleteMany dentro de una transacción o uno por uno para evitar errores de claves foráneas
-  // El orden importa: primero specs, luego productos
-    try {
-      await prisma.cpuSpecs.deleteMany();
-      await prisma.motherboardSpecs.deleteMany();
-      await prisma.ramSpecs.deleteMany();
-      await prisma.product.deleteMany();
-    } catch (e) {
-     console.log("Base de datos ya estaba limpia o es la primera vez.");
-    }
+  try {
+    await prisma.cpuSpecs.deleteMany();
+    await prisma.motherboardSpecs.deleteMany();
+    await prisma.ramSpecs.deleteMany();
+    await prisma.product.deleteMany();
+  } catch (e) {
+    console.log("Base de datos ya estaba limpia o es la primera vez.");
+  }
 
-    // CREAR USUARIO ADMINISTRADOR
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('admin123', salt); // Contraseña: admin123
+  // ==========================================
+  // CREAR O ACTUALIZAR USUARIO ADMINISTRADOR
+  // ==========================================
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash('admin123', salt); // Contraseña: admin123
 
-    const admin = await prisma.user.upsert({
-      where: { email: 'admin@pcsystem.com' },
-      update: {}, // Si existe, no hace nada
-      create: {
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@pcsystem.com' },
+    update: { 
+      // ¡ESTO ES LO QUE FALTABA! Si el usuario ya existe, actualiza su clave vieja por la nueva encriptada
+      password: hashedPassword, 
+      role: 'ADMIN',
+      status: 'ACTIVE'
+    }, 
+    create: {
       email: 'admin@pcsystem.com',
       name: 'Administrador Principal',
       password: hashedPassword,
       role: 'ADMIN',
-      },
-    });
+      status: 'ACTIVE' // Aseguramos que nazca activo
+    },
+  });
 
-    console.log('👤 Usuario Admin creado:', admin.email);
-    console.log('✅ Seed completado.');
+  console.log('👤 Usuario Admin creado/actualizado:', admin.email);
+
+  // ==========================================
+  // PRODUCTOS (Se mantienen igual)
+  // ==========================================
 
   // 1. CREAR UN PROCESADOR (CPU)
   const cpu = await prisma.product.create({
@@ -74,7 +83,6 @@ async function main() {
       motherboardSpecs: {
         create: {
           socket: 'AM5',
-          // chipset: 'B650', <--- ESTO DABA ERROR, YA LO QUITAMOS
           formFactor: 'ATX',
           memoryType: 'DDR5',
           memorySlots: 4,

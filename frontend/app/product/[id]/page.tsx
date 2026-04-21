@@ -65,10 +65,12 @@ export default function ProductPage() {
 
   useEffect(() => {
     if (!id) return;
-    axios.get(`https://pcsystemstore.onrender.com${id}`)
+    
+    axios.get(`http://localhost:3000/products/${id}`)
       .then(res => setProduct(res.data))
-      .catch(err => console.error(err))
+      .catch(err => console.error("Error al cargar producto:", err))
       .finally(() => setLoading(false));
+      
   }, [id]);
 
   if (loading) {
@@ -94,9 +96,7 @@ export default function ProductPage() {
     <div className="bg-white min-h-screen pb-20">
       <div className="container mx-auto px-4 pt-6">
         
-        {/* =========================================
-            MIGAS DE PAN (ESTILO PCCOMPONENTES)
-            ========================================= */}
+        {}
         <div className="flex items-center text-sm font-medium text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2">
           <Link href="/" className="hover:text-brand-cyan hover:underline transition">Inicio</Link>
           

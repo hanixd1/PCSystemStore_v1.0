@@ -2,11 +2,9 @@
 
 import { useState } from 'react';
 import axios from 'axios';
-import { useRouter } from 'next/navigation';
 import { FiLock, FiUser } from 'react-icons/fi';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
 
@@ -15,14 +13,20 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const res = await axios.post('https://pcsystemstore.onrender.com', formData);
+      // Petición al backend
+      const res = await axios.post('http://localhost:3000/users/login', formData);
       
-      // Guardamos la "sesión" en el navegador
-      localStorage.setItem('adminSession', JSON.stringify(res.data.user));
+      // 1. Guardamos la sesión y el token correctamente
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      localStorage.setItem('token', res.data.token);
       
-      router.push('/admin'); // Redirigir al panel
-    } catch (err) {
-      setError('Correo o contraseña incorrectos');
+      // 2. Método Nuclear de entrada: Forzamos la recarga hacia el panel
+      // Esto asegura que el Sidebar lea el localStorage fresco al instante
+      window.location.href = '/admin'; 
+      
+    } catch (err: any) {
+      // Muestra el error exacto (Ej: "Cuenta suspendida" o "Credenciales inválidas")
+      setError(err.response?.data?.message || 'Correo o contraseña incorrectos');
     }
   };
 
