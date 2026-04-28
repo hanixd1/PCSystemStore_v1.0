@@ -1,4 +1,3 @@
-// frontend/app/tienda/page.tsx
 import { FiClock, FiMapPin, FiPhone, FiShield } from 'react-icons/fi';
 
 export default function TiendaPage() {

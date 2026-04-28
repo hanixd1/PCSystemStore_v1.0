@@ -1,16 +1,23 @@
-import { Controller, Post, Body, Get, Patch, Param } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { UsersService } from './users.service';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // ==========================
-  // RUTAS DE AUTENTICACIÓN
-  // ==========================
   @Post('login')
-  login(@Body() body: any) {
+  login(@Body() body: { email: string; password: string }) {
     return this.usersService.login(body.email, body.password);
+  }
+
+  @Post('register')
+  register(@Body() body: { name: string; email: string; password: string }) {
+    return this.usersService.register(body);
+  }
+
+  @Post('google-auth')
+  googleAuth(@Body() body: { idToken: string }) {
+    return this.usersService.loginWithGoogle(body.idToken);
   }
 
   @Post('forgot-password')
@@ -23,33 +30,26 @@ export class UsersController {
     return this.usersService.resetPassword(body.token, body.newPassword);
   }
 
-  // ==========================
-  // RUTAS DE GESTIÓN DE EMPLEADOS
-  // ==========================
-  
-  // Crear un empleado nuevo (Ej: POST http://localhost:3000/users)
   @Post()
   create(@Body() body: any) {
     return this.usersService.create(body);
   }
 
-  // Listar todos los empleados (Ej: GET http://localhost:3000/users)
   @Get()
   findAll() {
     return this.usersService.findAll();
   }
 
-  // Suspender / Activar cuenta (Ej: PATCH http://localhost:3000/users/ID_DEL_USER/toggle-status)
-  @Patch(':id/toggle-status')
-  toggleStatus(@Param('id') id: string) {
-    return this.usersService.toggleStatus(id);
-  }
   @Get('audit/logs')
   getLogs() {
     return this.usersService.getAuditLogs();
   }
 
-  // Editar un empleado
+  @Patch(':id/toggle-status')
+  toggleStatus(@Param('id') id: string) {
+    return this.usersService.toggleStatus(id);
+  }
+
   @Patch(':id')
   updateUser(@Param('id') id: string, @Body() body: any) {
     return this.usersService.updateUser(id, body);

@@ -2,9 +2,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import Link from 'next/link';
 import { FiEdit, FiTrash2, FiPlus, FiAlertCircle, FiSearch } from 'react-icons/fi';
+import { api, getApiErrorMessage } from '@/lib/api';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState<any[]>([]);
@@ -18,7 +18,7 @@ export default function AdminDashboard() {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get('https://pcsystemstore.onrender.com');
+      const res = await api.get('/products');
       setProducts(res.data);
     } catch (error) {
       console.error("Error cargando productos", error);
@@ -30,11 +30,11 @@ export default function AdminDashboard() {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar este producto?')) return;
     try {
-      await axios.delete(`http://localhost:3000/products/${id}`);
+      await api.delete(`/products/${id}`);
       setProducts(products.filter(p => p.id !== id)); // Actualizar tabla visualmente
       alert('Producto eliminado');
-    } catch (error) {
-      alert('Error al eliminar');
+    } catch (error: unknown) {
+      alert(getApiErrorMessage(error, 'Error al eliminar'));
     }
   };
 
@@ -97,7 +97,13 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border">
                           {product.images[0] ? (
-                            <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
+                            <img
+                              src={product.images[0]}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
                             <span className="text-xs text-gray-400">N/A</span>
                           )}

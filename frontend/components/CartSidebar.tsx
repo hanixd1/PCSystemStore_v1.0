@@ -1,9 +1,7 @@
-// frontend/components/CartSidebar.tsx
 'use client';
 
 import { FiX, FiTrash2, FiMinus, FiPlus, FiShoppingBag } from 'react-icons/fi';
 import { useCartStore } from '../store/useCartStore';
-// import Image from 'next/image'; // Descomenta cuando tengas imágenes reales
 
 export default function CartSidebar() {
   // Traemos los datos y funciones del store actualizado

@@ -1,37 +1,57 @@
 'use client';
-import { useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import axios from 'axios';
+
+import { FormEvent, Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { api, getApiErrorMessage } from '@/lib/api';
 
 function ResetForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const router = useRouter();
-  const [pass, setPass] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+
     try {
-      await axios.post('https://pcsystemstore.onrender.com', { token, newPassword: pass });
-      alert('✅ Contraseña cambiada. Ahora inicia sesión.');
+      await api.post('/users/reset-password', {
+        token,
+        newPassword: password,
+      });
+      alert('Contrasena cambiada. Ahora inicia sesion.');
       router.push('/admin/login');
-    } catch (error) {
-      alert('❌ El token es inválido o expiró.');
+    } catch (error: unknown) {
+      setError(getApiErrorMessage(error, 'El token es invalido o expiro'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-xl max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-4 text-center">Nueva Contraseña</h2>
+    <div className="flex min-h-screen items-center justify-center bg-gray-900 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-8">
+        <h2 className="mb-4 text-center text-2xl font-bold">Nueva Contrasena</h2>
+        {error && <p className="mb-4 text-center font-bold text-red-600">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input 
-            type="password" 
+          <input
+            type="password"
             placeholder="Escribe tu nueva clave"
-            className="w-full border p-3 rounded-lg"
-            onChange={(e) => setPass(e.target.value)}
+            className="w-full rounded-lg border p-3"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
           />
-          <button type="submit" className="w-full bg-black text-white py-3 rounded-lg font-bold">Cambiar Contraseña</button>
+          <button
+            type="submit"
+            disabled={!token || isSubmitting}
+            className="w-full rounded-lg bg-black py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmitting ? 'Guardando...' : 'Cambiar Contrasena'}
+          </button>
         </form>
       </div>
     </div>

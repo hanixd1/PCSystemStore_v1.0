@@ -31,6 +31,24 @@
 $ pnpm install
 ```
 
+## AI bridge setup
+
+This backend now connects NestJS to Python using `child_process.spawn` plus `stdin/stdout`.
+
+Python requirements:
+
+```bash
+$ python -m pip install -r requirements.txt
+```
+
+If `python` is not available in PATH on Windows, define `PYTHON_BIN` before running the backend:
+
+```bash
+$ set PYTHON_BIN=C:\ruta\hacia\python.exe
+```
+
+The first successful execution of `predictor.py` creates `model/stock_predictor.joblib` automatically.
+
 ## Compile and run the project
 
 ```bash

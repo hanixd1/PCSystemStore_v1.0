@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import axios from 'axios';
 import Link from 'next/link';
 import { FiChevronRight, FiShoppingCart, FiCheck, FiBox } from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
+import { api } from '@/lib/api';
 
 // Función mágica que genera las migas de pan leyendo el nombre y specs del producto
 const generateBreadcrumbs = (product: any) => {
@@ -66,7 +66,7 @@ export default function ProductPage() {
   useEffect(() => {
     if (!id) return;
     
-    axios.get(`http://localhost:3000/products/${id}`)
+    api.get(`/products/${id}`)
       .then(res => setProduct(res.data))
       .catch(err => console.error("Error al cargar producto:", err))
       .finally(() => setLoading(false));

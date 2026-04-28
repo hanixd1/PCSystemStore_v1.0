@@ -1,8 +1,7 @@
-// frontend/components/Header.tsx
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image'; // <--- IMPORTANTE: Importar Image
+import Image from 'next/image';
 import { useState } from 'react';
 import { FiMenu, FiSearch, FiUser, FiShoppingCart } from 'react-icons/fi';
 import MegaMenu from './MegaMenu';

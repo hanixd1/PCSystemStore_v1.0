@@ -1,4 +1,3 @@
-// src/builder/builder.controller.ts
 import { Controller, Get, Query } from '@nestjs/common';
 import { BuilderService } from './builder.service';
 
@@ -15,7 +14,7 @@ export class BuilderController {
   getRams(@Query('motherboardId') motherboardId?: string) {
     return this.builderService.getCompatibleRam(motherboardId);
   }
-  
+
   @Get('cpus')
   getCpus() {
     return this.builderService.getCpus();

@@ -1,24 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { FiUsers, FiEdit, FiUserPlus, FiShieldOff, FiShield, FiX } from 'react-icons/fi';
+import { useEffect, useState } from 'react';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { FiEdit, FiShield, FiShieldOff, FiUserPlus, FiUsers, FiX } from 'react-icons/fi';
+
+type UserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+};
 
 export default function EmpleadosPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  
-  // Guardamos quién es el admin actual para no dejar que se bloquee a sí mismo
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string | null>(null);
-
   const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'EDITOR' });
 
   const fetchUsers = async () => {
     try {
-      const res = await axios.get('http://localhost:3000/users');
+      const res = await api.get('/users');
       setUsers(res.data);
     } catch (error) {
       console.error(error);
@@ -27,16 +32,15 @@ export default function EmpleadosPage() {
     }
   };
 
-  useEffect(() => { 
-    fetchUsers(); 
-    // Obtenemos tu sesión para saber quién eres
+  useEffect(() => {
+    void fetchUsers();
     const session = localStorage.getItem('user');
     if (session) {
       setCurrentAdminEmail(JSON.parse(session).email);
     }
   }, []);
 
-  const openEditModal = (user: any) => {
+  const openEditModal = (user: UserRow) => {
     setIsEditing(true);
     setEditingId(user.id);
     setFormData({ name: user.name, email: user.email, password: '', role: user.role });
@@ -52,97 +56,130 @@ export default function EmpleadosPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     try {
       if (isEditing && editingId) {
-        await axios.patch(`http://localhost:3000/users/${editingId}`, formData);
-        alert('Empleado actualizado con éxito');
+        await api.patch(`/users/${editingId}`, formData);
+        alert('Empleado actualizado con exito');
       } else {
-        await axios.post('http://localhost:3000/users', formData);
-        alert('Empleado creado con éxito');
+        await api.post('/users', formData);
+        alert('Empleado creado con exito');
       }
+
       setShowModal(false);
-      fetchUsers();
-    } catch (error) {
-      alert('Hubo un error al procesar la solicitud.');
+      await fetchUsers();
+    } catch (error: unknown) {
+      alert(getApiErrorMessage(error, 'Hubo un error al procesar la solicitud.'));
     }
   };
 
-  // 🛑 LA MAGIA DE BLOQUEAR/DESACTIVAR
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const accion = currentStatus === 'ACTIVE' ? 'bloquear' : 'reactivar';
-    if(!confirm(`¿Estás seguro de que deseas ${accion} esta cuenta?`)) return;
-    
+    if (!confirm(`Estas seguro de que deseas ${accion} esta cuenta?`)) return;
+
     try {
-      await axios.patch(`http://localhost:3000/users/${id}/toggle-status`);
-      fetchUsers(); // Recargamos para ver el cambio de color
-    } catch (error) {
+      await api.patch(`/users/${id}/toggle-status`);
+      await fetchUsers();
+    } catch (error: unknown) {
       console.error(error);
-      alert('Error al intentar cambiar el estado.');
+      alert(getApiErrorMessage(error, 'Error al intentar cambiar el estado.'));
     }
   };
 
   return (
-    <div className="max-w-7xl mx-auto pb-20">
-      
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
+    <div className="mx-auto max-w-7xl pb-20">
+      <div className="mb-8 flex flex-col items-center justify-between gap-4 md:flex-row">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-black rounded-xl text-white"><FiUsers size={24} /></div>
+          <div className="rounded-xl bg-black p-3 text-white">
+            <FiUsers size={24} />
+          </div>
           <div>
-            <h1 className="text-3xl font-black text-gray-800">Gestión de Personal</h1>
-            <p className="text-gray-500 font-medium">Administra accesos y permisos</p>
+            <h1 className="text-3xl font-black text-gray-800">Gestion de Personal</h1>
+            <p className="font-medium text-gray-500">Administra accesos y permisos</p>
           </div>
         </div>
-        <button onClick={openCreateModal} className="bg-brand-cyan text-gray-900 px-6 py-3 rounded-xl font-bold hover:bg-cyan-400 transition shadow-lg flex items-center gap-2">
+        <button
+          onClick={openCreateModal}
+          className="flex items-center gap-2 rounded-xl bg-brand-cyan px-6 py-3 font-bold text-gray-900 shadow-lg transition hover:bg-cyan-400"
+        >
           <FiUserPlus size={20} /> Nuevo Empleado
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        {loading ? <div className="p-10 text-center font-bold">Cargando...</div> : (
-          <table className="w-full text-left border-collapse">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        {loading ? (
+          <div className="p-10 text-center font-bold">Cargando...</div>
+        ) : users.length === 0 ? (
+          <div className="p-10 text-center">
+            <p className="mb-4 text-lg font-bold text-gray-700">No hay empleados registrados todavia.</p>
+            <button
+              onClick={openCreateModal}
+              className="rounded-xl bg-brand-cyan px-5 py-3 font-bold text-gray-900 transition hover:bg-cyan-400"
+            >
+              Crear primer empleado
+            </button>
+          </div>
+        ) : (
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="bg-gray-50/50 border-b border-gray-200 text-gray-500 text-xs uppercase tracking-widest">
+              <tr className="border-b border-gray-200 bg-gray-50/50 text-xs uppercase tracking-widest text-gray-500">
                 <th className="p-5 font-bold">Nombre / Correo</th>
                 <th className="p-5 font-bold">Rol</th>
                 <th className="p-5 font-bold">Estado</th>
-                <th className="p-5 font-bold text-right">Acciones</th>
+                <th className="p-5 text-right font-bold">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {users.map((user) => {
-                // Verificamos si esta fila es tu propio usuario
                 const isMe = user.email === currentAdminEmail;
 
                 return (
-                  <tr key={user.id} className={`transition ${user.status === 'INACTIVE' ? 'bg-red-50/40' : 'hover:bg-gray-50'}`}>
+                  <tr
+                    key={user.id}
+                    className={`transition ${
+                      user.status === 'INACTIVE' ? 'bg-red-50/40' : 'hover:bg-gray-50'
+                    }`}
+                  >
                     <td className="p-5">
                       <p className="font-bold text-gray-800">
-                        {user.name} {isMe && <span className="text-brand-cyan text-xs ml-2">(Tú)</span>}
+                        {user.name}{' '}
+                        {isMe && <span className="ml-2 text-xs text-brand-cyan">(Tu)</span>}
                       </p>
                       <p className="text-sm text-gray-500">{user.email}</p>
                     </td>
                     <td className="p-5">
-                      <span className={`px-2 py-1 rounded text-[10px] font-black ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                      <span
+                        className={`rounded px-2 py-1 text-[10px] font-black ${
+                          user.role === 'ADMIN'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
                         {user.role}
                       </span>
                     </td>
                     <td className="p-5">
-                      {/* BOTÓN DE BLOQUEO / ACTIVACIÓN */}
-                      <button 
-                        onClick={() => handleToggleStatus(user.id, user.status)} 
-                        disabled={isMe} // ¡No te puedes bloquear a ti mismo!
-                        className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 transition-all ${
-                          isMe ? 'bg-gray-100 text-gray-400 cursor-not-allowed' :
-                          user.status === 'ACTIVE' ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700' : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700'
+                      <button
+                        onClick={() => handleToggleStatus(user.id, user.status)}
+                        disabled={isMe}
+                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition-all ${
+                          isMe
+                            ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                            : user.status === 'ACTIVE'
+                              ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
+                              : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700'
                         }`}
-                        title={isMe ? "No puedes bloquearte a ti mismo" : "Clic para cambiar estado"}
+                        title={isMe ? 'No puedes bloquearte a ti mismo' : 'Clic para cambiar estado'}
                       >
                         {user.status === 'ACTIVE' ? <FiShield /> : <FiShieldOff />}
                         {user.status === 'ACTIVE' ? 'Activo' : 'Bloqueado'}
                       </button>
                     </td>
-                    <td className="p-5 text-right space-x-2">
-                      <button onClick={() => openEditModal(user)} className="p-2 text-gray-400 hover:text-brand-cyan bg-gray-50 hover:bg-cyan-50 rounded-lg">
+                    <td className="space-x-2 p-5 text-right">
+                      <button
+                        onClick={() => openEditModal(user)}
+                        className="rounded-lg bg-gray-50 p-2 text-gray-400 hover:bg-cyan-50 hover:text-brand-cyan"
+                      >
                         <FiEdit size={18} />
                       </button>
                     </td>
@@ -155,34 +192,69 @@ export default function EmpleadosPage() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md relative">
-            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute right-6 top-6 text-gray-400 hover:text-red-500"
+            >
               <FiX size={24} />
             </button>
-            <h2 className="text-2xl font-black mb-6">{isEditing ? 'Editar Empleado' : 'Nuevo Empleado'}</h2>
-            
+            <h2 className="mb-6 text-2xl font-black">
+              {isEditing ? 'Editar Empleado' : 'Nuevo Empleado'}
+            </h2>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase">Nombre</label>
-                <input required type="text" className="w-full border-2 p-3 rounded-xl focus:border-brand-cyan outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <label className="block text-xs font-bold uppercase text-gray-500">Nombre</label>
+                <input
+                  required
+                  type="text"
+                  className="w-full rounded-xl border-2 p-3 outline-none focus:border-brand-cyan"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase">Correo</label>
-                <input required={!isEditing} disabled={isEditing} type="email" className={`w-full border-2 p-3 rounded-xl outline-none ${isEditing ? 'bg-gray-100 text-gray-400' : 'focus:border-brand-cyan'}`} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <label className="block text-xs font-bold uppercase text-gray-500">Correo</label>
+                <input
+                  required={!isEditing}
+                  disabled={isEditing}
+                  type="email"
+                  className={`w-full rounded-xl border-2 p-3 outline-none ${
+                    isEditing ? 'bg-gray-100 text-gray-400' : 'focus:border-brand-cyan'
+                  }`}
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase">Contraseña {isEditing && '(Déjalo en blanco para no cambiarla)'}</label>
-                <input required={!isEditing} type="text" className="w-full border-2 p-3 rounded-xl focus:border-brand-cyan outline-none" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                <label className="block text-xs font-bold uppercase text-gray-500">
+                  Contrasena {isEditing && '(Dejalo en blanco para no cambiarla)'}
+                </label>
+                <input
+                  required={!isEditing}
+                  type="text"
+                  className="w-full rounded-xl border-2 p-3 outline-none focus:border-brand-cyan"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase">Rol</label>
-                <select className="w-full border-2 p-3 rounded-xl focus:border-brand-cyan font-bold bg-white outline-none" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
+                <label className="block text-xs font-bold uppercase text-gray-500">Rol</label>
+                <select
+                  className="w-full rounded-xl border-2 bg-white p-3 font-bold outline-none focus:border-brand-cyan"
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                >
                   <option value="EDITOR">EDITOR</option>
                   <option value="ADMIN">ADMIN</option>
                 </select>
               </div>
-              <button type="submit" className="w-full bg-brand-cyan text-gray-900 font-black py-4 rounded-xl mt-6 hover:bg-cyan-400">
+              <button
+                type="submit"
+                className="mt-6 w-full rounded-xl bg-brand-cyan py-4 font-black text-gray-900 hover:bg-cyan-400"
+              >
                 {isEditing ? 'Guardar Cambios' : 'Registrar Empleado'}
               </button>
             </form>

@@ -1,40 +1,60 @@
 'use client';
-import { useState } from 'react';
-import axios from 'axios';
+
+import { FormEvent, useState } from 'react';
 import Link from 'next/link';
+import { api, getApiErrorMessage } from '@/lib/api';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setMessage('');
+    setError('');
+    setIsSubmitting(true);
+
     try {
-      await axios.post('https://pcsystemstore.onrender.com', { email });
-      setMessage('✅ Revisa la consola de tu Backend para ver el link.');
-    } catch (error) {
-      setMessage('❌ Error: Usuario no encontrado');
+      const res = await api.post('/users/forgot-password', { email });
+      setMessage(res.data.message);
+    } catch (error: unknown) {
+      setError(getApiErrorMessage(error, 'No se pudo procesar la solicitud'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-xl max-w-md w-full text-center">
-        <h2 className="text-2xl font-bold mb-4">Recuperar Cuenta</h2>
-        <p className="text-gray-500 mb-6">Ingresa tu correo para recibir el enlace.</p>
-        
-        {message && <p className="mb-4 font-bold text-blue-600">{message}</p>}
+    <div className="flex min-h-screen items-center justify-center bg-gray-900 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-8 text-center">
+        <h2 className="mb-4 text-2xl font-bold">Recuperar Cuenta</h2>
+        <p className="mb-6 text-gray-500">Ingresa tu correo para recibir el enlace.</p>
+
+        {message && <p className="mb-4 font-bold text-green-600">{message}</p>}
+        {error && <p className="mb-4 font-bold text-red-600">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input 
-            type="email" 
+          <input
+            type="email"
             placeholder="admin@pcsystem.com"
-            className="w-full border p-3 rounded-lg"
+            className="w-full rounded-lg border p-3"
+            value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
-          <button type="submit" className="w-full bg-brand-cyan py-3 rounded-lg font-bold">Enviar</button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full rounded-lg bg-brand-cyan py-3 font-bold disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmitting ? 'Enviando...' : 'Enviar'}
+          </button>
         </form>
-        <Link href="/admin/login" className="block mt-4 text-sm text-gray-500">Volver al Login</Link>
+        <Link href="/admin/login" className="mt-4 block text-sm text-gray-500">
+          Volver al Login
+        </Link>
       </div>
     </div>
   );

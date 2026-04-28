@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { 
   FiCpu, FiGrid, FiZap, FiMonitor, FiHardDrive, 
   FiBox, FiCheckCircle, FiShoppingCart, FiRefreshCw, FiChevronRight 
 } from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
+import { api } from '@/lib/api';
 
 // Definición de los pasos del configurador
 const STEPS = [
@@ -34,7 +34,7 @@ export default function PCBuilderPage() {
   const [build, setBuild] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    axios.get('https://pcsystemstore.onrender.com')
+    api.get('/products')
       .then(res => setProducts(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));

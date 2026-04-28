@@ -9,15 +9,21 @@ export class AiController {
   // 1. ENDPOINT PARA EL CHATBOT DEL CLIENTE (Frontend)
   // =========================================================
   @Post('chat')
-  async chat(@Body() body: { message: string }) {
-    return this.aiService.processCustomerChat(body.message);
+  async chat(
+    @Body()
+    body: {
+      message: string;
+      history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+    },
+  ): Promise<unknown> {
+    return this.aiService.processCustomerChat(body.message, body.history ?? []);
   }
 
   // =========================================================
   // 2. ENDPOINT PARA LAS ALERTAS DEL ADMINISTRADOR (Panel)
   // =========================================================
   @Get('predictions')
-  async getPredictions() {
+  async getPredictions(): Promise<unknown> {
     return this.aiService.getAiPredictions();
   }
 }

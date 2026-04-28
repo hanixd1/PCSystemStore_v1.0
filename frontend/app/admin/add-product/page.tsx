@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { 
   FiSave, FiCpu, FiGrid, FiHardDrive, FiMonitor, FiWind, 
   FiBox, FiZap, FiMousePointer, FiHeadphones, FiLayers 
 } from 'react-icons/fi';
 import { MdComputer, MdLaptop, MdSecurity, MdKeyboard } from 'react-icons/md';
+import { api, getApiErrorMessage } from '@/lib/api';
 
 // --- CONSTANTES Y LISTAS ---
 const DEPARTMENTS = {
@@ -49,6 +49,37 @@ const STORAGE_TYPES = ["SSD 2.5", "NVMe M.2", "HDD 3.5"];
 const NVME_GENS = ["SATA", "PCIe 3.0", "PCIe 4.0", "PCIe 5.0"];
 const PANEL_TYPES = ["IPS", "VA", "TN", "OLED"];
 const LAPTOP_BRANDS = ["ASUS", "Lenovo", "HP", "Dell", "MSI", "Acer"];
+
+const INITIAL_FORM_DATA = {
+  name: '', description: '', price: '', stock: '', category: 'CPU', image: '',
+  socket: 'AM5', cores: '', frequency: '', tdp: '', integratedGraphics: 'false', includesCooler: 'false',
+  memorySlots: '4', m2Slots: '2', formFactor: 'ATX',
+  memoryType: 'DDR5', capacity: '16', speed: '5200', modules: '1', hasRGB: 'false',
+  chipset: 'NVIDIA GeForce', vram: '8', length: '', fans: '2',
+  wattage: '', certification: '80+ Bronze', modular: 'No Modular',
+  maxGpuLength: '', includesPsu: 'false', includedFans: '0',
+  type: 'AIR', fanCount: '1', radiatorSize: '240', hasScreen: 'false',
+  interface: 'PCIe 4.0', readSpeed: '',
+  screenSize: '15.6', refreshRate: '60', panelType: 'IPS', resolution: '1920x1080',
+  processor: 'Intel Core i5', ram: '8GB', storage: '512GB SSD',
+  hasDedicatedGpu: 'false', gpuBrand: '', gpuModel: '',
+  switchType: 'Mecánico', layout: 'Español', connection: 'USB',
+  dpi: '16000', sensor: 'Óptico', wireless: 'false',
+  licenseType: 'Permanente', platform: 'Windows',
+  driverSize: '50', impedance: '32', micType: 'Unidireccional', noiseCancel: 'false',
+};
+
+const NON_NEGATIVE_FIELDS = new Set([
+  'price', 'stock', 'cores', 'tdp', 'memorySlots', 'm2Slots', 'capacity', 'speed',
+  'modules', 'vram', 'length', 'fans', 'wattage', 'maxGpuLength', 'includedFans',
+  'fanCount', 'radiatorSize', 'readSpeed', 'refreshRate', 'dpi', 'driverSize',
+  'impedance',
+]);
+
+const NO_NEGATIVE_TEXT_FIELDS = new Set(['frequency']);
+
+const NAME_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,+\-/%\s]{10,120}$/;
+const DESCRIPTION_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,;:+\-/%\s]{20,1200}$/;
 
 export default function AddProductPage() {
   const [loading, setLoading] = useState(false);
@@ -96,6 +127,52 @@ export default function AddProductPage() {
     // Audio
     driverSize: '50', impedance: '32', micType: 'Unidireccional', noiseCancel: 'false',
   });
+
+  const resetFormForCategory = (category: string) => {
+    setFormData({ ...INITIAL_FORM_DATA, category });
+    setImageFiles([]);
+  };
+
+  const validateForm = () => {
+    const trimmedName = formData.name.trim();
+    const trimmedDescription = formData.description.trim();
+
+    if (!NAME_REGEX.test(trimmedName)) {
+      return 'El nombre debe tener entre 10 y 120 caracteres y solo usar letras, numeros y signos comunes.';
+    }
+
+    if (!DESCRIPTION_REGEX.test(trimmedDescription)) {
+      return 'La descripcion debe tener entre 20 y 1200 caracteres y solo usar texto valido.';
+    }
+
+    if (Number(formData.price) <= 0) {
+      return 'El precio debe ser mayor a 0.';
+    }
+
+    if (!Number.isInteger(Number(formData.stock)) || Number(formData.stock) < 0) {
+      return 'El stock debe ser un numero entero y no puede ser negativo.';
+    }
+
+    for (const field of NON_NEGATIVE_FIELDS) {
+      const value = formData[field as keyof typeof formData];
+      if (value !== '' && Number(value) < 0) {
+        return `El campo ${field} no puede ser negativo.`;
+      }
+    }
+
+    for (const field of NO_NEGATIVE_TEXT_FIELDS) {
+      const value = String(formData[field as keyof typeof formData] || '').trim();
+      if (value.includes('-')) {
+        return `El campo ${field} no puede contener valores negativos.`;
+      }
+    }
+
+    if (imageFiles.length < 1 || imageFiles.length > 5) {
+      return 'Debes subir entre 1 y 5 imagenes.';
+    }
+
+    return null;
+  };
 
   // Cuando cambia el departamento, reseteamos la categoría y la información básica
   useEffect(() => {
@@ -154,9 +231,27 @@ export default function AddProductPage() {
 
   const handleChange = (e: any) => {
     const { name, value, type, checked } = e.target;
+    if (type === 'number' && NON_NEGATIVE_FIELDS.has(name)) {
+      if (value === '') {
+        setFormData({ ...formData, [name]: '' });
+        return;
+      }
+
+      if (Number(value) < 0) {
+        e.target.value = String(formData[name as keyof typeof formData] ?? '');
+        return;
+      }
+    }
+
+    if (type !== 'number' && NO_NEGATIVE_TEXT_FIELDS.has(name) && value.includes('-')) {
+      e.target.value = String(formData[name as keyof typeof formData] ?? '');
+      return;
+    }
     
     // Si se está cambiando la categoría, resetear todo el formulario
     if (name === 'category') {
+      resetFormForCategory(value);
+      return;
       setFormData({
         name: '', 
         description: '', 
@@ -189,6 +284,11 @@ export default function AddProductPage() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+    const validationError = validateForm();
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
     
     if (imageFiles.length === 0) {
       alert('⚠️ Debes subir al menos 1 imagen del producto');
@@ -211,7 +311,7 @@ export default function AddProductPage() {
         formDataToSend.append('images', file);
       });
       
-      await axios.post('https://pcsystemstore.onrender.com', formDataToSend, {
+      await api.post('/products', formDataToSend, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -220,9 +320,9 @@ export default function AddProductPage() {
       alert('✅ Producto guardado correctamente');
       // Opcional: Limpiar formulario
       // window.location.reload();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      alert('❌ Error al guardar. Revisa que el Backend soporte esta categoría y carga de archivos.');
+      alert(getApiErrorMessage(error, 'Error al guardar. Revisa la configuracion del backend o Cloudinary.'));
     } finally {
       setLoading(false);
     }

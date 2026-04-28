@@ -1,8 +1,7 @@
-// frontend/app/page.tsx
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import Link from 'next/link';
 import { 
   FiShoppingCart, 
@@ -17,8 +16,10 @@ import {
   MdLocalOffer
 } from 'react-icons/md';
 
-import HeroCarousel from '@/components/HeroCarousel'; 
 import { useCartStore } from '@/store/useCartStore';
+import { api } from '@/lib/api';
+
+const HeroCarousel = dynamic(() => import('@/components/HeroCarousel'));
 
 // --- COMPONENTE DE SECCIÓN DE PRODUCTOS (Reutilizable) ---
 const ProductSection = ({ title, products, link }: { title: string, products: any[], link?: string }) => {
@@ -47,6 +48,8 @@ const ProductSection = ({ title, products, link }: { title: string, products: an
                 <img 
                   src={product.images[0]} 
                   alt={product.name} 
+                  loading="lazy"
+                  decoding="async"
                   className="max-h-full max-w-full object-contain group-hover:scale-110 transition duration-500"
                 />
               ) : (
@@ -116,7 +119,7 @@ export default function Home() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await axios.get('http://localhost:3000/products');
+        const res = await api.get('/products');
         setProducts(res.data);
       } catch (error) {
         console.error("Error cargando productos de la API:", error);

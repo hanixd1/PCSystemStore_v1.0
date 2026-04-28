@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '@/lib/api';
 import { FiActivity, FiClock, FiBox, FiUser } from 'react-icons/fi';
 
 export default function HistorialPage() {
@@ -9,7 +9,7 @@ export default function HistorialPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('http://localhost:3000/users/audit/logs')
+    api.get('/users/audit/logs')
       .then(res => setLogs(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));

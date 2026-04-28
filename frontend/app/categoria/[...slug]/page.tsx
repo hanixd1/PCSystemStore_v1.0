@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import axios from 'axios';
 import Link from 'next/link';
 import { FiChevronRight, FiShoppingCart, FiBox, FiFilter } from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
+import { api } from '@/lib/api';
 
 const DICTIONARY: Record<string, string> = {
   'componentes': 'Todos los Componentes', 'ordenadores': 'Ordenadores', 'perifericos': 'Periféricos', 'audio': 'Audio y Sonido',
@@ -159,7 +159,7 @@ export default function CategoryPage() {
     if (!fullSlug) return;
 
     setLoading(true);
-    axios.get('https://pcsystemstore.onrender.com')
+    api.get('/products')
       .then(res => {
         const allProducts: any[] = res.data;
         

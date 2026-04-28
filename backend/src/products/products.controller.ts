@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Get, Param, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UploadedFiles,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ProductsService } from './products.service';
@@ -10,17 +20,13 @@ export class ProductsController {
 
   @Post()
   @UseInterceptors(FilesInterceptor('images', 5, { storage: memoryStorage() }))
-  async create(@Body() body: any, @UploadedFiles() files: Array<Express.Multer.File>) {
-    
-    // AQUÍ ESTÁ EL CAMBIO: Le decimos explícitamente que es un array de strings
-    const imageUrls: string[] = []; 
-
-    if (files && files.length > 0) {
-      for (const file of files) {
-        const url = await uploadToCloudinary(file);
-        imageUrls.push(url); // ¡El error desaparece!
-      }
-    }
+  async create(
+    @Body() body: any,
+    @UploadedFiles() files: Array<Express.Multer.File>,
+  ) {
+    const imageUrls = files?.length
+      ? await Promise.all(files.map((file) => uploadToCloudinary(file)))
+      : [];
 
     body.uploadedImages = imageUrls;
 
@@ -35,5 +41,15 @@ export class ProductsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body: any) {
+    return this.productsService.update(id, body);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.productsService.remove(id);
   }
 }
