@@ -1,9 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { spawn } from 'child_process';
-import { existsSync } from 'fs';
-import { resolve } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
+import { AiPythonRunnerService } from './services/ai-python-runner.service';
 
 type ChatRole = 'user' | 'assistant';
 type ChatIntent = 'build_pc' | 'product_search' | 'compatibility' | 'unknown';
@@ -38,13 +36,6 @@ interface AiPrediction {
   mensaje_cliente: string;
   alerta_admin: string;
   dias_restantes_estimados?: number;
-}
-
-interface PythonResponse {
-  success?: boolean;
-  data?: AiPrediction[];
-  error?: string;
-  detalle?: string;
 }
 
 interface ConversationSlots {
@@ -186,9 +177,11 @@ const PRODUCT_INCLUDE = {
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private readonly predictorScriptPath = resolve(process.cwd(), 'predictor.py');
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly pythonRunner: AiPythonRunnerService,
+  ) {}
 
   private getFrontendUrl(): string {
     return process.env.FRONTEND_URL?.trim().replace(/\/$/, '') || '';
@@ -1299,144 +1292,6 @@ export class AiService {
     };
   }
 
-  private getPythonCandidates() {
-    const configuredPython = process.env.PYTHON_BIN?.trim();
-    const candidates = configuredPython
-      ? [{ command: configuredPython, args: [] as string[] }]
-      : [];
-
-    if (process.platform === 'win32') {
-      candidates.push({ command: 'python', args: [] });
-      candidates.push({ command: 'py', args: ['-3'] });
-    } else {
-      candidates.push({ command: 'python3', args: [] });
-      candidates.push({ command: 'python', args: [] });
-    }
-
-    const seen = new Set<string>();
-    return candidates.filter((candidate) => {
-      const key = `${candidate.command} ${candidate.args.join(' ')}`.trim();
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-  }
-
-  private executePythonPredictor(
-    command: string,
-    args: string[],
-    products: AiProductInput[],
-  ): Promise<AiPrediction[]> {
-    return new Promise((resolvePromise, reject) => {
-      const child = spawn(command, [...args, this.predictorScriptPath], {
-        cwd: process.cwd(),
-        stdio: ['pipe', 'pipe', 'pipe'],
-        windowsHide: true,
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      child.stdout.on('data', (chunk) => {
-        stdout += chunk.toString();
-      });
-
-      child.stderr.on('data', (chunk) => {
-        stderr += chunk.toString();
-      });
-
-      child.on('error', (error) => {
-        reject(error);
-      });
-
-      child.on('close', (code) => {
-        const output = stdout.trim();
-        const errorOutput = stderr.trim();
-
-        if (code !== 0) {
-          reject(
-            new Error(
-              errorOutput ||
-                output ||
-                `El proceso de Python termino con codigo ${code}.`,
-            ),
-          );
-          return;
-        }
-
-        if (!output) {
-          reject(
-            new Error('El predictor de Python no devolvio una respuesta JSON.'),
-          );
-          return;
-        }
-
-        let parsed: PythonResponse;
-        try {
-          parsed = JSON.parse(output) as PythonResponse;
-        } catch {
-          reject(new Error(`La salida de Python no es JSON valido: ${output}`));
-          return;
-        }
-
-        if (parsed.error) {
-          reject(
-            new Error(
-              parsed.detalle
-                ? `${parsed.error}: ${parsed.detalle}`
-                : parsed.error,
-            ),
-          );
-          return;
-        }
-
-        resolvePromise(parsed.data ?? []);
-      });
-
-      child.stdin.write(JSON.stringify(products));
-      child.stdin.end();
-    });
-  }
-
-  private async runPythonPredictor(
-    products: AiProductInput[],
-  ): Promise<AiPrediction[]> {
-    if (!existsSync(this.predictorScriptPath)) {
-      throw new Error(
-        `No se encontro el archivo predictor.py en ${this.predictorScriptPath}`,
-      );
-    }
-
-    let lastError: unknown;
-
-    for (const candidate of this.getPythonCandidates()) {
-      try {
-        return await this.executePythonPredictor(
-          candidate.command,
-          candidate.args,
-          products,
-        );
-      } catch (error) {
-        lastError = error;
-
-        if (error instanceof Error && error.message.includes('ENOENT')) {
-          continue;
-        }
-
-        throw error;
-      }
-    }
-
-    throw (
-      lastError ??
-      new Error(
-        'No se encontro un ejecutable de Python. Configura PYTHON_BIN en el backend.',
-      )
-    );
-  }
-
   async getAiPredictions(productsContext?: any[]) {
     try {
       const sourceProducts =
@@ -1468,7 +1323,7 @@ export class AiService {
         return [];
       }
 
-      return await this.runPythonPredictor(normalizedProducts);
+      return await this.pythonRunner.runPredictor(normalizedProducts);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

@@ -119,7 +119,17 @@ export default function AdminDashboard() {
                         {product.category}
                       </span>
                     </td>
-                    <td className="p-4 font-bold text-gray-900">S/. {product.price}</td>
+                    <td className="p-4 font-bold text-gray-900">
+                      {product.isOnSale && Number(product.salePrice) > 0 ? (
+                        <div>
+                          <span className="text-red-600">S/. {Number(product.salePrice).toFixed(2)}</span>
+                          <span className="ml-2 text-xs text-gray-400 line-through">S/. {Number(product.price).toFixed(2)}</span>
+                          <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">Oferta</span>
+                        </div>
+                      ) : (
+                        <>S/. {Number(product.price).toFixed(2)}</>
+                      )}
+                    </td>
                     <td className="p-4">
                       <div className={`flex items-center gap-2 font-bold ${product.stock < 5 ? 'text-red-500' : 'text-green-600'}`}>
                         {product.stock < 5 && <FiAlertCircle />}

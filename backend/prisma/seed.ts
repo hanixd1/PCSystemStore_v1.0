@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
@@ -8,6 +9,9 @@ async function main() {
 
   // Limpiar base de datos antes de empezar
   try {
+    await prisma.payment.deleteMany();
+    await prisma.orderItem.deleteMany();
+    await prisma.order.deleteMany();
     await prisma.cpuSpecs.deleteMany();
     await prisma.motherboardSpecs.deleteMany();
     await prisma.ramSpecs.deleteMany();
@@ -40,6 +44,80 @@ async function main() {
   });
 
   console.log('👤 Usuario Admin creado/actualizado:', admin.email);
+
+  // Cuenta cliente local de prueba:
+  // email: hanny@test.com
+  // password: h12345
+  const customerPassword = await bcrypt.hash('h12345', salt);
+  const customer = await prisma.user.upsert({
+    where: { email: 'hanny@test.com' },
+    update: {
+      name: 'Hanny T',
+      password: customerPassword,
+      role: 'CUSTOMER',
+      status: 'ACTIVE',
+    },
+    create: {
+      email: 'hanny@test.com',
+      name: 'Hanny T',
+      password: customerPassword,
+      role: 'CUSTOMER',
+      status: 'ACTIVE',
+    },
+  });
+
+  console.log('Cliente de prueba creado/actualizado:', customer.email);
+
+  await prisma.storeBranding.upsert({
+    where: { id: 'default-store-branding' },
+    update: {
+      storeName: 'PCSystemStore',
+      logoAlt: 'PCSystemStore',
+    },
+    create: {
+      id: 'default-store-branding',
+      storeName: 'PCSystemStore',
+      logoAlt: 'PCSystemStore',
+    },
+  });
+
+  const seedBanners = [
+    {
+      id: 'seed-banner-rtx-serie-40',
+      title: 'RTX Serie 40',
+      subtitle: 'Potencia grafica para gaming y creacion',
+      imageUrl: 'https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&w=1920&q=80',
+      linkUrl: '/categoria/graficas',
+      sortOrder: 1,
+      isActive: true,
+    },
+    {
+      id: 'seed-banner-procesadores',
+      title: 'Procesadores AMD e Intel',
+      subtitle: 'Componentes listos para tu proximo ensamble',
+      imageUrl: 'https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=1920&q=80',
+      linkUrl: '/categoria/cpu',
+      sortOrder: 2,
+      isActive: true,
+    },
+    {
+      id: 'seed-banner-promociones',
+      title: 'Promociones PCSystemStore',
+      subtitle: 'Renueva tu setup con ofertas seleccionadas',
+      imageUrl: 'https://images.unsplash.com/photo-1616588589676-62b3bd4ff6d2?auto=format&fit=crop&w=1920&q=80',
+      linkUrl: '/ofertas',
+      sortOrder: 3,
+      isActive: true,
+    },
+  ];
+
+  for (const banner of seedBanners) {
+    await prisma.homeBanner.upsert({
+      where: { id: banner.id },
+      update: banner,
+      create: banner,
+    });
+  }
 
   // ==========================================
   // PRODUCTOS (Se mantienen igual)

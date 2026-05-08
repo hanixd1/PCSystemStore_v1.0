@@ -1,0 +1,114 @@
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { PaymentMethod, Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { ProductPricingService } from '../products/services/product-pricing.service';
+
+const IGV_RATE_INCLUDED = 18 / 118;
+
+@Injectable()
+export class OrdersService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pricing: ProductPricingService,
+  ) {}
+
+  private readonly orderInclude = {
+    items: true,
+    payments: true,
+    user: { select: { id: true, name: true, email: true } },
+  } satisfies Prisma.OrderInclude;
+
+  async create(data: CreateOrderDto, userId: string) {
+    const normalizedItems = data.items.map((item) => ({
+      productId: item.productId,
+      quantity: Number(item.quantity),
+    }));
+    const ids = normalizedItems.map((item) => item.productId);
+    const uniqueIds = new Set(ids);
+
+    if (uniqueIds.size !== ids.length) {
+      throw new BadRequestException('No repitas productos en la orden');
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: ids } },
+    });
+
+    if (products.length !== ids.length) {
+      throw new BadRequestException('Uno o mas productos no existen');
+    }
+
+    const productById = new Map(products.map((product) => [product.id, product]));
+
+    for (const item of normalizedItems) {
+      const product = productById.get(item.productId);
+      if (!product || product.stock < item.quantity) {
+        throw new BadRequestException(
+          `Stock insuficiente para ${product?.name || 'un producto'}`,
+        );
+      }
+    }
+
+    const total = normalizedItems.reduce((sum, item) => {
+      const product = productById.get(item.productId)!;
+      return sum + this.pricing.getEffectivePrice(product) * item.quantity;
+    }, 0);
+    const igv = total * IGV_RATE_INCLUDED;
+    const subtotal = total - igv;
+    const status =
+      data.method === PaymentMethod.YAPE || data.method === PaymentMethod.PLIN
+        ? 'PENDING_REVIEW'
+        : 'PENDING_PAYMENT';
+
+    return this.prisma.order.create({
+      data: {
+        userId,
+        status,
+        subtotal,
+        igv,
+        total,
+        currency: 'PEN',
+        items: {
+          create: normalizedItems.map((item) => {
+            const product = productById.get(item.productId)!;
+            const unitPrice = this.pricing.getEffectivePrice(product);
+            return {
+              productId: product.id,
+              productNameSnapshot: product.name,
+              unitPriceSnapshot: unitPrice,
+              quantity: item.quantity,
+              subtotal: unitPrice * item.quantity,
+            };
+          }),
+        },
+      },
+      include: this.orderInclude,
+    });
+  }
+
+  async findOne(id: string, userId?: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: this.orderInclude,
+    });
+
+    if (!order) {
+      throw new NotFoundException('Orden no encontrada');
+    }
+
+    if (userId && order.userId !== userId) {
+      throw new ForbiddenException('No puedes acceder a esta orden');
+    }
+
+    return order;
+  }
+
+  findByUser(userId: string) {
+    return this.prisma.order.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: this.orderInclude,
+    });
+  }
+}

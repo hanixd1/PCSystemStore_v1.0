@@ -4,16 +4,18 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   FiCpu, FiGrid, FiZap, FiMonitor, FiHardDrive, 
-  FiBox, FiCheckCircle, FiShoppingCart, FiRefreshCw, FiChevronRight 
+  FiBox, FiCheckCircle, FiShoppingCart, FiRefreshCw, FiChevronRight, FiWind
 } from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
+import { getEffectivePrice } from '@/lib/pricing';
 
 // Definición de los pasos del configurador
 const STEPS = [
   { id: 'platform', title: 'Plataforma', icon: FiCpu },
   { id: 'cpu', title: 'Procesador', category: 'CPU', icon: FiCpu },
   { id: 'motherboard', title: 'Placa Madre', category: 'MOTHERBOARD', icon: FiGrid },
+  { id: 'cooler', title: 'Refrigeracion', category: 'COOLER', icon: FiWind },
   { id: 'ram', title: 'Memoria RAM', category: 'RAM', icon: FiZap },
   { id: 'gpu', title: 'Tarjeta de Video', category: 'GPU', icon: FiMonitor, optional: true },
   { id: 'storage', title: 'Almacenamiento', category: 'STORAGE', icon: FiHardDrive },
@@ -40,6 +42,71 @@ export default function PCBuilderPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const getCoolerSockets = (product: any) => {
+    const sockets = product.coolerSpecs?.compatibleSockets;
+    if (Array.isArray(sockets) && sockets.length > 0) return sockets;
+    return String(product.coolerSpecs?.socketSupport || '')
+      .split(',')
+      .map((socket) => socket.trim())
+      .filter(Boolean);
+  };
+
+  const isM2Storage = (product: any) => {
+    const type = String(product.storageSpecs?.type || '').toUpperCase();
+    return type.includes('M.2') || type.includes('NVME');
+  };
+
+  const getRequiredPsuWatts = () => {
+    const cpuTdp = Number(build.cpu?.cpuSpecs?.tdp || 0);
+    const gpuTdp = Number(build.gpu?.gpuSpecs?.tdp || 0);
+    const baseSystemWatts = 75;
+    return Math.ceil((cpuTdp + gpuTdp + baseSystemWatts) * 1.2);
+  };
+
+  const getCompatibilityErrors = () => {
+    const errors: string[] = [];
+    const cpuSocket = build.cpu?.cpuSpecs?.socket;
+    const cpuTdp = Number(build.cpu?.cpuSpecs?.tdp || 0);
+
+    if (build.cpu && build.motherboard && cpuSocket !== build.motherboard.motherboardSpecs?.socket) {
+      errors.push('La placa madre no coincide con el socket del procesador.');
+    }
+
+    if (build.cpu && build.cooler) {
+      const coolerSockets = getCoolerSockets(build.cooler);
+      if (!coolerSockets.includes(cpuSocket)) {
+        errors.push('El cooler seleccionado no es compatible con el socket del procesador.');
+      }
+
+      if (Number(build.cooler.coolerSpecs?.tdpCapacity || 0) < cpuTdp) {
+        errors.push('El cooler seleccionado no soporta el TDP del procesador.');
+      }
+    }
+
+    if (build.motherboard && build.storage && isM2Storage(build.storage)) {
+      const m2Slots = Number(build.motherboard.motherboardSpecs?.m2Slots || 0);
+      const supportedSizes = build.motherboard.motherboardSpecs?.supportedM2FormFactors || [];
+      const storageSize = build.storage.storageSpecs?.m2FormFactor;
+
+      if (m2Slots <= 0) {
+        errors.push('La placa madre no tiene slots M.2 para el almacenamiento seleccionado.');
+      }
+
+      if (storageSize && supportedSizes.length > 0 && !supportedSizes.includes(storageSize)) {
+        errors.push('La placa madre no soporta el tamaño M.2 del almacenamiento seleccionado.');
+      }
+    }
+
+    if (build.psu) {
+      const requiredWatts = getRequiredPsuWatts();
+      if (Number(build.psu.psuSpecs?.wattage || 0) < requiredWatts) {
+        errors.push(`La fuente seleccionada no cubre el consumo estimado con margen de seguridad (${requiredWatts}W).`);
+      }
+    }
+
+    return errors;
+  };
+
   // --- 1. LÓGICA DE FILTRADO MEJORADA (SOCKETS Y NOMBRES) ---
   const getFilteredProducts = () => {
     const stepDef = STEPS[currentStep];
@@ -51,6 +118,8 @@ export default function PCBuilderPage() {
       filtered = filtered.filter(p => {
         const name = p.name.toLowerCase();
         const socket = p.cpuSpecs?.socket?.toUpperCase() || '';
+        const brand = p.cpuSpecs?.brand;
+        if (brand) return brand === platform;
         
         // Filtro inteligente para AMD
         if (platform === 'AMD') {
@@ -69,9 +138,37 @@ export default function PCBuilderPage() {
       filtered = filtered.filter(p => p.motherboardSpecs?.socket === cpuSocket);
     }
 
+    if (stepDef.id === 'cooler' && build.cpu) {
+      const cpuSocket = build.cpu.cpuSpecs?.socket;
+      const cpuTdp = Number(build.cpu.cpuSpecs?.tdp || 0);
+      filtered = filtered.filter(p => {
+        const coolerSockets = getCoolerSockets(p);
+        const coolerTdp = Number(p.coolerSpecs?.tdpCapacity || 0);
+        return coolerSockets.includes(cpuSocket) && coolerTdp >= cpuTdp;
+      });
+    }
+
     if (stepDef.id === 'ram' && build.motherboard) {
       const moboRamType = build.motherboard.motherboardSpecs?.memoryType;
       filtered = filtered.filter(p => p.ramSpecs?.memoryType === moboRamType);
+    }
+
+    if (stepDef.id === 'storage' && build.motherboard) {
+      filtered = filtered.filter(p => {
+        if (!isM2Storage(p)) return true;
+
+        const m2Slots = Number(build.motherboard.motherboardSpecs?.m2Slots || 0);
+        const supportedSizes = build.motherboard.motherboardSpecs?.supportedM2FormFactors || [];
+        const storageSize = p.storageSpecs?.m2FormFactor;
+
+        if (m2Slots <= 0) return false;
+        return !storageSize || supportedSizes.length === 0 || supportedSizes.includes(storageSize);
+      });
+    }
+
+    if (stepDef.id === 'psu') {
+      const requiredWatts = getRequiredPsuWatts();
+      filtered = filtered.filter(p => Number(p.psuSpecs?.wattage || 0) >= requiredWatts);
     }
 
     return filtered;
@@ -94,11 +191,18 @@ export default function PCBuilderPage() {
       // Seguridad: Si cambia de CPU, borramos placa y ram para evitar incompatibilidad
       if (stepDef.id === 'cpu' && prev.cpu?.id !== product.id) {
         delete newBuild.motherboard;
+        delete newBuild.cooler;
         delete newBuild.ram;
+        delete newBuild.storage;
+        delete newBuild.psu;
       }
       // Si cambia de placa, borramos la RAM
       if (stepDef.id === 'motherboard' && prev.motherboard?.id !== product.id) {
         delete newBuild.ram;
+        delete newBuild.storage;
+      }
+      if (stepDef.id === 'gpu' && prev.gpu?.id !== product.id) {
+        delete newBuild.psu;
       }
       return newBuild;
     });
@@ -116,6 +220,12 @@ export default function PCBuilderPage() {
   const handleSkip = () => setCurrentStep(prev => prev + 1);
 
   const handleAddToCart = () => {
+    const errors = getCompatibilityErrors();
+    if (errors.length > 0) {
+      alert(errors.join('\n'));
+      return;
+    }
+
     Object.values(build).forEach(product => {
       if (product) addItem(product);
     });
@@ -136,6 +246,7 @@ export default function PCBuilderPage() {
   const currentStepDef = STEPS[currentStep];
   const StepIcon = currentStepDef.icon;
   const filteredProducts = getFilteredProducts();
+  const compatibilityErrors = getCompatibilityErrors();
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -236,7 +347,7 @@ export default function PCBuilderPage() {
                       </div>
 
                       <div className="mt-auto flex items-center justify-between pt-4 border-t border-gray-100">
-                        <span className="text-xl font-black text-gray-900">S/. {Number(product.price).toFixed(2)}</span>
+                        <span className="text-xl font-black text-gray-900">S/. {getEffectivePrice(product).toFixed(2)}</span>
                         <button 
                           onClick={() => handleSelectComponent(product)}
                           className="bg-gray-900 text-white px-4 py-2 rounded-lg font-bold hover:bg-brand-cyan hover:text-gray-900 transition"
@@ -279,16 +390,24 @@ export default function PCBuilderPage() {
                             </p>
                           </div>
                         </div>
-                        {item && <span className="font-bold text-gray-900 whitespace-nowrap">S/. {Number(item.price).toFixed(2)}</span>}
+                        {item && <span className="font-bold text-gray-900 whitespace-nowrap">S/. {getEffectivePrice(item).toFixed(2)}</span>}
                       </div>
                     );
                   })}
                 </div>
 
+                {compatibilityErrors.length > 0 && (
+                  <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                    {compatibilityErrors.map((error) => (
+                      <p key={error}>{error}</p>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mt-8 pt-6 border-t-2 border-gray-200 flex justify-between items-end">
                   <span className="text-gray-500 font-bold uppercase tracking-widest">Total Estimado</span>
                   <span className="text-4xl font-black text-blue-600">
-                    S/. {Object.values(build).reduce((acc, item) => acc + (item ? Number(item.price) : 0), 0).toFixed(2)}
+                    S/. {Object.values(build).reduce((acc, item) => acc + (item ? getEffectivePrice(item) : 0), 0).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -304,7 +423,8 @@ export default function PCBuilderPage() {
                 
                 <button 
                   onClick={handleAddToCart}
-                  className="flex-1 bg-brand-cyan text-gray-900 py-4 rounded-xl font-black text-lg hover:bg-cyan-400 transition shadow-xl shadow-brand-cyan/30 flex items-center justify-center gap-2"
+                  disabled={compatibilityErrors.length > 0}
+                  className="flex-1 bg-brand-cyan text-gray-900 py-4 rounded-xl font-black text-lg hover:bg-cyan-400 transition shadow-xl shadow-brand-cyan/30 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
                 >
                   <FiShoppingCart size={22} /> Añadir al carrito
                 </button>

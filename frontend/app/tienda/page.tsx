@@ -29,7 +29,7 @@ export default function TiendaPage() {
             <FiMapPin />
           </div>
           <h3 className="font-bold text-lg mb-2">Ubicación</h3>
-          <p className="text-gray-600">Av. Giráldez 123, Centro de Huancayo. <br/> (Frente a la Plaza Constitución)</p>
+          <p className="text-gray-600">Av. Giráldez 274, Centro de Huancayo. <br/> (Frente a la tienda La Curacao)</p>
         </div>
 
         {/* Horarios */}
@@ -39,8 +39,7 @@ export default function TiendaPage() {
           </div>
           <h3 className="font-bold text-lg mb-2">Horarios de Atención</h3>
           <p className="text-gray-600">
-            Lunes a Sábado: 10am - 8pm <br/>
-            Domingos: Previa Cita
+            Lunes a Sábado: 10am - 8pm
           </p>
         </div>
 
@@ -50,13 +49,13 @@ export default function TiendaPage() {
             <FiPhone />
           </div>
           <h3 className="font-bold text-lg mb-2">Contacto Directo</h3>
-          <p className="text-gray-600 font-bold text-lg">WhatsApp: 999-123-456</p>
+          <p className="text-gray-600 font-bold text-lg">WhatsApp: 959139676</p>
           <p className="text-gray-600 text-sm">Ventas y Soporte</p>
         </div>
       </div>
 
       {/* Sección de Confianza */}
-      <div className="bg-gray-900 rounded-3xl p-10 text-white flex flex-col md:flex-row items-center justify-between">
+      <div className="bg-gray-900 rounded-2xl p-10 text-white flex flex-col md:flex-row items-center justify-between">
         <div className="flex items-center gap-6 mb-6 md:mb-0">
           <FiShield className="text-6xl text-brand-cyan" />
           <div>
@@ -64,9 +63,6 @@ export default function TiendaPage() {
             <p className="text-gray-300 max-w-md">Olvídate de trámites engorrosos. Si falla, lo solucionamos aquí mismo en nuestra tienda física.</p>
           </div>
         </div>
-        <button className="bg-brand-cyan text-gray-900 font-bold px-8 py-4 rounded-xl hover:scale-105 transition">
-          Ver Ubicación en Maps
-        </button>
       </div>
 
     </div>

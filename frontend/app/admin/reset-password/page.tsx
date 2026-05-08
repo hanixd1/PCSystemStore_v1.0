@@ -9,12 +9,24 @@ function ResetForm() {
   const token = searchParams.get('token');
   const router = useRouter();
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+
+    if (password.length < 6) {
+      setError('La contrasena debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Las contrasenas no coinciden.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -34,7 +46,8 @@ function ResetForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-900 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8">
-        <h2 className="mb-4 text-center text-2xl font-bold">Nueva Contrasena</h2>
+        <h2 className="mb-4 text-center text-2xl font-bold">ADMIN PANEL</h2>
+        <p className="mb-6 text-center text-sm text-gray-500">Crea una nueva contrasena administrativa.</p>
         {error && <p className="mb-4 text-center font-bold text-red-600">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
@@ -43,6 +56,15 @@ function ResetForm() {
             className="w-full rounded-lg border p-3"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Confirma tu nueva clave"
+            className="w-full rounded-lg border p-3"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            minLength={6}
             required
           />
           <button

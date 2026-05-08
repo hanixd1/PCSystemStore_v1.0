@@ -1,0 +1,12 @@
+ALTER TABLE "ActionLog" ADD COLUMN "module" TEXT;
+ALTER TABLE "ActionLog" ADD COLUMN "entityType" TEXT;
+ALTER TABLE "ActionLog" ADD COLUMN "entityId" TEXT;
+ALTER TABLE "ActionLog" ADD COLUMN "entityName" TEXT;
+ALTER TABLE "ActionLog" ADD COLUMN "fieldName" TEXT;
+ALTER TABLE "ActionLog" ADD COLUMN "oldValue" TEXT;
+ALTER TABLE "ActionLog" ADD COLUMN "newValue" TEXT;
+ALTER TABLE "ActionLog" ADD COLUMN "stockBefore" INTEGER;
+ALTER TABLE "ActionLog" ADD COLUMN "stockAfter" INTEGER;
+ALTER TABLE "ActionLog" ADD COLUMN "metadata" JSONB;
+ALTER TABLE "ActionLog" ADD COLUMN "ipAddress" TEXT;
+ALTER TABLE "ActionLog" ADD COLUMN "userAgent" TEXT;

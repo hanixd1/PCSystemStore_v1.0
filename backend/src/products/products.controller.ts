@@ -4,52 +4,89 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
+  Query,
+  Req,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { JwtUserPayload } from '../auth/auth.constants';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { Roles } from '../auth/roles.decorator';
+import { Public } from '../auth/public.decorator';
 import { ProductsService } from './products.service';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 import { uploadToCloudinary } from '../utils/cloudinary.util';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  @Roles('ADMIN', 'EDITOR')
   @Post()
   @UseInterceptors(FilesInterceptor('images', 5, { storage: memoryStorage() }))
   async create(
-    @Body() body: any,
+    @Body() body: CreateProductDto,
     @UploadedFiles() files: Array<Express.Multer.File>,
+    @Req() request: Request & { user: JwtUserPayload },
   ) {
     const imageUrls = files?.length
       ? await Promise.all(files.map((file) => uploadToCloudinary(file)))
       : [];
 
-    body.uploadedImages = imageUrls;
+    const payload = {
+      ...body,
+      uploadedImages: imageUrls,
+    };
 
-    return this.productsService.create(body);
+    return this.productsService.create(payload, request.user.sub);
   }
 
+  @Public()
   @Get()
-  findAll() {
-    return this.productsService.findAll();
+  findAll(@Query() query: Record<string, string | string[]>) {
+    return this.productsService.findAll(query);
   }
 
+  @Public()
+  @Get('filter-options')
+  getFilterOptions(@Query() query: Record<string, string | string[]>) {
+    return this.productsService.getFilterOptions(query);
+  }
+
+  @Public()
+  @Get('related/:id')
+  findRelated(@Param('id', ParseUUIDPipe) id: string) {
+    return this.productsService.findRelated(id);
+  }
+
+  @Public()
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findOne(id);
   }
 
+  @Roles('ADMIN', 'EDITOR')
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
-    return this.productsService.update(id, body);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdateProductDto,
+    @Req() request: Request & { user: JwtUserPayload },
+  ) {
+    return this.productsService.update(id, body, request.user.sub);
   }
 
+  @Roles('ADMIN')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productsService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: Request & { user: JwtUserPayload },
+  ) {
+    return this.productsService.remove(id, request.user.sub);
   }
 }

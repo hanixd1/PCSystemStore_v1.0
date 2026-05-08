@@ -1,6 +1,8 @@
 import { Controller, Get, Query } from '@nestjs/common';
+import { Public } from '../auth/public.decorator';
 import { BuilderService } from './builder.service';
 
+@Public()
 @Controller('builder')
 export class BuilderController {
   constructor(private readonly builderService: BuilderService) {}

@@ -18,6 +18,7 @@ import {
 
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
+import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/pricing';
 
 const HeroCarousel = dynamic(() => import('@/components/HeroCarousel'));
 
@@ -80,7 +81,17 @@ const ProductSection = ({ title, products, link }: { title: string, products: an
 
               <div className="mt-auto flex items-end justify-between">
                 <div>
-                   <p className="text-2xl font-black text-gray-900">S/. {product.price}</p>
+                  {isSaleActive(product) ? (
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">
+                        -{getDiscountPercent(product)}%
+                      </span>
+                      <span className="text-xs font-bold text-gray-400 line-through">
+                        S/. {Number(product.price).toFixed(2)}
+                      </span>
+                    </div>
+                  ) : null}
+                   <p className="text-2xl font-black text-gray-900">S/. {getEffectivePrice(product).toFixed(2)}</p>
                 </div>
                 <button 
                   onClick={() => {
@@ -141,9 +152,9 @@ export default function Home() {
       <HeroCarousel />
 
       {/* --- CATEGORÍAS RÁPIDAS CLICKEABLES --- */}
-      <div className="relative z-20 bg-brand-dark pt-6 pb-16 -mt-2 mb-12">
+      <div className="relative z-20 bg-cyan-700 pt-6 pb-16 -mt-2 mb-12">
         <div className="container mx-auto px-4">
-          <div className="bg-cyan-500 rounded-xl shadow-2xl p-4 grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-4 border-t-4 border-cyan-500">
+          <div className="bg-cyan-500 rounded-xl shadow-2xl shadow-cyan-900/25 p-4 grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-4 border-t-4 border-cyan-300">
             {categories.map((cat) => (
               <Link
                 key={cat.name}
@@ -176,7 +187,7 @@ export default function Home() {
           </div>
         ) : products.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl shadow">
-            <p className="text-xl font-bold text-gray-400">No hay productos en la base de datos.</p>
+                    <p className="text-xl font-bold text-gray-400">No hay productos disponibles por el momento.</p>
             <Link href="/admin/add-product" className="text-cyan-600 font-bold hover:underline mt-2 inline-block">
               Ir a agregar productos
             </Link>

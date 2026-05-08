@@ -5,7 +5,9 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { FiAward, FiEye, FiEyeOff, FiTruck } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
-import { api, AUTHORIZED_ADMIN_ROLES, getApiErrorMessage } from '@/lib/api';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { notifyCustomerSessionChanged } from '@/lib/customerSession';
+import { resetCartState } from '@/store/useCartStore';
 
 declare global {
   interface Window {
@@ -44,15 +46,22 @@ export default function LoginPage() {
   });
 
   const persistSession = (user: { role: string }, token: string) => {
-    localStorage.setItem('user', JSON.stringify(user));
-    localStorage.setItem('token', token);
-
-    if (AUTHORIZED_ADMIN_ROLES.has(user.role)) {
-      window.location.href = '/admin';
+    if (user.role !== 'CUSTOMER') {
+      setError('Esta cuenta no esta registrada como cliente.');
       return;
     }
 
-    window.location.href = '/';
+    resetCartState();
+    localStorage.removeItem('adminUser');
+    localStorage.removeItem('adminToken');
+    localStorage.setItem('customerUser', JSON.stringify(user));
+    localStorage.setItem('customerToken', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('token', token);
+
+    notifyCustomerSessionChanged();
+    const redirectTo = new URLSearchParams(window.location.search).get('redirect');
+    window.location.href = redirectTo?.startsWith('/') ? redirectTo : '/';
   };
 
   const handleGoogleAuth = useEffectEvent(async (idToken?: string) => {
@@ -104,7 +113,7 @@ export default function LoginPage() {
 
     try {
       if (mode === 'login') {
-        const res = await api.post('/users/login', {
+        const res = await api.post('/users/customer-login', {
           email: formData.email,
           password: formData.password,
         });
@@ -292,18 +301,15 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">
-                  {mode === 'login'
-                    ? 'Tus credenciales se validan contra la base de datos real.'
-                    : 'Tu cuenta se guardara en la tabla User con rol CUSTOMER.'}
-                </span>
-                <Link
-                  href="/admin/forgot-password"
-                  className="font-bold text-brand-cyan hover:underline"
-                >
-                  Olvide mi contrasena
-                </Link>
+              <div className="flex items-center justify-end text-sm">
+                {mode === 'login' && (
+                  <Link
+                    href="/auth/forgot-password"
+                    className="whitespace-nowrap font-bold text-brand-cyan hover:underline"
+                  >
+                    Olvidé mi contraseña
+                  </Link>
+                )}
               </div>
 
               <button

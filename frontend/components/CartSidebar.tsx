@@ -1,11 +1,15 @@
 'use client';
 
 import { FiX, FiTrash2, FiMinus, FiPlus, FiShoppingBag } from 'react-icons/fi';
-import { useCartStore } from '../store/useCartStore';
+import { MAX_CART_ITEM_QUANTITY, useCartStore } from '../store/useCartStore';
+import { useRouter } from 'next/navigation';
+import { useCustomerSession } from '@/lib/customerSession';
 
 export default function CartSidebar() {
   // Traemos los datos y funciones del store actualizado
   const { isCartOpen, items, closeCart, removeItem, updateQuantity } = useCartStore();
+  const router = useRouter();
+  const { customer, isCheckingCustomer } = useCustomerSession();
 
   // Calculamos el total dinámicamente
   const subtotal = items.reduce((acc, item) => acc + item.price * item.qty, 0);
@@ -88,7 +92,9 @@ export default function CartSidebar() {
                        </span>
                        <button 
                          onClick={() => updateQuantity(item.id, 1)}
-                         className="p-1 px-2 text-gray-600 hover:text-brand-cyan hover:bg-gray-50 rounded-r-lg transition"
+                         disabled={item.qty >= MAX_CART_ITEM_QUANTITY}
+                         title={item.qty >= MAX_CART_ITEM_QUANTITY ? 'Limite maximo de 10 unidades por producto' : 'Aumentar cantidad'}
+                         className="p-1 px-2 text-gray-600 hover:text-brand-cyan hover:bg-gray-50 rounded-r-lg transition disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"
                        >
                          <FiPlus size={14}/>
                        </button>
@@ -115,9 +121,24 @@ export default function CartSidebar() {
                 S/. {subtotal.toFixed(2)}
               </span>
             </div>
-            <button className="w-full bg-brand-cyan hover:bg-[#00b89c] text-white font-bold py-4 rounded-xl transition text-lg shadow-lg shadow-brand-cyan/20">
+            <button
+              onClick={() => {
+                closeCart();
+                router.push(
+                  customer
+                    ? '/checkout'
+                    : '/auth/login?redirect=/checkout',
+                );
+              }}
+              className="w-full bg-brand-cyan hover:bg-[#00b89c] text-white font-bold py-4 rounded-xl transition text-lg shadow-lg shadow-brand-cyan/20"
+            >
               Procesar Pedido
             </button>
+            {!isCheckingCustomer && !customer ? (
+              <p className="mt-3 text-center text-xs font-bold text-gray-500">
+                Para proteger tu compra, inicia sesion antes de continuar.
+              </p>
+            ) : null}
             <button onClick={closeCart} className="w-full text-center mt-4 text-sm text-gray-500 hover:text-gray-800 font-medium">
               Seguir comprando
             </button>

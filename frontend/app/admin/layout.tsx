@@ -3,8 +3,21 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FiActivity, FiGrid, FiLogOut, FiPlusSquare, FiUsers } from 'react-icons/fi';
-import { AUTHORIZED_ADMIN_ROLES } from '@/lib/api';
+import {
+  FiActivity,
+  FiBarChart2,
+  FiCreditCard,
+  FiGrid,
+  FiImage,
+  FiLogOut,
+  FiPlusSquare,
+  FiUsers,
+} from 'react-icons/fi';
+import {
+  AUTHORIZED_ADMIN_ROLES,
+  clearStoredAuthSession,
+  isStoredTokenUsable,
+} from '@/lib/api';
 
 type SessionUser = {
   id: string;
@@ -15,7 +28,7 @@ type SessionUser = {
 
 function readSessionUser(): SessionUser | null {
   try {
-    const userStored = localStorage.getItem('user');
+    const userStored = localStorage.getItem('adminUser') || localStorage.getItem('user');
     if (!userStored) {
       return null;
     }
@@ -43,32 +56,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     pathname?.startsWith('/admin/reset-password');
 
   useEffect(() => {
-    if (isPublicAdminRoute) {
-      setCurrentUser(null);
+    let cancelled = false;
+
+    const syncSession = () => {
+      if (cancelled) {
+        return;
+      }
+
+      if (isPublicAdminRoute) {
+        setCurrentUser(null);
+        setIsCheckingSession(false);
+        return;
+      }
+
+      const sessionUser = readSessionUser();
+
+      if (!sessionUser || !isStoredTokenUsable()) {
+        clearStoredAuthSession();
+        setCurrentUser(null);
+        setIsCheckingSession(false);
+        router.replace('/admin/login');
+        return;
+      }
+
+      setCurrentUser(sessionUser);
       setIsCheckingSession(false);
-      return;
-    }
+    };
 
-    const sessionUser = readSessionUser();
+    syncSession();
 
-    if (!sessionUser) {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      localStorage.removeItem('adminSession');
-      setCurrentUser(null);
-      setIsCheckingSession(false);
-      router.replace('/admin/login');
-      return;
-    }
-
-    setCurrentUser(sessionUser);
-    setIsCheckingSession(false);
+    return () => {
+      cancelled = true;
+    };
   }, [isPublicAdminRoute, router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('adminSession');
+    clearStoredAuthSession();
     setCurrentUser(null);
     router.replace('/admin/login');
   };
@@ -80,7 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (isCheckingSession) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="text-sm font-semibold text-gray-500">Verificando sesion...</p>
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-brand-cyan" />
       </div>
     );
   }
@@ -90,7 +113,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50" suppressHydrationWarning>
       <aside className="relative z-50 flex h-full w-64 shrink-0 flex-col bg-[#1a1f2b] text-white">
         <div className="flex items-center justify-between border-b border-gray-800 p-6">
           <h2 className="text-2xl font-black tracking-tighter text-white">
@@ -123,6 +146,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <nav className="flex-1 space-y-2 overflow-y-auto p-4">
+          <p className="mb-4 px-4 text-xs font-bold uppercase tracking-widest text-gray-500">
+            Barra de opciones
+          </p>
+
           <Link
             href="/admin"
             className={[
@@ -150,7 +177,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {currentUser.role === 'ADMIN' ? (
             <div className="mt-4 border-t border-gray-800 pt-6">
               <p className="mb-4 px-4 text-xs font-bold uppercase tracking-widest text-gray-500">
-                Gestion Avanzada
+                Opciones avanzadas
               </p>
 
               <Link
@@ -176,6 +203,43 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               >
                 <FiActivity size={20} /> Historial
               </Link>
+
+              <Link
+                href="/admin/pagos"
+                className={[
+                  'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
+                  pathname === '/admin/pagos'
+                    ? 'bg-brand-cyan font-bold text-gray-900'
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-white',
+                ].join(' ')}
+              >
+                <FiCreditCard size={20} /> Pagos
+              </Link>
+
+              <Link
+                href="/admin/banners"
+                className={[
+                  'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
+                  pathname === '/admin/banners'
+                    ? 'bg-brand-cyan font-bold text-gray-900'
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-white',
+                ].join(' ')}
+              >
+                <FiImage size={20} /> Banners y marca
+              </Link>
+
+              <Link
+                href="/admin/estadistica"
+                className={[
+                  'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
+                  pathname === '/admin/estadistica'
+                    ? 'bg-brand-cyan font-bold text-gray-900'
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-white',
+                ].join(' ')}
+              >
+                <FiBarChart2 size={20} /> Estadistica
+              </Link>
+
             </div>
           ) : null}
         </nav>

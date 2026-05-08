@@ -7,6 +7,9 @@ import {
 } from 'react-icons/fi';
 import { MdComputer, MdLaptop, MdSecurity, MdKeyboard } from 'react-icons/md';
 import { api, getApiErrorMessage } from '@/lib/api';
+import ImageUploader from '@/components/ImageUploader';
+import { buildProductPayload } from '@/lib/products/buildProductPayload';
+import { validateProductForm } from '@/lib/products/validateProductForm';
 
 // --- CONSTANTES Y LISTAS ---
 const DEPARTMENTS = {
@@ -29,7 +32,9 @@ const DEPARTMENTS = {
     { label: 'Monitor', value: 'MONITOR' },
     { label: 'Teclado', value: 'KEYBOARD' },
     { label: 'Mouse', value: 'MOUSE' },
+    { label: 'Mousepad', value: 'MOUSEPAD' },
     { label: 'Silla Gaming', value: 'CHAIR' },
+    { label: 'Mesa Gamer', value: 'GAMING_DESK' },
   ],
   AUDIO: [
     { label: 'Audífonos / Headset', value: 'HEADSET' },
@@ -39,41 +44,74 @@ const DEPARTMENTS = {
 };
 
 // Listas de Opciones Técnicas
+const CPU_BRANDS = ['AMD', 'Intel'];
+const CPU_SOCKETS_BY_BRAND: Record<string, string[]> = {
+  AMD: ['AM4', 'AM5'],
+  Intel: ['LGA 1200', 'LGA 1700', 'LGA 1851'],
+};
 const SOCKETS = ["AM5", "AM4", "LGA 1700", "LGA 1200", "LGA 1851"];
+const M2_FORM_FACTORS = ['2230', '2242', '2260', '2280', '22110'];
+const COOLER_SOCKET_OPTIONS = ['AM4', 'AM5', 'LGA 1200', 'LGA 1700', 'LGA 1851'];
 const FORM_FACTORS = ["ATX", "Micro-ATX", "Mini-ITX", "E-ATX"];
 const RAM_TYPES = ["DDR4", "DDR5"];
 const RAM_CAPACITIES = [8, 16, 24, 32, 48, 64, 96];
 const PSU_CERTS = ["Sin Certificación", "80+ White", "80+ Bronze", "80+ Gold", "80+ Platinum", "80+ Titanium"];
 const GPU_CHIPSETS = ["NVIDIA GeForce", "AMD Radeon", "Intel Arc"];
-const STORAGE_TYPES = ["SSD 2.5", "NVMe M.2", "HDD 3.5"];
+const STORAGE_TYPES = ["SSD 2.5", "NVMe M.2", "M.2 SATA", "HDD 3.5"];
 const NVME_GENS = ["SATA", "PCIe 3.0", "PCIe 4.0", "PCIe 5.0"];
 const PANEL_TYPES = ["IPS", "VA", "TN", "OLED"];
 const LAPTOP_BRANDS = ["ASUS", "Lenovo", "HP", "Dell", "MSI", "Acer"];
+const DESKTOP_COOLER_TYPES = ['De serie', 'Aire (Torre)', 'Liquida (AIO)', 'No especificado'];
+const MONITOR_PORTS = ['VGA', 'HDMI', 'DisplayPort', 'USB-C'];
+const PERIPHERAL_CONNECTIONS = ['Cableado', 'Bluetooth', 'Dongle USB'];
+const KEYBOARD_TYPES = ['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico'];
+const LAYOUT_LANGUAGES = ['Español', 'Ingles'];
+const MOUSE_TYPES = ['Oficina', 'Gamer'];
+const POLLING_RATES = ['1000', '2000', '4000', '8000'];
+const CHAIR_MATERIALS = ['Cuero sintetico', 'Tela', 'Malla', 'Mixto', 'Otro'];
+const MOUSE_POWER_TYPES = ['Pila', 'Bateria', 'Ninguno'];
 
 const INITIAL_FORM_DATA = {
   name: '', description: '', price: '', stock: '', category: 'CPU', image: '',
-  socket: 'AM5', cores: '', frequency: '', tdp: '', integratedGraphics: 'false', includesCooler: 'false',
-  memorySlots: '4', m2Slots: '2', formFactor: 'ATX',
+  cpuBrand: 'AMD', socket: 'AM5', cores: '', threads: '', frequency: '', tdp: '', integratedGraphics: 'false', includesCooler: 'false',
+  memorySlots: '4', m2Slots: '2', formFactor: 'ATX', supportedM2FormFactors: ['2280'],
   memoryType: 'DDR5', capacity: '16', speed: '5200', modules: '1', hasRGB: 'false',
   chipset: 'NVIDIA GeForce', vram: '8', length: '', fans: '2',
   wattage: '', certification: '80+ Bronze', modular: 'No Modular',
   maxGpuLength: '', includesPsu: 'false', includedFans: '0',
-  type: 'AIR', fanCount: '1', radiatorSize: '240', hasScreen: 'false',
-  interface: 'PCIe 4.0', readSpeed: '',
+  type: 'AIR', fanCount: '1', radiatorSize: '240', hasScreen: 'false', compatibleSockets: ['AM4', 'AM5'], tdpCapacity: '', coolerHeight: '',
+  interface: 'PCIe 4.0', readSpeed: '', writeSpeed: '', m2FormFactor: '2280',
   screenSize: '15.6', refreshRate: '60', panelType: 'IPS', resolution: '1920x1080',
   processor: 'Intel Core i5', ram: '8GB', storage: '512GB SSD',
-  hasDedicatedGpu: 'false', gpuBrand: '', gpuModel: '',
+  hasDedicatedGpu: 'false', gpuBrand: '', gpuModel: '', includesWindows: 'true',
+  coolerType: 'No especificado', psuWatts: '', caseModel: '',
+  responseTimeMs: '', ports: [] as string[], hasSpeakers: 'false',
   switchType: 'Mecánico', layout: 'Español', connection: 'USB',
   dpi: '16000', sensor: 'Óptico', wireless: 'false',
+  brand: '', keyboardType: 'Membrana', connections: ['Cableado'] as string[], layoutLanguage: 'Español',
+  hasLighting: 'false', keyboardFormFactor: '',
+  mouseType: 'Oficina', buttonCount: '', pollingRateHz: '1000', weightGrams: '', powerType: 'Ninguno',
+  widthCm: '', lengthCm: '', hasLed: 'false',
+  color: '', material: 'Cuero sintetico', maxWeightKg: '', surface: '', weightKg: '',
   licenseType: 'Permanente', platform: 'Windows',
   driverSize: '50', impedance: '32', micType: 'Unidireccional', noiseCancel: 'false',
 };
 
+const createInitialFormData = (category = '') => ({
+  ...INITIAL_FORM_DATA,
+  category,
+  supportedM2FormFactors: [...INITIAL_FORM_DATA.supportedM2FormFactors],
+  compatibleSockets: [...INITIAL_FORM_DATA.compatibleSockets],
+  ports: [...INITIAL_FORM_DATA.ports],
+  connections: [...INITIAL_FORM_DATA.connections],
+});
+
 const NON_NEGATIVE_FIELDS = new Set([
-  'price', 'stock', 'cores', 'tdp', 'memorySlots', 'm2Slots', 'capacity', 'speed',
+  'price', 'stock', 'cores', 'threads', 'tdp', 'memorySlots', 'm2Slots', 'capacity', 'speed',
   'modules', 'vram', 'length', 'fans', 'wattage', 'maxGpuLength', 'includedFans',
-  'fanCount', 'radiatorSize', 'readSpeed', 'refreshRate', 'dpi', 'driverSize',
-  'impedance',
+  'fanCount', 'radiatorSize', 'tdpCapacity', 'coolerHeight', 'readSpeed', 'writeSpeed',
+  'refreshRate', 'psuWatts', 'responseTimeMs', 'dpi', 'buttonCount', 'weightGrams',
+  'widthCm', 'lengthCm', 'maxWeightKg', 'weightKg', 'driverSize', 'impedance',
 ]);
 
 const NO_NEGATIVE_TEXT_FIELDS = new Set(['frequency']);
@@ -84,56 +122,45 @@ const DESCRIPTION_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,;:+\-/%\s]{20,
 export default function AddProductPage() {
   const [loading, setLoading] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [formResetKey, setFormResetKey] = useState(0);
   
   // Estado para el manejo del menú de categorías
-  const [selectedDept, setSelectedDept] = useState('COMPONENTES');
+  const [selectedDept, setSelectedDept] = useState('');
 
-  const [formData, setFormData] = useState({
-    // Generales
-    name: '', description: '', price: '', stock: '', category: 'CPU', image: '',
-    
-    // CPU & Mobo
-    socket: 'AM5', cores: '', frequency: '', tdp: '', integratedGraphics: 'false', includesCooler: 'false',
-    
-    // Mobo
-    memorySlots: '4', m2Slots: '2', formFactor: 'ATX',
-    
-    // RAM
-    memoryType: 'DDR5', capacity: '16', speed: '5200', modules: '1', hasRGB: 'false',
-    
-    // GPU
-    chipset: 'NVIDIA GeForce', vram: '8', length: '', fans: '2',
-    
-    // PSU
-    wattage: '', certification: '80+ Bronze', modular: 'No Modular',
-    
-    // Case
-    maxGpuLength: '', includesPsu: 'false', includedFans: '0',
-    
-    // Cooler
-    type: 'AIR', fanCount: '1', radiatorSize: '240', hasScreen: 'false',
-    
-    // Storage
-    interface: 'PCIe 4.0', readSpeed: '',
-
-    // Ordenadores / Periféricos
-    screenSize: '15.6', refreshRate: '60', panelType: 'IPS', resolution: '1920x1080',
-    processor: 'Intel Core i5', ram: '8GB', storage: '512GB SSD',
-    hasDedicatedGpu: 'false', gpuBrand: '', gpuModel: '', // GPU dedicada para laptops/PC
-    switchType: 'Mecánico', layout: 'Español', connection: 'USB',
-    dpi: '16000', sensor: 'Óptico', wireless: 'false',
-    licenseType: 'Permanente', platform: 'Windows',
-    
-    // Audio
-    driverSize: '50', impedance: '32', micType: 'Unidireccional', noiseCancel: 'false',
-  });
+  const [formData, setFormData] = useState(() => createInitialFormData());
 
   const resetFormForCategory = (category: string) => {
-    setFormData({ ...INITIAL_FORM_DATA, category });
+    setFormData(createInitialFormData(category));
     setImageFiles([]);
   };
 
+  const resetProductForm = () => {
+    setSelectedDept('');
+    setFormData(createInitialFormData());
+    setImageFiles([]);
+    setLoading(false);
+    setFormResetKey((current) => current + 1);
+  };
+
   const validateForm = () => {
+    const sharedValidationError = validateProductForm(formData, {
+      mode: 'create',
+      imageCount: imageFiles.length,
+      requireImages: true,
+      nonNegativeFields: NON_NEGATIVE_FIELDS,
+      noNegativeTextFields: NO_NEGATIVE_TEXT_FIELDS,
+      nameRegex: NAME_REGEX,
+      descriptionRegex: DESCRIPTION_REGEX,
+      buildPayload: buildProductPayload,
+      cpuSocketsByBrand: CPU_SOCKETS_BY_BRAND,
+    });
+
+    if (sharedValidationError) {
+      return sharedValidationError;
+    }
+
+    return null;
+
     const trimmedName = formData.name.trim();
     const trimmedDescription = formData.description.trim();
 
@@ -153,8 +180,10 @@ export default function AddProductPage() {
       return 'El stock debe ser un numero entero y no puede ser negativo.';
     }
 
+    const payloadToValidate = buildProductPayload(formData);
     for (const field of NON_NEGATIVE_FIELDS) {
-      const value = formData[field as keyof typeof formData];
+      if (!(field in payloadToValidate)) continue;
+      const value = payloadToValidate[field];
       if (value !== '' && Number(value) < 0) {
         return `El campo ${field} no puede ser negativo.`;
       }
@@ -171,59 +200,58 @@ export default function AddProductPage() {
       return 'Debes subir entre 1 y 5 imagenes.';
     }
 
+    if (formData.category === 'CPU') {
+      const allowedSockets = CPU_SOCKETS_BY_BRAND[formData.cpuBrand] || [];
+      if (!formData.cpuBrand || !allowedSockets.includes(formData.socket)) {
+        return 'Selecciona una marca de procesador y un socket compatible.';
+      }
+      if (Number(formData.tdp) <= 0) {
+        return 'El TDP del procesador debe ser mayor a 0.';
+      }
+    }
+
+    if (formData.category === 'COOLER') {
+      if (formData.compatibleSockets.length === 0) {
+        return 'Selecciona al menos un socket compatible para el cooler.';
+      }
+      if (Number(formData.tdpCapacity) <= 0) {
+        return 'El TDP soportado del cooler debe ser mayor a 0.';
+      }
+    }
+
+    if (formData.category === 'STORAGE') {
+      const isM2 = formData.type.includes('M.2') || formData.type.toUpperCase().includes('NVME');
+      if (isM2 && !formData.m2FormFactor) {
+        return 'Selecciona el tamaño fisico M.2 del almacenamiento.';
+      }
+    }
+
+    if (formData.category === 'PC_DESKTOP' && formData.psuWatts !== '' && Number(formData.psuWatts) < 100) {
+      return 'La fuente de poder debe ser un numero positivo. Recomendado minimo 100W.';
+    }
+
+    if (formData.category === 'MONITOR' && formData.responseTimeMs !== '' && Number(formData.responseTimeMs) < 0.1) {
+      return 'El tiempo de respuesta debe ser un numero positivo mayor o igual a 0.1 ms.';
+    }
+
+    if (formData.category === 'KEYBOARD' && formData.connections.length === 0) {
+      return 'Selecciona al menos una conexion para el teclado.';
+    }
+
+    if (formData.category === 'MOUSE' && formData.connections.length === 0) {
+      return 'Selecciona al menos una conexion para el mouse.';
+    }
+
     return null;
   };
 
   // Cuando cambia el departamento, reseteamos la categoría y la información básica
   useEffect(() => {
+    if (!selectedDept) return;
     // @ts-ignore
     const firstCategory = DEPARTMENTS[selectedDept][0].value;
     
-    // Resetear todo el formulario manteniendo solo la nueva categoría
-    setFormData({
-      // Generales (RESETEAR)
-      name: '', 
-      description: '', 
-      price: '', 
-      stock: '', 
-      category: firstCategory, 
-      image: '',
-      
-      // CPU & Mobo
-      socket: 'AM5', cores: '', frequency: '', tdp: '', integratedGraphics: 'false', includesCooler: 'false',
-      
-      // Mobo
-      memorySlots: '4', m2Slots: '2', formFactor: 'ATX',
-      
-      // RAM
-      memoryType: 'DDR5', capacity: '16', speed: '5200', modules: '1', hasRGB: 'false',
-      
-      // GPU
-      chipset: 'NVIDIA GeForce', vram: '8', length: '', fans: '2',
-      
-      // PSU
-      wattage: '', certification: '80+ Bronze', modular: 'No Modular',
-      
-      // Case
-      maxGpuLength: '', includesPsu: 'false', includedFans: '0',
-      
-      // Cooler
-      type: 'AIR', fanCount: '1', radiatorSize: '240', hasScreen: 'false',
-      
-      // Storage
-      interface: 'PCIe 4.0', readSpeed: '',
-
-      // Ordenadores / Periféricos
-      screenSize: '15.6', refreshRate: '60', panelType: 'IPS', resolution: '1920x1080',
-      processor: 'Intel Core i5', ram: '8GB', storage: '512GB SSD',
-      hasDedicatedGpu: 'false', gpuBrand: '', gpuModel: '',
-      switchType: 'Mecánico', layout: 'Español', connection: 'USB',
-      dpi: '16000', sensor: 'Óptico', wireless: 'false',
-      licenseType: 'Permanente', platform: 'Windows',
-      
-      // Audio
-      driverSize: '50', impedance: '32', micType: 'Unidireccional', noiseCancel: 'false',
-    });
+    setFormData(createInitialFormData(firstCategory));
     
     // También resetear las imágenes
     setImageFiles([]);
@@ -247,39 +275,49 @@ export default function AddProductPage() {
       e.target.value = String(formData[name as keyof typeof formData] ?? '');
       return;
     }
-    
-    // Si se está cambiando la categoría, resetear todo el formulario
+
     if (name === 'category') {
       resetFormForCategory(value);
       return;
-      setFormData({
-        name: '', 
-        description: '', 
-        price: '', 
-        stock: '', 
-        category: value, 
-        image: '',
-        socket: 'AM5', cores: '', frequency: '', tdp: '', integratedGraphics: 'false', includesCooler: 'false',
-        memorySlots: '4', m2Slots: '2', formFactor: 'ATX',
-        memoryType: 'DDR5', capacity: '16', speed: '5200', modules: '1', hasRGB: 'false',
-        chipset: 'NVIDIA GeForce', vram: '8', length: '', fans: '2',
-        wattage: '', certification: '80+ Bronze', modular: 'No Modular',
-        maxGpuLength: '', includesPsu: 'false', includedFans: '0',
-        type: 'AIR', fanCount: '1', radiatorSize: '240', hasScreen: 'false',
-        interface: 'PCIe 4.0', readSpeed: '',
-        screenSize: '15.6', refreshRate: '60', panelType: 'IPS', resolution: '1920x1080',
-        processor: 'Intel Core i5', ram: '8GB', storage: '512GB SSD',
-        hasDedicatedGpu: 'false', gpuBrand: '', gpuModel: '',
-        switchType: 'Mecánico', layout: 'Español', connection: 'USB',
-        dpi: '16000', sensor: 'Óptico', wireless: 'false',
-        licenseType: 'Permanente', platform: 'Windows',
-        driverSize: '50', impedance: '32', micType: 'Unidireccional', noiseCancel: 'false',
-      });
-      setImageFiles([]);
-    } else {
-      // Para otros campos, actualizar normalmente
-      setFormData({ ...formData, [name]: type === 'checkbox' ? String(checked) : value });
     }
+
+    if (name === 'cpuBrand') {
+      const nextSockets = CPU_SOCKETS_BY_BRAND[value] || [];
+      setFormData({
+        ...formData,
+        cpuBrand: value,
+        socket: nextSockets.includes(formData.socket) ? formData.socket : nextSockets[0] || '',
+      });
+      return;
+    }
+
+    if (name === 'mouseType' && value === 'Oficina') {
+      setFormData({ ...formData, mouseType: value, buttonCount: '', dpi: '', pollingRateHz: '1000' });
+      return;
+    }
+
+    if (name === 'keyboardType') {
+      setFormData({
+        ...formData,
+        keyboardType: value,
+        hasLighting: value === 'Semi-mecanico' ? formData.hasLighting : 'false',
+        switchType: value === 'Mecanico' || value === 'Magnetico' ? formData.switchType : '',
+        keyboardFormFactor: value === 'Mecanico' || value === 'Magnetico' ? formData.keyboardFormFactor : '',
+      });
+      return;
+    }
+
+    setFormData({ ...formData, [name]: type === 'checkbox' ? String(checked) : value });
+  };
+  const handleMultiSelectChange = (field: 'compatibleSockets' | 'supportedM2FormFactors' | 'ports' | 'connections', value: string) => {
+    setFormData((prev) => {
+      const currentValues = prev[field];
+      const nextValues = currentValues.includes(value)
+        ? currentValues.filter((item) => item !== value)
+        : [...currentValues, value];
+
+      return { ...prev, [field]: nextValues };
+    });
   };
 
   const handleSubmit = async (e: any) => {
@@ -299,11 +337,11 @@ export default function AddProductPage() {
     try {
       // Crear FormData para enviar archivos
       const formDataToSend = new FormData();
-      
-      // Agregar todos los campos del formulario
-      Object.keys(formData).forEach(key => {
-        // @ts-ignore
-        formDataToSend.append(key, formData[key]);
+
+      // Enviar solo campos aplicables a la categoria/tipo seleccionado.
+      Object.entries(buildProductPayload(formData, { mode: 'create' })).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        formDataToSend.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
       });
       
       // Agregar las imágenes
@@ -317,9 +355,8 @@ export default function AddProductPage() {
         }
       });
       
-      alert('✅ Producto guardado correctamente');
-      // Opcional: Limpiar formulario
-      // window.location.reload();
+      resetProductForm();
+      alert('Producto creado correctamente.');
     } catch (error: unknown) {
       console.error(error);
       alert(getApiErrorMessage(error, 'Error al guardar. Revisa la configuracion del backend o Cloudinary.'));
@@ -339,7 +376,7 @@ export default function AddProductPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <form key={formResetKey} onSubmit={handleSubmit} noValidate className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* === COLUMNA IZQUIERDA: FORMULARIOS (Ocupa 8 columnas) === */}
         <div className="lg:col-span-8 space-y-6">
@@ -383,48 +420,13 @@ export default function AddProductPage() {
               </div>
               <div className="col-span-2">
                  <label className="label-admin">Imágenes del Producto (Máximo 5)</label>
-                 <input 
-                   type="file"
-                   accept="image/*"
-                   multiple
-                   onChange={(e) => {
-                     const files = Array.from(e.target.files || []);
-                     if (files.length > 5) {
-                       alert('⚠️ Máximo 5 imágenes permitidas');
-                       e.target.value = '';
-                       return;
-                     }
-                     setImageFiles(files);
-                   }}
-                   className="input-admin cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-cyan file:text-gray-900 hover:file:bg-cyan-400 file:cursor-pointer"
+                 <ImageUploader
+                   mode="product"
+                   files={imageFiles}
+                   onFilesChange={setImageFiles}
+                   maxFiles={5}
+                   helperText="Sube entre 1 y 5 imágenes. La primera será la portada. Recomendación: imágenes cuadradas de 550 x 550 px, fondo limpio, formato JPG, PNG o WEBP."
                  />
-                 <div className="mt-2 flex items-start gap-2">
-                   <p className="text-xs text-gray-400 flex-1">
-                     <FiMonitor className="inline mr-1" /> 
-                     Sube entre 1 y 5 imágenes. La primera será la portada.
-                   </p>
-                   {imageFiles.length > 0 && (
-                     <span className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                       {imageFiles.length} {imageFiles.length === 1 ? 'imagen' : 'imágenes'} seleccionada{imageFiles.length > 1 ? 's' : ''}
-                     </span>
-                   )}
-                 </div>
-                 {imageFiles.length > 0 && (
-                   <div className="mt-3 flex flex-wrap gap-2">
-                     {imageFiles.map((file, index) => (
-                       <div key={index} className="relative group">
-                         <img 
-                           src={URL.createObjectURL(file)} 
-                           alt={`Preview ${index + 1}`}
-                           className="w-20 h-20 object-cover rounded-lg border-2 border-gray-200"
-                         />
-                         <div className="absolute -top-2 -right-2 bg-brand-cyan text-gray-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md">
-                           {index + 1}
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 )}
               </div>
             </div>
           </div>
@@ -448,9 +450,15 @@ export default function AddProductPage() {
                 <>
                   <div className="col-span-2 flex items-center gap-2 text-blue-800 font-bold border-b border-blue-200 pb-2"><FiCpu/> Datos de Procesador</div>
                   <div>
+                    <label className="label-admin">Marca del procesador</label>
+                    <select name="cpuBrand" value={formData.cpuBrand} onChange={handleChange} className="input-admin">
+                      {CPU_BRANDS.map(brand => <option key={brand} value={brand}>{brand}</option>)}
+                    </select>
+                  </div>
+                  <div>
                     <label className="label-admin">Socket</label>
-                    <select name="socket" onChange={handleChange} className="input-admin">
-                      {SOCKETS.map(s => <option key={s} value={s}>{s}</option>)}
+                    <select name="socket" value={formData.socket} onChange={handleChange} className="input-admin">
+                      {(CPU_SOCKETS_BY_BRAND[formData.cpuBrand] || []).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
@@ -461,6 +469,10 @@ export default function AddProductPage() {
                   <div>
                     <label className="label-admin">Núcleos</label>
                     <input name="cores" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 8" />
+                  </div>
+                  <div>
+                    <label className="label-admin">Threads</label>
+                    <input name="threads" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 16" />
                   </div>
                   <div>
                     <label className="label-admin">Frecuencia (GHz)</label>
@@ -521,6 +533,21 @@ export default function AddProductPage() {
                       <option value="3">3 Slots</option>
                       <option value="4">4 Slots</option>
                     </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="label-admin">Tamaños M.2 soportados</label>
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                      {M2_FORM_FACTORS.map(size => (
+                        <label key={size} className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold">
+                          <input
+                            type="checkbox"
+                            checked={formData.supportedM2FormFactors.includes(size)}
+                            onChange={() => handleMultiSelectChange('supportedM2FormFactors', size)}
+                          />
+                          {size}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </>
               )}
@@ -672,6 +699,35 @@ export default function AddProductPage() {
                     </div>
                   </div>
 
+                  <div className="col-span-2">
+                    <label className="label-admin">Sockets compatibles</label>
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                      {COOLER_SOCKET_OPTIONS.map(socket => (
+                        <label key={socket} className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold">
+                          <input
+                            type="checkbox"
+                            checked={formData.compatibleSockets.includes(socket)}
+                            onChange={() => handleMultiSelectChange('compatibleSockets', socket)}
+                          />
+                          {socket}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label-admin">TDP soportado (Watts)</label>
+                    <input name="tdpCapacity" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 180" required />
+                    <span className="text-xs text-gray-500">Debe ser igual o mayor al TDP del CPU.</span>
+                  </div>
+
+                  {formData.type === 'AIR' && (
+                    <div>
+                      <label className="label-admin">Altura del cooler (mm)</label>
+                      <input name="coolerHeight" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 155" />
+                    </div>
+                  )}
+
                   {formData.type === 'AIO' && (
                     <div>
                       <label className="label-admin">Tamaño Radiador</label>
@@ -712,7 +768,7 @@ export default function AddProductPage() {
                     </select>
                   </div>
                   
-                  {formData.type === 'NVMe M.2' && (
+                  {(formData.type === 'NVMe M.2' || formData.type === 'M.2 SATA') && (
                     <div>
                       <label className="label-admin">Generación</label>
                       <select name="interface" onChange={handleChange} className="input-admin">
@@ -729,6 +785,18 @@ export default function AddProductPage() {
                     <label className="label-admin">Velocidad Lectura (MB/s)</label>
                     <input name="readSpeed" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 7000" />
                   </div>
+                  <div>
+                    <label className="label-admin">Velocidad Escritura (MB/s)</label>
+                    <input name="writeSpeed" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 5000" />
+                  </div>
+                  {(formData.type === 'NVMe M.2' || formData.type === 'M.2 SATA') && (
+                    <div>
+                      <label className="label-admin">Tamaño fisico M.2</label>
+                      <select name="m2FormFactor" value={formData.m2FormFactor} onChange={handleChange} className="input-admin">
+                        {M2_FORM_FACTORS.map(size => <option key={size} value={size}>{size}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </>
               )}
               
@@ -771,11 +839,38 @@ export default function AddProductPage() {
                     </>
                   )}
 
+                  {formData.category === 'PC_DESKTOP' && (
+                    <>
+                      <div className="col-span-2 border-b pb-2 mb-2 font-bold text-gray-500 mt-4">Equipo pre-ensamblado</div>
+                      <div>
+                        <label className="label-admin">Cooler incluido</label>
+                        <select name="coolerType" onChange={handleChange} className="input-admin">
+                          {DESKTOP_COOLER_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label-admin">Fuente de poder (Watts)</label>
+                        <input name="psuWatts" type="number" min="0" onChange={handleChange} className="input-admin" placeholder="Ej: 650" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="label-admin">Modelo del case</label>
+                        <input name="caseModel" onChange={handleChange} className="input-admin" placeholder="Ej: MSI Gungnir 110M" />
+                      </div>
+                    </>
+                  )}
+
                   {formData.category === 'LAPTOP' && (
                     <>
                       <div className="col-span-2 border-b pb-2 mb-2 font-bold text-gray-500 mt-4">Pantalla</div>
                       <div><label className="label-admin">Tamaño Pantalla</label><input name="screenSize" onChange={handleChange} className="input-admin" placeholder='15.6"' /></div>
                       <div><label className="label-admin">Tasa Refresco (Hz)</label><input name="refreshRate" type="number" onChange={handleChange} className="input-admin" /></div>
+                      <div>
+                        <label className="label-admin">¿Incluye Windows de serie?</label>
+                        <select name="includesWindows" onChange={handleChange} className="input-admin">
+                          <option value="true">Si</option>
+                          <option value="false">No</option>
+                        </select>
+                      </div>
                     </>
                   )}
                 </>
@@ -796,10 +891,36 @@ export default function AddProductPage() {
                    <div><label className="label-admin">Resolución</label><input name="resolution" onChange={handleChange} className="input-admin" placeholder="1920x1080" /></div>
                    <div><label className="label-admin">Panel</label><select name="panelType" onChange={handleChange} className="input-admin">{PANEL_TYPES.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
                    <div><label className="label-admin">Hz</label><input name="refreshRate" type="number" onChange={handleChange} className="input-admin" /></div>
+                   <div>
+                     <label className="label-admin">Latencia / Tiempo de respuesta (ms)</label>
+                     <input name="responseTimeMs" type="number" min="0.1" step="0.1" onChange={handleChange} className="input-admin" placeholder="Ej: 1" />
+                   </div>
+                   <div>
+                     <label className="label-admin">¿Tiene parlantes integrados?</label>
+                     <select name="hasSpeakers" onChange={handleChange} className="input-admin">
+                       <option value="false">No</option>
+                       <option value="true">Si</option>
+                     </select>
+                   </div>
+                   <div className="col-span-2">
+                     <label className="label-admin">Puertos disponibles</label>
+                     <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                       {MONITOR_PORTS.map(port => (
+                         <label key={port} className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold">
+                           <input
+                             type="checkbox"
+                             checked={formData.ports.includes(port)}
+                             onChange={() => handleMultiSelectChange('ports', port)}
+                           />
+                           {port}
+                         </label>
+                       ))}
+                     </div>
+                   </div>
                  </>
               )}
 
-              {formData.category === 'KEYBOARD' && (
+              {formData.category === 'KEYBOARD_OLD' && (
                  <>
                    <div><label className="label-admin">Conexión</label><select name="connection" onChange={handleChange} className="input-admin"><option>USB (Cable)</option><option>Inalámbrico (USB/BT)</option></select></div>
                    <div><label className="label-admin">Tipo Switch</label><input name="switchType" onChange={handleChange} className="input-admin" placeholder="Ej: Red / Blue" /></div>
@@ -808,7 +929,7 @@ export default function AddProductPage() {
                  </>
               )}
 
-              {formData.category === 'MOUSE' && (
+              {formData.category === 'MOUSE_OLD' && (
                  <>
                    <div><label className="label-admin">Conexión</label><select name="connection" onChange={handleChange} className="input-admin"><option>USB (Cable)</option><option>Inalámbrico (USB/BT)</option></select></div>
                    <div><label className="label-admin">DPI Máximo</label><input name="dpi" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 16000" /></div>
@@ -817,11 +938,87 @@ export default function AddProductPage() {
                  </>
               )}
 
-              {formData.category === 'CHAIR' && (
+              {formData.category === 'CHAIR_OLD' && (
                 <>
                   <div className="col-span-2 text-center py-6 text-gray-500 italic border-2 border-dashed border-gray-300 rounded-xl">
                     Esta categoría solo requiere nombre, precio y stock por ahora.
                   </div>
+                </>
+              )}
+
+              {formData.category === 'KEYBOARD' && (
+                <>
+                  <div><label className="label-admin">Marca</label><input name="brand" onChange={handleChange} className="input-admin" placeholder="Ej: Logitech, Redragon, Razer" /></div>
+                  <div><label className="label-admin">Tipo de teclado</label><select name="keyboardType" onChange={handleChange} className="input-admin">{KEYBOARD_TYPES.map(type => <option key={type} value={type}>{type}</option>)}</select></div>
+                  <div className="col-span-2">
+                    <label className="label-admin">Tipo de conexion</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {PERIPHERAL_CONNECTIONS.map(connection => (
+                        <label key={connection} className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold">
+                          <input type="checkbox" checked={formData.connections.includes(connection)} onChange={() => handleMultiSelectChange('connections', connection)} />
+                          {connection}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div><label className="label-admin">Idioma (Layout)</label><select name="layoutLanguage" onChange={handleChange} className="input-admin">{LAYOUT_LANGUAGES.map(lang => <option key={lang} value={lang}>{lang}</option>)}</select></div>
+                  {formData.keyboardType === 'Semi-mecanico' && <div><label className="label-admin">Tiene luces</label><select name="hasLighting" onChange={handleChange} className="input-admin"><option value="false">No</option><option value="true">Si</option></select></div>}
+                  {(formData.keyboardType === 'Mecanico' || formData.keyboardType === 'Magnetico') && <div><label className="label-admin">Tipo de switch</label><input name="switchType" onChange={handleChange} className="input-admin" placeholder="Ej: Red, Blue, Magnetic HE" /></div>}
+                  {(formData.keyboardType === 'Mecanico' || formData.keyboardType === 'Magnetico') && <div><label className="label-admin">Formato</label><input name="keyboardFormFactor" onChange={handleChange} className="input-admin" placeholder="Ej: TKL, 75%, Alice, compacto" /></div>}
+                </>
+              )}
+
+              {formData.category === 'MOUSE' && (
+                <>
+                  <div><label className="label-admin">Marca</label><input name="brand" onChange={handleChange} className="input-admin" placeholder="Ej: Logitech, Razer" /></div>
+                  <div><label className="label-admin">Tipo de mouse</label><select name="mouseType" onChange={handleChange} className="input-admin">{MOUSE_TYPES.map(type => <option key={type} value={type}>{type}</option>)}</select></div>
+                  <div className="col-span-2">
+                    <label className="label-admin">Tipo de conexion</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {PERIPHERAL_CONNECTIONS.map(connection => (
+                        <label key={connection} className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold">
+                          <input type="checkbox" checked={formData.connections.includes(connection)} onChange={() => handleMultiSelectChange('connections', connection)} />
+                          {connection}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  {formData.mouseType === 'Gamer' && (
+                    <>
+                      <div><label className="label-admin">Cantidad de botones</label><input name="buttonCount" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 6" /></div>
+                      <div><label className="label-admin">DPI maximo</label><input name="dpi" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 26000" /></div>
+                      <div><label className="label-admin">Polling Rate</label><select name="pollingRateHz" onChange={handleChange} className="input-admin">{POLLING_RATES.map(rate => <option key={rate} value={rate}>{rate} Hz</option>)}</select></div>
+                    </>
+                  )}
+                  <div><label className="label-admin">Usa bateria o pila?</label><select name="powerType" onChange={handleChange} className="input-admin">{MOUSE_POWER_TYPES.map(type => <option key={type} value={type}>{type}</option>)}</select></div>
+                  <div><label className="label-admin">Peso (g)</label><input name="weightGrams" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 63" /></div>
+                </>
+              )}
+
+              {formData.category === 'MOUSEPAD' && (
+                <>
+                  <div><label className="label-admin">Marca</label><input name="brand" onChange={handleChange} className="input-admin" /></div>
+                  <div><label className="label-admin">Ancho (mm)</label><input name="widthCm" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 900" /></div>
+                  <div><label className="label-admin">Largo (mm)</label><input name="lengthCm" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 400" /></div>
+                  <div><label className="label-admin">Tiene LEDs</label><select name="hasLed" onChange={handleChange} className="input-admin"><option value="false">No</option><option value="true">Si</option></select></div>
+                </>
+              )}
+
+              {formData.category === 'CHAIR' && (
+                <>
+                  <div><label className="label-admin">Marca</label><input name="brand" onChange={handleChange} className="input-admin" /></div>
+                  <div><label className="label-admin">Color</label><input name="color" onChange={handleChange} className="input-admin" placeholder="Ej: Negro/Rojo" /></div>
+                  <div><label className="label-admin">Material</label><select name="material" onChange={handleChange} className="input-admin">{CHAIR_MATERIALS.map(material => <option key={material} value={material}>{material}</option>)}</select></div>
+                  <div><label className="label-admin">Peso maximo soportado (kg)</label><input name="maxWeightKg" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 120" /></div>
+                </>
+              )}
+
+              {formData.category === 'GAMING_DESK' && (
+                <>
+                  <div><label className="label-admin">Marca</label><input name="brand" onChange={handleChange} className="input-admin" /></div>
+                  <div><label className="label-admin">Color</label><input name="color" onChange={handleChange} className="input-admin" /></div>
+                  <div><label className="label-admin">Superficie</label><input name="surface" onChange={handleChange} className="input-admin" placeholder="Ej: Carbono, madera, melamina" /></div>
+                  <div><label className="label-admin">Peso (kg)</label><input name="weightKg" type="number" onChange={handleChange} className="input-admin" placeholder="Ej: 25" /></div>
                 </>
               )}
 
@@ -962,18 +1159,23 @@ export default function AddProductPage() {
              {/* 2. SELECCIONAR TIPO ESPECÍFICO */}
              <div className="mb-8">
                <label className="label-admin mb-2">2. Tipo de Producto</label>
-               <select 
-                 name="category" 
-                 value={formData.category} 
+               <select
+                 name="category"
+                 value={formData.category}
                  onChange={handleChange}
-                 className="w-full p-4 text-lg border-2 border-gray-300 rounded-xl font-bold outline-none cursor-pointer bg-gray-50 focus:bg-white focus:border-black transition text-gray-900"
+                 disabled={!selectedDept}
+                 className="w-full p-4 text-lg border-2 border-gray-300 rounded-xl font-bold outline-none cursor-pointer bg-gray-50 focus:bg-white focus:border-black transition text-gray-900 disabled:cursor-not-allowed disabled:text-gray-400"
                >
-                 {/* @ts-ignore */}
-                 {DEPARTMENTS[selectedDept].map((item: any) => (
-                   <option key={item.value} value={item.value}>
-                     {item.label}
-                   </option>
-                 ))}
+                 {!selectedDept ? (
+                   <option value="">Selecciona una categoria</option>
+                 ) : (
+                   // @ts-ignore
+                   DEPARTMENTS[selectedDept].map((item: any) => (
+                     <option key={item.value} value={item.value}>
+                       {item.label}
+                     </option>
+                   ))
+                 )}
                </select>
              </div>
 

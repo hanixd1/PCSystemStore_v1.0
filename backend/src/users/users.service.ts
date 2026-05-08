@@ -1,17 +1,28 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { JwtUserPayload, USER_ROLES } from '../auth/auth.constants';
+import { CreateUserDto } from './dto/create-user.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { RegisterUserDto } from './dto/register-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   private sanitizeEmail(email: string) {
     return email.trim().toLowerCase();
@@ -21,12 +32,28 @@ export class UsersService {
     return process.env.FRONTEND_URL?.trim().replace(/\/$/, '') || '';
   }
 
-  private buildSession(user: {
+  private getResetPasswordPath(flow: 'client' | 'admin') {
+    if (flow === 'admin') {
+      return process.env.ADMIN_RESET_PASSWORD_PATH?.trim() || '/admin/reset-password';
+    }
+
+    return process.env.CLIENT_RESET_PASSWORD_PATH?.trim() || '/auth/reset-password';
+  }
+
+  private async buildSession(user: {
     id: string;
     name: string;
     email: string;
     role: string;
   }) {
+    const payload: JwtUserPayload = {
+      sub: user.id,
+      email: user.email,
+      role: USER_ROLES.includes(user.role as (typeof USER_ROLES)[number])
+        ? (user.role as JwtUserPayload['role'])
+        : 'CUSTOMER',
+    };
+
     return {
       message: 'Login exitoso',
       user: {
@@ -35,7 +62,7 @@ export class UsersService {
         email: user.email,
         role: user.role,
       },
-      token: `session-${user.id}`,
+      token: await this.jwtService.signAsync(payload),
     };
   }
 
@@ -45,17 +72,27 @@ export class UsersService {
     entity: string,
     details: string,
   ) {
+    const module =
+      action === 'ADMIN_LOGIN'
+        ? 'SECURITY'
+        : entity === 'USER'
+          ? 'EMPLOYEES'
+          : undefined;
+
     await this.prisma.actionLog.create({
       data: {
         userId,
         action,
         entity,
+        module,
+        entityType: entity,
+        entityId: userId,
         details,
       },
     });
   }
 
-  async login(email: string, pass: string) {
+  private async validateCredentials(email: string, pass: string) {
     const normalizedEmail = this.sanitizeEmail(email);
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -76,17 +113,52 @@ export class UsersService {
       throw new UnauthorizedException('Credenciales invalidas');
     }
 
+    return user;
+  }
+
+  async login(email: string, pass: string) {
+    const user = await this.validateCredentials(email, pass);
+
+    if (['ADMIN', 'EDITOR'].includes(user.role)) {
+      await this.createLog(
+        user.id,
+        'ADMIN_LOGIN',
+        'USER',
+        `Inicio de sesion administrativo de ${user.email}`,
+      );
+    }
+
+    return this.buildSession(user);
+  }
+
+  async customerLogin(email: string, pass: string) {
+    const user = await this.validateCredentials(email, pass);
+
+    if (user.role !== 'CUSTOMER') {
+      throw new ForbiddenException('Esta cuenta no esta registrada como cliente.');
+    }
+
+    return this.buildSession(user);
+  }
+
+  async adminLogin(email: string, pass: string) {
+    const user = await this.validateCredentials(email, pass);
+
+    if (!['ADMIN', 'EDITOR', 'EMPLOYEE'].includes(user.role)) {
+      throw new ForbiddenException('Esta cuenta no tiene permisos administrativos.');
+    }
+
     await this.createLog(
       user.id,
-      'LOGIN',
+      'ADMIN_LOGIN',
       'USER',
-      `Inicio de sesion de ${user.email}`,
+      `Inicio de sesion administrativo de ${user.email}`,
     );
 
     return this.buildSession(user);
   }
 
-  async register(data: { name: string; email: string; password: string }) {
+  async register(data: RegisterUserDto) {
     const normalizedEmail = this.sanitizeEmail(data.email);
     const existingUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -108,13 +180,6 @@ export class UsersService {
         status: 'ACTIVE',
       },
     });
-
-    await this.createLog(
-      user.id,
-      'REGISTER',
-      'USER',
-      `Registro de cuenta para ${user.email}`,
-    );
 
     return {
       message: 'Cuenta creada correctamente',
@@ -189,24 +254,36 @@ export class UsersService {
       });
     }
 
-    await this.createLog(
-      user.id,
-      'LOGIN',
-      'USER',
-      `Inicio de sesion con Google de ${user.email}`,
-    );
+    if (['ADMIN', 'EDITOR'].includes(user.role)) {
+      await this.createLog(
+        user.id,
+        'ADMIN_LOGIN',
+        'USER',
+        `Inicio de sesion administrativo con Google de ${user.email}`,
+      );
+    }
 
     return this.buildSession(user);
   }
 
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, flow: 'client' | 'admin' = 'client') {
     const normalizedEmail = this.sanitizeEmail(email);
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
+    const genericResponse = {
+      message:
+        'Si el correo esta registrado, recibiras las instrucciones de recuperacion.',
+    };
 
     if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
+      return genericResponse;
+    }
+
+    const isAdminFlow = flow === 'admin';
+    const isAdminUser = ['ADMIN', 'EDITOR'].includes(user.role);
+    if (isAdminFlow !== isAdminUser) {
+      return genericResponse;
     }
 
     const token =
@@ -227,15 +304,14 @@ export class UsersService {
       );
     }
 
-    const resetLink = `${frontendUrl}/admin/reset-password?token=${token}`;
+    const resetPath = this.getResetPasswordPath(flow);
+    const resetLink = `${frontendUrl}${resetPath}?token=${token}`;
     console.log(
       '[SIMULACION EMAIL] Para recuperar contrasena entra aqui:',
       resetLink,
     );
 
-    return {
-      message: 'Correo de recuperacion enviado (Revisa la consola del backend)',
-    };
+    return genericResponse;
   }
 
   async resetPassword(token: string, newPassword: string) {
@@ -272,7 +348,7 @@ export class UsersService {
     return { message: 'Contrasena actualizada correctamente' };
   }
 
-  async create(data: any) {
+  async create(data: CreateUserDto) {
     const normalizedEmail = this.sanitizeEmail(data.email);
     const existingUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -287,7 +363,7 @@ export class UsersService {
 
     const user = await this.prisma.user.create({
       data: {
-        name: data.name,
+        name: data.name.trim(),
         email: normalizedEmail,
         password: hashedPassword,
         role: data.role || 'EDITOR',
@@ -297,6 +373,11 @@ export class UsersService {
         id: true,
         name: true,
         email: true,
+        birthDate: true,
+        documentType: true,
+        documentNumber: true,
+        gender: true,
+        mobilePhone: true,
         role: true,
         status: true,
         createdAt: true,
@@ -311,6 +392,184 @@ export class UsersService {
     );
 
     return user;
+  }
+
+  async getMe(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        birthDate: true,
+        documentType: true,
+        documentNumber: true,
+        gender: true,
+        mobilePhone: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    return user;
+  }
+
+  async updateProfile(id: string, data: UpdateProfileDto) {
+    const existingCurrentUser = await this.prisma.user.findUnique({
+      where: { id },
+      select: { documentNumber: true },
+    });
+
+    if (!existingCurrentUser) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const updateData: {
+      name?: string;
+      email?: string;
+      birthDate?: Date | null;
+      documentType?: string;
+      documentNumber?: string;
+      gender?: string;
+      mobilePhone?: string;
+    } = {};
+
+    if (data.name !== undefined) {
+      updateData.name = data.name.trim();
+    }
+
+    if (data.email !== undefined) {
+      const normalizedEmail = this.sanitizeEmail(data.email);
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      if (existingUser && existingUser.id !== id) {
+        throw new ConflictException('Ese correo ya esta registrado');
+      }
+
+      updateData.email = normalizedEmail;
+    }
+
+    const wantsDocumentChange =
+      data.documentType !== undefined || data.documentNumber !== undefined;
+    if (existingCurrentUser.documentNumber && wantsDocumentChange) {
+      throw new BadRequestException(
+        'El documento de identidad no puede modificarse una vez registrado.',
+      );
+    }
+
+    if (!existingCurrentUser.documentNumber) {
+      if (data.documentType !== undefined) {
+        updateData.documentType = data.documentType.trim();
+      }
+
+      if (data.documentNumber !== undefined) {
+        updateData.documentNumber = data.documentNumber.trim();
+      }
+    }
+
+    if (data.birthDate !== undefined) {
+      updateData.birthDate = data.birthDate ? new Date(data.birthDate) : null;
+    }
+
+    if (data.gender !== undefined) {
+      updateData.gender = data.gender.trim();
+    }
+
+    if (data.mobilePhone !== undefined) {
+      updateData.mobilePhone = data.mobilePhone.trim();
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException('Debes enviar al menos un campo valido');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        birthDate: true,
+        documentType: true,
+        documentNumber: true,
+        gender: true,
+        mobilePhone: true,
+        role: true,
+      },
+    });
+
+    return {
+      message: 'Datos actualizados correctamente',
+      user,
+    };
+  }
+
+  async changePassword(id: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('La contrasena actual es incorrecta');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Contrasena actualizada correctamente.' };
+  }
+
+  getAddresses(userId: string) {
+    return this.prisma.address.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  createAddress(userId: string, data: CreateAddressDto) {
+    return this.prisma.address.create({
+      data: {
+        userId,
+        label: data.label?.trim() || 'Direccion',
+        department: data.department.trim(),
+        province: data.province.trim(),
+        district: data.district.trim(),
+        addressLine: data.addressLine.trim(),
+        reference: data.reference?.trim() || null,
+        phone: data.phone?.trim() || null,
+      },
+    });
+  }
+
+  async deleteAddress(userId: string, id: string) {
+    const address = await this.prisma.address.findFirst({
+      where: { id, userId },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Direccion no encontrada');
+    }
+
+    await this.prisma.address.delete({ where: { id } });
+    return { message: 'Direccion eliminada correctamente' };
   }
 
   async findAll() {
@@ -351,12 +610,39 @@ export class UsersService {
     return updatedUser;
   }
 
-  async updateUser(id: string, data: any) {
-    const updateData: any = { name: data.name, role: data.role };
+  async updateUser(id: string, data: UpdateUserDto) {
+    const updateData: any = {};
+
+    if (data.name !== undefined) {
+      updateData.name = data.name.trim();
+    }
+
+    if (data.role !== undefined) {
+      updateData.role = data.role;
+    }
+
+    if (data.email !== undefined) {
+      const normalizedEmail = this.sanitizeEmail(data.email);
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      if (existingUser && existingUser.id !== id) {
+        throw new ConflictException('Ese correo ya esta registrado');
+      }
+
+      updateData.email = normalizedEmail;
+    }
 
     if (data.password && data.password.trim() !== '') {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(data.password, salt);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException(
+        'Debes enviar al menos un campo valido para actualizar',
+      );
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -377,6 +663,18 @@ export class UsersService {
 
   async getAuditLogs() {
     return this.prisma.actionLog.findMany({
+      where: {
+        NOT: [
+          {
+            action: 'LOGIN',
+            user: { role: 'CUSTOMER' },
+          },
+          {
+            action: 'REGISTER',
+            user: { role: 'CUSTOMER' },
+          },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         user: { select: { name: true, role: true } },

@@ -25,7 +25,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
-      text: 'Hola, soy tu asistente de PCSystemStore. Si quieres, te ayudo a encontrar una pieza puntual o a armar una PC segun tu presupuesto y uso.',
+      text: 'Hola, soy tu Alex, tu asistente virtual. Si quieres, te ayudo a encontrar una pieza puntual o a armar una PC segun tu presupuesto y uso.',
       role: 'assistant',
     },
   ]);
@@ -124,7 +124,7 @@ export default function Chatbot() {
                 <FiCpu size={20} />
               </div>
               <div>
-                <h3 className="font-bold text-sm tracking-wide">Asistente de Compra IA</h3>
+                <h3 className="font-bold text-sm tracking-wide">Alex</h3>
                 <p className="text-[10px] text-green-400 flex items-center gap-1 font-medium">
                   <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
                   En linea

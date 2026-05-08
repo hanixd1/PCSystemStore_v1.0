@@ -15,12 +15,16 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const res = await api.post('/users/login', formData);
+      const res = await api.post('/users/admin-login', formData);
 
       if (!AUTHORIZED_ADMIN_ROLES.has(res.data.user.role)) {
-        throw new Error('Esta cuenta no tiene acceso al panel administrativo');
+        throw new Error('Esta cuenta no tiene permisos administrativos.');
       }
 
+      localStorage.removeItem('customerUser');
+      localStorage.removeItem('customerToken');
+      localStorage.setItem('adminUser', JSON.stringify(res.data.user));
+      localStorage.setItem('adminToken', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       localStorage.setItem('token', res.data.token);
       window.location.href = '/admin';
@@ -80,7 +84,7 @@ export default function LoginPage() {
 
           <div className="mb-4 text-right">
             <a href="/admin/forgot-password" className="text-sm text-brand-cyan hover:underline">
-              Olvidaste tu contrasena?
+              ¿Olvidaste tu contraseña?
             </a>
           </div>
 
