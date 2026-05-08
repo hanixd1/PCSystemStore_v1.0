@@ -112,6 +112,20 @@ PCSystemStore presenta una base funcional amplia para un e-commerce especializad
 | Evidencia IA y calidad de datos | Pendiente |
 | Politica de pagos reales | Fuera del alcance actual |
 
+## Estado de validacion, automatizacion y despliegue
+
+| Area | Evidencia actual | Estado | Observacion |
+|---|---|---|---|
+| Pruebas backend unit/service | `npm test -- --runInBand`: 12 suites y 45 tests OK. | Validado localmente | La linea base previa era 11 suites y 37 tests; se actualizo con la ejecucion actual. |
+| Build backend | `npm run build` reportado OK. | Validado recientemente | No sustituye pruebas HTTP reales. |
+| Typecheck backend | `npx tsc --noEmit` reportado OK. | Validado recientemente | Requiere mantenerse en CI. |
+| Build frontend | `pnpm run build` reportado OK. | Validado recientemente | No sustituye pruebas E2E visuales. |
+| Typecheck frontend | `npx tsc --noEmit` reportado OK. | Validado recientemente | Requiere mantenerse antes de staging. |
+| Docker Compose | `docker compose config` reportado OK. | Preparado para QA/staging | `docker compose build/up` sigue pendiente de ejecucion. |
+| HTTP E2E real | Suites preparadas con Supertest y seed QA. | Bloqueado | Falta `DATABASE_URL_TEST` apuntando a una base QA/test real. |
+| E2E visual | Playwright/Cypress documentado como fase siguiente. | Pendiente | No existe evidencia de ejecucion visual automatizada. |
+| Produccion | Checklist critico incompleto. | No recomendado | Requiere E2E, seguridad, concurrencia, monitoreo y DB QA validada. |
+
 ## 10. Conclusion Senior Tech Lead
 
 El proyecto puede pasar a una fase de **QA/staging controlado** si se ejecutan y documentan pruebas criticas de autenticacion, productos, ofertas, stock, checkout, pagos manuales, builder y auditoria. No se recomienda produccion sin refactorizar los formularios de producto, dividir responsabilidades en `ProductsService`, ejecutar pruebas de seguridad y generar evidencia del motor predictivo.

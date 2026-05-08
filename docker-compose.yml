@@ -1,0 +1,63 @@
+services:
+  backend:
+    container_name: pcsystemstore-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${BACKEND_PORT:-3002}
+      DATABASE_URL: ${DATABASE_URL:-}
+      JWT_SECRET: ${JWT_SECRET:-change-this-only-for-local-qa}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE:-python3}
+    ports:
+      - "${BACKEND_PORT:-3002}:3002"
+    networks:
+      - pcsystemstore-network
+    restart: unless-stopped
+
+  frontend:
+    container_name: pcsystemstore-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3002}
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${FRONTEND_PORT:-3000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3002}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    networks:
+      - pcsystemstore-network
+    restart: unless-stopped
+
+  postgres:
+    container_name: pcsystemstore-db
+    image: postgres:16-alpine
+    profiles:
+      - local-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pcsystemstore_qa}
+      POSTGRES_USER: ${POSTGRES_USER:-pcsystemstore}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pcsystemstore_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pcsystemstore-postgres-data:/var/lib/postgresql/data
+    networks:
+      - pcsystemstore-network
+    restart: unless-stopped
+
+networks:
+  pcsystemstore-network:
+    driver: bridge
+
+volumes:
+  pcsystemstore-postgres-data:

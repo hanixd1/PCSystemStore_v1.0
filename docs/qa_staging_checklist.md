@@ -118,6 +118,21 @@ Estados permitidos: `Pendiente`, `En ejecucion`, `Aprobado`, `Fallido`, `Bloquea
 | IA-06 | IA | Chatbot responde sin romper tienda. | Consultar chatbot. | Respuesta controlada. | Pendiente | `docs/evidencias/ia/` |  |
 | IA-07 | IA | IA no inventa stock/disponibilidad. | Preguntar por producto sin stock. | Respuesta basada en datos reales. | Pendiente | `docs/evidencias/ia/` |  |
 
+## Fase 3 - Despliegue, metricas y monitoreo
+
+| ID | Modulo | Caso | Pasos | Resultado esperado | Estado | Evidencia | Observaciones |
+|---|---|---|---|---|---|---|---|
+| DEP-01 | Docker | Validar configuracion de Docker Compose. | Ejecutar `docker compose config`. | Configuracion YAML valida, sin secretos reales expuestos. | Aprobado | `docs/09_dockerizacion_despliegue.md` | Validacion de config reportada OK; build/up pendiente. |
+| DEP-02 | Docker | Construir imagenes de backend y frontend. | Ejecutar `docker compose build`. | Imagenes construidas sin error. | Pendiente | `docs/evidencias/` | No ejecutado todavia. |
+| DEP-03 | Docker | Levantar stack QA/local. | Ejecutar `docker compose up`. | Frontend y backend disponibles, DB local opcional o Neon externo configurado. | Pendiente | `docs/evidencias/` | No ejecutado todavia. |
+| QA-DB-01 | QA DB | Configurar `DATABASE_URL_TEST`. | Crear `.env.test` con URL de Neon branch/local test DB. | Tests HTTP E2E dejan de omitirse por falta de DB QA. | Bloqueado | `docs/evidencias/backend_http_e2e.md` | No usar base de produccion. |
+| QA-DB-02 | QA DB | Ejecutar migraciones QA. | Ejecutar script de migracion test o comandos Prisma con DB QA. | Schema aplicado en base QA/test. | Bloqueado | `docs/evidencias/backend_http_e2e.md` | Depende de `DATABASE_URL_TEST`. |
+| QA-DB-03 | QA DB | Ejecutar seed QA. | Ejecutar `npm run seed:qa` o comando equivalente con `NODE_ENV=test`. | Usuarios, productos, pagos, banners y datos QA creados. | Bloqueado | `docs/evidencias/backend_http_e2e.md` | Seed protegido para no afectar produccion. |
+| QA-E2E-01 | HTTP E2E | Ejecutar suite QA completa. | Ejecutar `npm run test:e2e:qa` o flujo migracion + seed + `npm run test:e2e`. | 8 suites HTTP reales ejecutadas sin skip por DB. | Bloqueado | `docs/evidencias/backend_http_e2e.md` | Pendiente DB QA real. |
+| MET-01 | Calidad | Revisar metricas de calidad. | Actualizar `docs/12_metricas_calidad.md` despues de tests/builds. | Suites, tests, builds, bloqueos y defectos reflejan evidencia real. | Pendiente | `docs/12_metricas_calidad.md` | Actualizacion requerida por ciclo. |
+| MON-01 | Monitoreo | Validar logs basicos post-deploy. | Revisar logs backend/frontend, Prisma, Python e intentos de login. | Errores criticos visibles y trazables. | Pendiente | `docs/evidencias/` | Monitoreo productivo no implementado. |
+| POST-01 | Post-deploy | Ejecutar checklist funcional post-deploy. | Validar health backend, frontend/API, auth, catalogo, checkout, pagos, builder, auditoria e IA. | Stack QA/staging funcional con evidencia. | Pendiente | `docs/evidencias/` | Requisito previo para staging controlado completo. |
+
 ## Decision operacional
 
 | Condicion | Decision |

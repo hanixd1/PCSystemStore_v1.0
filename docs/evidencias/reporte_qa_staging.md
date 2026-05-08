@@ -44,7 +44,7 @@ QA Lead / Senior Tech Lead.
 
 | Grupo | Resultado |
 |---|---|
-| Pruebas backend | 11 suites aprobadas, 37 pruebas aprobadas. |
+| Pruebas backend | Ultima ejecucion local: 12 suites aprobadas, 45 tests aprobados. |
 | Build backend | Aprobado. |
 | Typecheck backend | Aprobado. |
 | Build frontend | Aprobado. |
@@ -98,12 +98,24 @@ Fallo corregido durante la ejecucion:
 
 | Comando | Ubicacion | Resultado |
 |---|---|---|
-| `npm test -- --runInBand` | `backend` | Aprobado: 11 suites, 37 tests. |
+| `npm test -- --runInBand` | `backend` | Aprobado: 12 suites, 45 tests. |
 | `npm run test:e2e` | `backend` | Ejecutado: 1 suite legacy aprobada, 8 suites HTTP reales omitidas por falta de `DATABASE_URL_TEST`. |
 | `npm run build` | `backend` | Aprobado. |
 | `npx tsc --noEmit` | `backend` | Aprobado. |
 | `pnpm run build` | `frontend` | Aprobado. |
 | `npx tsc --noEmit` | `frontend` | Aprobado. |
+
+## 11.1 Validacion, automatizacion y despliegue documentado
+
+| Elemento | Estado | Evidencia | Observacion |
+|---|---|---|---|
+| Estrategia de pruebas de software | Generada | `docs/10_estrategia_pruebas_software.md` | Alineada con ISO/IEC 25010; evidencia parcial. |
+| Automatizacion de pruebas | Generada | `docs/11_automatizacion_pruebas.md` | HTTP E2E preparado, bloqueado por `DATABASE_URL_TEST`. |
+| Metricas de calidad | Generada | `docs/12_metricas_calidad.md` | Requiere actualizacion por ciclo de ejecucion. |
+| Implementacion y monitoreo | Generada | `docs/13_implementacion_monitoreo.md` | Monitoreo productivo pendiente. |
+| Docker Compose config | Reportado OK | `docs/09_dockerizacion_despliegue.md` | `docker compose build/up` no ejecutado todavia. |
+| QA/staging | Preparado parcialmente | `docs/qa_staging_checklist.md` | Depende de DB QA real para HTTP E2E completo. |
+| Produccion | No recomendado | `docs/08_reporte_final_revision_tecnica.md` | Faltan E2E, seguridad, concurrencia y monitoreo. |
 
 ## 12. Fase 2 - Pruebas HTTP E2E Backend
 

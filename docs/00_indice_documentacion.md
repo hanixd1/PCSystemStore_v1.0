@@ -22,6 +22,11 @@ Esta carpeta consolida documentos de soporte tecnico, academico y de calidad par
 | 06_auditoria_codigo.md | Registrar revision tecnica del codigo fuente, hallazgos, deuda, duplicacion y riesgos. | Generado con evidencia de inspeccion local |
 | 07_deuda_tecnica_refactorizacion.md | Proponer plan controlado de refactorizacion por prioridad y fases. | Generado |
 | 08_reporte_final_revision_tecnica.md | Consolidar estado tecnico, riesgos, checklist y recomendacion de Tech Lead. | Generado |
+| 09_dockerizacion_despliegue.md | Documentar Dockerfiles, Docker Compose, Neon externo/PostgreSQL local opcional y variables de despliegue. | Generado; build/up pendiente |
+| 10_estrategia_pruebas_software.md | Definir la estrategia de pruebas incremental, basada en riesgos y alineada con ISO/IEC 25010. | Generado; evidencia parcial |
+| 11_automatizacion_pruebas.md | Documentar herramientas, scripts, entorno test/QA, DATABASE_URL_TEST y pipeline sugerido. | Generado; HTTP E2E bloqueado por DB QA |
+| 12_metricas_calidad.md | Registrar metricas actuales, defectos, criterios ISO/IEC 25010 y evaluacion por estandares. | Generado; metricas en actualizacion continua |
+| 13_implementacion_monitoreo.md | Definir preparacion de entorno, fases de implementacion, verificacion post-deploy y monitoreo recomendado. | Generado; monitoreo productivo pendiente |
 
 ## Recomendaciones de uso
 
@@ -29,7 +34,9 @@ Esta carpeta consolida documentos de soporte tecnico, academico y de calidad par
 |---|---|
 | Sustentacion academica | Usar `01_estado_del_arte.md`, `02_planificacion_proyecto.md` y `05_trazabilidad_requisitos_pruebas.md` como base teorica y metodologica. |
 | Revision tecnica | Usar `06_auditoria_codigo.md`, `07_deuda_tecnica_refactorizacion.md` y `08_reporte_final_revision_tecnica.md`. |
-| QA funcional | Usar `03_plan_de_pruebas.md` y `04_matriz_pruebas.md` como checklist inicial de ejecucion. |
+| QA funcional | Usar `03_plan_de_pruebas.md`, `04_matriz_pruebas.md`, `10_estrategia_pruebas_software.md` y `11_automatizacion_pruebas.md` como base de ejecucion. |
+| Despliegue QA/staging | Usar `09_dockerizacion_despliegue.md`, `13_implementacion_monitoreo.md` y `docs/qa_staging_checklist.md`. |
+| Metricas y calidad | Usar `12_metricas_calidad.md` para registrar evidencia, defectos y alineacion con ISO/IEC 25010. |
 | Evidencias | Adjuntar capturas, logs, reportes Playwright, Postman, Jest, pytest y resultados de build en una carpeta futura `docs/evidencias`. |
 
 ## Estado general
