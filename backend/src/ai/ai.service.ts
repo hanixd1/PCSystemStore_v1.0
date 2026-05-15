@@ -887,6 +887,21 @@ export class AiService {
     );
   }
 
+  private roundUpCommercialPsu(watts: number) {
+    const commercialWatts = [450, 500, 550, 600, 650, 700, 750, 850, 1000, 1200, 1500];
+    return commercialWatts.find((value) => value >= watts) ?? Math.ceil(watts / 100) * 100;
+  }
+
+  private calculateRequiredPsuWattage(cpu: any, gpu: any) {
+    const cpuTdp = Number(cpu?.cpuSpecs?.tdp ?? 65);
+    const gpuPowerWatts = Number(gpu?.gpuSpecs?.gpuPowerWatts ?? gpu?.gpuSpecs?.tdp ?? 0);
+    const gpuRecommendedPsuWatts = Number(gpu?.gpuSpecs?.recommendedPsuWatts ?? 0);
+
+    // gpuPowerWatts estimates real system draw; recommendedPsuWatts is a manufacturer floor.
+    const calculatedWithHeadroom = (cpuTdp + gpuPowerWatts + 180) * 1.25;
+    return Math.max(450, this.roundUpCommercialPsu(Math.max(calculatedWithHeadroom, gpuRecommendedPsuWatts)));
+  }
+
   private selectBestCase(
     products: any[],
     motherboard: any,
@@ -1037,12 +1052,7 @@ export class AiService {
     const storage = this.selectBestStorage(byCategory.STORAGE, profile);
     const gpu = this.selectBestGpu(byCategory.GPU, profile);
 
-    const cpuTdp = cpu?.cpuSpecs?.tdp ?? 65;
-    const gpuTdp = gpu?.gpuSpecs?.tdp ?? 0;
-    const requiredWattage = Math.max(
-      450,
-      Math.round((cpuTdp + gpuTdp + 180) * 1.25),
-    );
+    const requiredWattage = this.calculateRequiredPsuWattage(cpu, gpu);
     const psu = this.selectBestPsu(byCategory.PSU, requiredWattage, profile);
     const caseProduct = this.selectBestCase(
       byCategory.CASE,

@@ -9,6 +9,7 @@ import {
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
 import { getEffectivePrice } from '@/lib/pricing';
+import { calculateRecommendedPsuWatts } from '@/lib/products/psuRecommendation';
 
 // Definición de los pasos del configurador
 const STEPS = [
@@ -56,12 +57,18 @@ export default function PCBuilderPage() {
     return type.includes('M.2') || type.includes('NVME');
   };
 
-  const getRequiredPsuWatts = () => {
-    const cpuTdp = Number(build.cpu?.cpuSpecs?.tdp || 0);
-    const gpuTdp = Number(build.gpu?.gpuSpecs?.tdp || 0);
-    const baseSystemWatts = 75;
-    return Math.ceil((cpuTdp + gpuTdp + baseSystemWatts) * 1.2);
+  const normalizeCoolerType = (product: any) => {
+    const value = String(product.coolerSpecs?.type || '').toLowerCase();
+    if (value === 'aio' || value.includes('liqu') || value.includes('líqu')) return 'Líquida';
+    return 'Torre';
   };
+
+  const getCaseMaxCoolerHeight = (product: any) => {
+    const specs = product.caseSpecs || {};
+    return Number(specs.maxCoolerHeightMm ?? specs.coolerHeightMm ?? specs.alturaMaximaCoolerMm ?? 0);
+  };
+
+  const getRequiredPsuWatts = () => calculateRecommendedPsuWatts(build);
 
   const getCompatibilityErrors = () => {
     const errors: string[] = [];
@@ -80,6 +87,25 @@ export default function PCBuilderPage() {
 
       if (Number(build.cooler.coolerSpecs?.tdpCapacity || 0) < cpuTdp) {
         errors.push('El cooler seleccionado no soporta el TDP del procesador.');
+      }
+    }
+
+    if (build.cooler && build.case) {
+      const coolerType = normalizeCoolerType(build.cooler);
+      if (coolerType === 'Torre') {
+        const coolerHeight = Number(build.cooler.coolerSpecs?.coolerHeight || 0);
+        const caseHeight = getCaseMaxCoolerHeight(build.case);
+        if (coolerHeight > 0 && caseHeight > 0 && coolerHeight > caseHeight) {
+          errors.push(`Este gabinete no soporta la altura del cooler seleccionado. El cooler requiere ${coolerHeight} mm y el gabinete soporta hasta ${caseHeight} mm.`);
+        }
+      }
+
+      if (coolerType === 'Líquida') {
+        const radiatorSize = Number(build.cooler.coolerSpecs?.radiatorSize || 0);
+        const caseRadiator = Number(build.case.caseSpecs?.radiatorSupportMm || 0);
+        if (radiatorSize > 0 && caseRadiator > 0 && radiatorSize > caseRadiator) {
+          errors.push(`Este gabinete no soporta el radiador seleccionado. El cooler requiere radiador de ${radiatorSize} mm y el gabinete soporta hasta ${caseRadiator} mm.`);
+        }
       }
     }
 
@@ -169,6 +195,21 @@ export default function PCBuilderPage() {
     if (stepDef.id === 'psu') {
       const requiredWatts = getRequiredPsuWatts();
       filtered = filtered.filter(p => Number(p.psuSpecs?.wattage || 0) >= requiredWatts);
+    }
+
+    if (stepDef.id === 'case' && build.cooler) {
+      const coolerType = normalizeCoolerType(build.cooler);
+      filtered = filtered.filter(p => {
+        if (coolerType === 'Torre') {
+          const coolerHeight = Number(build.cooler.coolerSpecs?.coolerHeight || 0);
+          const caseHeight = getCaseMaxCoolerHeight(p);
+          return coolerHeight <= 0 || caseHeight <= 0 || coolerHeight <= caseHeight;
+        }
+
+        const radiatorSize = Number(build.cooler.coolerSpecs?.radiatorSize || 0);
+        const caseRadiator = Number(p.caseSpecs?.radiatorSupportMm || 0);
+        return radiatorSize <= 0 || caseRadiator <= 0 || radiatorSize <= caseRadiator;
+      });
     }
 
     return filtered;

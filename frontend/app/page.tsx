@@ -144,7 +144,9 @@ export default function Home() {
   const cpuProducts = products.filter(p => p.category === 'CPU').slice(0, 4);
   const moboProducts = products.filter(p => p.category === 'MOTHERBOARD').slice(0, 4);
   const gpuProducts = products.filter(p => p.category === 'GPU').slice(0, 4);
-  const periProducts = products.filter(p => ['MOUSE', 'KEYBOARD', 'HEADSET', 'MONITOR', 'PERIPHERAL'].includes(p.category)).slice(0, 4);
+  const periProducts = products
+    .filter(p => ['MOUSE', 'KEYBOARD', 'HEADSET', 'MONITOR', 'MOUSEPAD', 'WEBCAM', 'CAPTURE_CARD', 'CABLE_HUB', 'PERIPHERAL'].includes(p.category))
+    .slice(0, 4);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -196,7 +198,7 @@ export default function Home() {
           <>
             <ProductSection title="Procesadores" products={cpuProducts} link="/categoria/cpu" />
             <ProductSection title="Placas Base Recomendadas" products={moboProducts} link="/categoria/mobo" />
-            <ProductSection title="Gráficas Next-Gen" products={gpuProducts} link="/categoria/graficas" />
+            <ProductSection title="Tarjetas Gráficas" products={gpuProducts} link="/categoria/graficas" />
             <ProductSection title="Periféricos" products={periProducts} link="/categoria/perifericos" />
           </>
         )}

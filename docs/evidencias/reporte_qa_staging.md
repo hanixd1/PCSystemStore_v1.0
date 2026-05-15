@@ -44,7 +44,7 @@ QA Lead / Senior Tech Lead.
 
 | Grupo | Resultado |
 |---|---|
-| Pruebas backend | Ultima ejecucion local: 12 suites aprobadas, 45 tests aprobados. |
+| Pruebas backend | Ultima ejecucion local: 12 suites aprobadas, 52 tests aprobados. |
 | Build backend | Aprobado. |
 | Typecheck backend | Aprobado. |
 | Build frontend | Aprobado. |
@@ -59,6 +59,7 @@ Fallo corregido durante la ejecucion:
 | Caso | Causa | Correccion |
 |---|---|---|
 | `src/app.controller.spec.ts` | El test no proveia `PrismaService`, requerido por `AppService`. | Se agrego mock de `PrismaService` con `getConnectionState` y `ping`. |
+| `frontend/app/categoria/[...slug]/page.tsx` | Dependencias inestables en `useEffect` y slugs no mapeados provocaban loop `Maximum update depth exceeded` y listados incorrectos. | Se memoizaron slugs/filtros/query, se evita `setDraftFilters` si no cambia, se agrego abort de fetch y se mapearon slugs de audio/perifericos. |
 
 ## 8. Casos pendientes
 
@@ -98,7 +99,7 @@ Fallo corregido durante la ejecucion:
 
 | Comando | Ubicacion | Resultado |
 |---|---|---|
-| `npm test -- --runInBand` | `backend` | Aprobado: 12 suites, 45 tests. |
+| `npm test -- --runInBand` | `backend` | Aprobado: 12 suites, 52 tests. |
 | `npm run test:e2e` | `backend` | Ejecutado: 1 suite legacy aprobada, 8 suites HTTP reales omitidas por falta de `DATABASE_URL_TEST`. |
 | `npm run build` | `backend` | Aprobado. |
 | `npx tsc --noEmit` | `backend` | Aprobado. |
@@ -116,6 +117,20 @@ Fallo corregido durante la ejecucion:
 | Docker Compose config | Reportado OK | `docs/09_dockerizacion_despliegue.md` | `docker compose build/up` no ejecutado todavia. |
 | QA/staging | Preparado parcialmente | `docs/qa_staging_checklist.md` | Depende de DB QA real para HTTP E2E completo. |
 | Produccion | No recomendado | `docs/08_reporte_final_revision_tecnica.md` | Faltan E2E, seguridad, concurrencia y monitoreo. |
+
+## 11.2 Limpieza controlada de catalogo
+
+| Elemento | Estado | Resultado | Observacion |
+|---|---|---|---|
+| Migracion `CpuSpecs.baseTdpWatts` | Preparada | `migration.sql` idempotente con `ADD COLUMN IF NOT EXISTS`. | No se pudo aplicar en Neon desde este entorno por `P1001`. |
+| `npx prisma migrate deploy` | Fallido ambiental | `Schema engine error` sin detalle adicional. | No se uso reset. |
+| `npx prisma migrate status` | Fallido ambiental | `Schema engine error` sin detalle adicional. | No se uso reset. |
+| `npx prisma db execute` | Fallido ambiental | `P1001`: no se alcanza `ep-morning-tooth-aiznn3f2-pooler.c-4.us-east-1.aws.neon.tech:5432`. | Ejecutar cuando Neon/DB QA sea accesible. |
+| Script limpieza productos | Creado | `backend/prisma/clean-products.ts`. | Requiere `ALLOW_CLEAN_PRODUCTS=true`; aborta en produccion. |
+| Seed limpio productos | Creado | `backend/prisma/seed-products-clean.ts`. | Requiere `ALLOW_SEED_PRODUCTS_CLEAN=true`; aborta en produccion. |
+| Usuarios/admin/empleados | Conservados | No forman parte del script de limpieza. | Solo se limpian productos y dependencias de catalogo. |
+| Branding/banners | Conservados | No forman parte del script de limpieza. | No se borran por defecto. |
+| Auditoria | Conservada por defecto | Solo se limpia si `CLEAN_PRODUCT_AUDIT=true`. | No elimina auditoria admin/security por defecto. |
 
 ## 12. Fase 2 - Pruebas HTTP E2E Backend
 

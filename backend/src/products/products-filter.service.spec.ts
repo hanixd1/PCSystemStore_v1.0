@@ -64,6 +64,102 @@ describe('ProductsService filtros de catalogo', () => {
     );
   });
 
+  it('filtra motherboard por marca ASUS sin devolver otras categorias', async () => {
+    const { service, prisma } = createService();
+
+    await service.findAll({ category: 'MOTHERBOARD', brand: 'ASUS', page: '1' });
+
+    expect(prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          category: 'MOTHERBOARD',
+          AND: expect.arrayContaining([{ motherboardSpecs: { is: { brand: 'ASUS' } } }]),
+        }),
+      }),
+    );
+  });
+
+  it('filtra motherboard por marca MSI sin devolver otras categorias', async () => {
+    const { service, prisma } = createService();
+
+    await service.findAll({ category: 'MOTHERBOARD', brand: 'MSI', page: '1' });
+
+    expect(prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          category: 'MOTHERBOARD',
+          AND: expect.arrayContaining([{ motherboardSpecs: { is: { brand: 'MSI' } } }]),
+        }),
+      }),
+    );
+  });
+
+  it('filtra GPU por marca ensambladora sin devolver otras categorias', async () => {
+    const { service, prisma } = createService();
+
+    await service.findAll({ category: 'GPU', brand: 'Gigabyte', page: '1' });
+
+    expect(prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          category: 'GPU',
+          AND: expect.arrayContaining([{ gpuSpecs: { is: { brand: 'Gigabyte' } } }]),
+        }),
+      }),
+    );
+  });
+
+  it('filtra GPU por chipset y VRAM sin mezclar otras categorias', async () => {
+    const { service, prisma } = createService();
+
+    await service.findAll({ category: 'GPU', gpuChipset: 'NVIDIA', vram: '8', page: '1' });
+
+    expect(prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          category: 'GPU',
+          AND: expect.arrayContaining([{ gpuSpecs: { is: { chipset: expect.objectContaining({ contains: 'NVIDIA' }), vram: 8 } } }]),
+        }),
+      }),
+    );
+  });
+
+  it('filtra microfonos sin caer en motherboards u otras categorias', async () => {
+    const { service, prisma } = createService();
+
+    await service.findAll({ category: 'MICROPHONE', page: '1', limit: '24' });
+
+    expect(prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { category: 'MICROPHONE' },
+      }),
+    );
+  });
+
+  it('filtra parlantes sin caer en motherboards u otras categorias', async () => {
+    const { service, prisma } = createService();
+
+    await service.findAll({ category: 'SPEAKER', page: '1', limit: '24' });
+
+    expect(prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { category: 'SPEAKER' },
+      }),
+    );
+  });
+
+  it('un productType desconocido no devuelve catalogo completo', async () => {
+    const { service, prisma } = createService();
+
+    await service.findAll({ productType: 'UNKNOWN_TYPE', page: '1', limit: '24' });
+
+    expect(prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { category: 'UNKNOWN_TYPE' },
+      }),
+    );
+  });
+
   it('filtra rango de precio, stock y ofertas', async () => {
     const { service, prisma } = createService();
 

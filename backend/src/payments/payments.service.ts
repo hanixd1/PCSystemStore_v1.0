@@ -245,6 +245,13 @@ export class PaymentsService {
       throw new NotFoundException('Pago no encontrado');
     }
 
+    if (payment.status === PaymentStatus.APPROVED) {
+      return this.prisma.payment.findUnique({
+        where: { id },
+        include: this.paymentInclude,
+      });
+    }
+
     if (payment.status !== PaymentStatus.PENDING_REVIEW) {
       throw new BadRequestException('El pago no esta pendiente de revision');
     }
@@ -292,6 +299,13 @@ export class PaymentsService {
     const payment = await this.prisma.payment.findUnique({ where: { id } });
     if (!payment) {
       throw new NotFoundException('Pago no encontrado');
+    }
+
+    if (payment.status === PaymentStatus.REJECTED) {
+      return this.prisma.payment.findUnique({
+        where: { id },
+        include: this.paymentInclude,
+      });
     }
 
     if (payment.status !== PaymentStatus.PENDING_REVIEW) {

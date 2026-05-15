@@ -195,7 +195,7 @@ export async function seedQaDatabase(prisma: PrismaClient) {
       stock: 0,
       category: 'GPU',
       images: ['https://example.com/qa-stock-zero.png'],
-      gpuSpecs: { create: { chipset: 'QA', vram: 8, length: 250, tdp: 180, fans: 2 } },
+      gpuSpecs: { create: { brand: 'Gigabyte', chipset: 'QA', vram: 8, length: 250, tdp: 180, gpuPowerWatts: 180, recommendedPsuWatts: 550, fans: 2 } },
     }),
     createProduct({
       sku: qaSkus.stockLow,
@@ -206,7 +206,7 @@ export async function seedQaDatabase(prisma: PrismaClient) {
       stock: 1,
       category: 'GPU',
       images: ['https://example.com/qa-stock-low.png'],
-      gpuSpecs: { create: { chipset: 'QA', vram: 8, length: 250, tdp: 180, fans: 2 } },
+      gpuSpecs: { create: { brand: 'ASUS', chipset: 'QA', vram: 8, length: 250, tdp: 180, gpuPowerWatts: 180, recommendedPsuWatts: 550, fans: 2 } },
     }),
     createProduct({
       sku: qaSkus.saleActive,
@@ -219,7 +219,7 @@ export async function seedQaDatabase(prisma: PrismaClient) {
       stock: 5,
       category: 'GPU',
       images: ['https://example.com/qa-sale.png'],
-      gpuSpecs: { create: { chipset: 'QA', vram: 12, length: 260, tdp: 200, fans: 2 } },
+      gpuSpecs: { create: { brand: 'MSI', chipset: 'QA', vram: 12, length: 260, tdp: 200, gpuPowerWatts: 200, recommendedPsuWatts: 600, fans: 2 } },
     }),
     createProduct({
       sku: qaSkus.noSale,
@@ -232,7 +232,7 @@ export async function seedQaDatabase(prisma: PrismaClient) {
       stock: 5,
       category: 'GPU',
       images: ['https://example.com/qa-nosale.png'],
-      gpuSpecs: { create: { chipset: 'QA', vram: 8, length: 240, tdp: 160, fans: 2 } },
+      gpuSpecs: { create: { brand: 'PNY', chipset: 'QA', vram: 8, length: 240, tdp: 160, gpuPowerWatts: 160, recommendedPsuWatts: 500, fans: 2 } },
     }),
   ]);
 

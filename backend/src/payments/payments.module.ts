@@ -8,9 +8,10 @@ import {
   SimulatedPaymentProvider,
 } from './payment-provider.service';
 import { PaymentsService } from './payments.service';
+import { IdempotencyModule } from '../idempotency/idempotency.module';
 
 @Module({
-  imports: [PrismaModule, AuditModule],
+  imports: [PrismaModule, AuditModule, IdempotencyModule],
   controllers: [PaymentsController],
   providers: [
     PaymentsService,

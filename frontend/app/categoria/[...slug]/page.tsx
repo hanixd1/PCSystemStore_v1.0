@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -42,12 +42,27 @@ const DICTIONARY: Record<string, string> = {
   chairs: 'Sillas Gaming',
   mousepad: 'Mousepad',
   'mesa-gamer': 'Mesa Gamer',
+  audifonos: 'Audifonos',
+  speakers: 'Parlantes',
+  microphones: 'Microfonos',
+  webcams: 'Webcams',
+  capturadoras: 'Capturadoras',
+  cables: 'Cables y Hub',
+  'cables-y-hub': 'Cables y Hub',
+  'laptop-accessorios': 'Accesorios para portatiles',
+  'bases-refrigeradoras': 'Bases refrigeradoras',
+  mochilas: 'Mochilas',
+  proteccion: 'Proteccion electrica',
+  ups: 'UPS',
+  supresores: 'Supresores de picos',
+  estabilizadores: 'Estabilizadores',
 };
 
 const CATEGORY_GROUPS: Record<string, string[]> = {
   componentes: ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'PSU', 'CASE', 'COOLER', 'STORAGE'],
-  ordenadores: ['LAPTOP', 'PC_DESKTOP', 'SOFTWARE'],
-  perifericos: ['MONITOR', 'KEYBOARD', 'MOUSE', 'MOUSEPAD', 'CHAIR', 'GAMING_DESK'],
+  ordenadores: ['LAPTOP', 'PC_DESKTOP', 'SOFTWARE', 'LAPTOP_COOLING_BASE', 'BACKPACK'],
+  'laptop-accessorios': ['LAPTOP_COOLING_BASE', 'BACKPACK'],
+  perifericos: ['MONITOR', 'KEYBOARD', 'MOUSE', 'MOUSEPAD', 'CHAIR', 'GAMING_DESK', 'WEBCAM', 'CAPTURE_CARD', 'CABLE_HUB', 'PROTECTION'],
   audio: ['HEADSET', 'SPEAKER', 'MICROPHONE'],
 };
 
@@ -102,22 +117,33 @@ const resolveCategory = (lastSlug: string, fullSlug: string) => {
 
 const getFilterValue = (params: URLSearchParams, key: string, fallback = '') => params.get(key) || fallback;
 
+const areFiltersEqual = (a: Record<string, string>, b: Record<string, string>) => {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every((key) => a[key] === b[key]);
+};
+
 export default function CategoryPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addItem } = useCartStore();
 
-  const rawSlugArray = Array.isArray(params?.slug) ? params.slug : [];
-  const slugArray = rawSlugArray.map(normalizeSearchText).filter(Boolean);
-  const fullSlug = slugArray.map((slug) => slug.toLowerCase()).join('/');
-  const lastSlug = slugArray[slugArray.length - 1]?.toLowerCase() || '';
-  const selectedCategory = resolveCategory(lastSlug, fullSlug);
+  const slugKey = useMemo(() => {
+    const rawSlugArray = Array.isArray(params?.slug) ? params.slug : [];
+    return rawSlugArray.join('/');
+  }, [params?.slug]);
+  const slugArray = useMemo(() => slugKey.split('/').map(normalizeSearchText).filter(Boolean), [slugKey]);
+  const fullSlug = useMemo(() => slugArray.map((slug) => slug.toLowerCase()).join('/'), [slugArray]);
+  const lastSlug = useMemo(() => slugArray[slugArray.length - 1]?.toLowerCase() || '', [slugArray]);
+  const selectedCategory = useMemo(() => resolveCategory(lastSlug, fullSlug), [fullSlug, lastSlug]);
+  const isKnownRoute = Boolean(selectedCategory || CATEGORY_GROUPS[lastSlug]);
   const routeFilters = useMemo(() => getInitialRouteFilters(fullSlug, lastSlug), [fullSlug, lastSlug]);
-  const pageTitle =
-    DICTIONARY[lastSlug] ||
-    DICTIONARY[fullSlug] ||
-    formatDisplayText(slugArray[slugArray.length - 1] || '');
+  const pageTitle = useMemo(
+    () => DICTIONARY[lastSlug] || DICTIONARY[fullSlug] || formatDisplayText(slugArray[slugArray.length - 1] || ''),
+    [fullSlug, lastSlug, slugArray],
+  );
 
   const [products, setProducts] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -127,7 +153,15 @@ export default function CategoryPage() {
   const [draftFilters, setDraftFilters] = useState<Record<string, string>>({});
 
   const searchParamString = searchParams.toString();
-  const filterConfig = selectedCategory ? PRODUCT_FILTERS_BY_CATEGORY[selectedCategory] || [] : [];
+  const filterConfig = useMemo(() => (selectedCategory ? PRODUCT_FILTERS_BY_CATEGORY[selectedCategory] || [] : []), [selectedCategory]);
+  const priceFilters = useMemo(
+    () => GENERAL_PRODUCT_FILTERS.filter((filter) => filter.key === 'minPrice' || filter.key === 'maxPrice'),
+    [],
+  );
+  const nonPriceGeneralFilters = useMemo(
+    () => GENERAL_PRODUCT_FILTERS.filter((filter) => filter.key !== 'minPrice' && filter.key !== 'maxPrice'),
+    [],
+  );
 
   useEffect(() => {
     const paramsSnapshot = new URLSearchParams(searchParamString);
@@ -144,11 +178,11 @@ export default function CategoryPage() {
       nextDraft[filter.key] = getFilterValue(paramsSnapshot, filter.key, routeFilters[filter.key] || '');
     });
 
-    setDraftFilters(nextDraft);
+    setDraftFilters((previous) => (areFiltersEqual(previous, nextDraft) ? previous : nextDraft));
   }, [filterConfig, routeFilters, searchParamString]);
 
-  useEffect(() => {
-    if (!fullSlug) return;
+  const productsQueryString = useMemo(() => {
+    if (!fullSlug || !isKnownRoute) return '';
 
     const query = new URLSearchParams(searchParamString);
     query.set('page', query.get('page') || '1');
@@ -164,34 +198,81 @@ export default function CategoryPage() {
       if (!query.has(key) && value) query.set(key, value);
     });
 
+    return query.toString();
+  }, [fullSlug, isKnownRoute, lastSlug, routeFilters, searchParamString, selectedCategory]);
+
+  useEffect(() => {
+    if (!fullSlug || !productsQueryString) {
+      setProducts([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
     setLoading(true);
     api
-      .get(`/products?${query.toString()}`)
+      .get(`/products?${productsQueryString}`, { signal: controller.signal })
       .then((res) => {
+        if (controller.signal.aborted) return;
         const data: ProductsResponse | any[] = res.data;
         const items = Array.isArray(data) ? data : data.items || [];
         setProducts(items);
         setTotal(Array.isArray(data) ? items.length : data.total || items.length);
       })
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, [fullSlug, lastSlug, routeFilters, searchParamString, selectedCategory]);
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        console.error(err);
+        setProducts([]);
+        setTotal(0);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
 
-  useEffect(() => {
+    return () => controller.abort();
+  }, [fullSlug, productsQueryString]);
+
+  const filterOptionsQueryString = useMemo(() => {
+    if (!isKnownRoute) return '';
+
     const query = new URLSearchParams();
     if (selectedCategory) query.set('category', selectedCategory);
     if (!selectedCategory && CATEGORY_GROUPS[lastSlug]) query.set('categories', CATEGORY_GROUPS[lastSlug].join(','));
+    return query.toString();
+  }, [isKnownRoute, lastSlug, selectedCategory]);
+
+  useEffect(() => {
+    if (!filterOptionsQueryString) {
+      setFilterOptions({});
+      return;
+    }
+
+    const controller = new AbortController();
 
     api
-      .get(`/products/filter-options?${query.toString()}`)
-      .then((res) => setFilterOptions(res.data || {}))
-      .catch(() => setFilterOptions({}));
-  }, [lastSlug, selectedCategory]);
+      .get(`/products/filter-options?${filterOptionsQueryString}`, { signal: controller.signal })
+      .then((res) => {
+        if (!controller.signal.aborted) setFilterOptions(res.data || {});
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFilterOptions({});
+      });
+
+    return () => controller.abort();
+  }, [filterOptionsQueryString]);
 
   const updateDraft = (key: string, value: string) => {
     setDraftFilters((current) => {
       const next = { ...current, [key]: value };
       if (key === 'cpuBrand') {
+        const validSockets = value === 'AMD' ? ['AM4', 'AM5'] : value === 'Intel' ? ['LGA 1200', 'LGA 1700', 'LGA 1851'] : [];
+        if (validSockets.length && next.socket && !validSockets.includes(next.socket)) {
+          next.socket = '';
+        }
+      }
+      if (key === 'platform') {
         const validSockets = value === 'AMD' ? ['AM4', 'AM5'] : value === 'Intel' ? ['LGA 1200', 'LGA 1700', 'LGA 1851'] : [];
         if (validSockets.length && next.socket && !validSockets.includes(next.socket)) {
           next.socket = '';
@@ -243,6 +324,14 @@ export default function CategoryPage() {
       }
     }
 
+    if (filter.key === 'socket' && selectedCategory === 'MOTHERBOARD') {
+      const selectedPlatform = draftFilters.platform;
+      if (selectedPlatform === 'AMD') options = options?.filter((option) => !option.value || ['AM4', 'AM5'].includes(option.value));
+      if (selectedPlatform === 'Intel') {
+        options = options?.filter((option) => !option.value || ['LGA 1200', 'LGA 1700', 'LGA 1851'].includes(option.value));
+      }
+    }
+
     if (filter.dependsOn && !filter.dependsOn.values.includes(draftFilters[filter.dependsOn.key])) {
       return null;
     }
@@ -266,12 +355,67 @@ export default function CategoryPage() {
           <input
             type={filter.type === 'number' ? 'number' : 'text'}
             min={filter.type === 'number' ? 0 : undefined}
+            placeholder={
+              filter.key === 'minPrice'
+                ? 'S/. Min'
+                : filter.key === 'maxPrice'
+                  ? 'S/. Max'
+                  : undefined
+            }
             value={draftFilters[filter.key] || ''}
             onChange={(event) => updateDraft(filter.key, event.target.value)}
             className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-brand-cyan"
           />
         )}
       </label>
+    );
+  };
+
+  const renderPriceFilters = () => (
+    <div className="block">
+      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-500">Precio</span>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {priceFilters.map((filter) => (
+          <input
+            key={filter.key}
+            type="number"
+            min={0}
+            placeholder={filter.key === 'minPrice' ? 'S/. Min' : 'S/. Max'}
+            value={draftFilters[filter.key] || ''}
+            onChange={(event) => updateDraft(filter.key, event.target.value)}
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-brand-cyan"
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderConfiguredFilters = () => {
+    if (selectedCategory === 'PC_DESKTOP') {
+      return (
+        <>
+          {renderPriceFilters()}
+          {filterConfig.map(renderFilter)}
+        </>
+      );
+    }
+
+    if (selectedCategory === 'MOTHERBOARD' || selectedCategory === 'GPU' || selectedCategory === 'RAM' || selectedCategory === 'STORAGE' || selectedCategory === 'PSU' || selectedCategory === 'CASE' || selectedCategory === 'COOLER' || selectedCategory === 'LAPTOP' || selectedCategory === 'MONITOR' || selectedCategory === 'KEYBOARD' || selectedCategory === 'MOUSE' || selectedCategory === 'MOUSEPAD' || selectedCategory === 'WEBCAM' || selectedCategory === 'CAPTURE_CARD' || selectedCategory === 'CABLE_HUB' || selectedCategory === 'CHAIR' || selectedCategory === 'GAMING_DESK' || selectedCategory === 'LAPTOP_COOLING_BASE' || selectedCategory === 'BACKPACK' || selectedCategory === 'HEADSET' || selectedCategory === 'MICROPHONE' || selectedCategory === 'SPEAKER') {
+      const [brandFilter, ...remainingFilters] = filterConfig;
+      return (
+        <>
+          {brandFilter ? renderFilter(brandFilter) : null}
+          {renderPriceFilters()}
+          {remainingFilters.map(renderFilter)}
+        </>
+      );
+    }
+
+    return (
+      <>
+        {filterConfig.map(renderFilter)}
+        {renderPriceFilters()}
+      </>
     );
   };
 
@@ -284,13 +428,10 @@ export default function CategoryPage() {
         </button>
       </div>
 
-      <div className="space-y-4 border-t border-gray-100 pt-4">{GENERAL_PRODUCT_FILTERS.map(renderFilter)}</div>
-      {filterConfig.length > 0 ? (
-        <div className="space-y-4 border-t border-gray-100 pt-4">
-          <p className="text-xs font-black uppercase tracking-widest text-brand-cyan">Especificaciones</p>
-          {filterConfig.map(renderFilter)}
-        </div>
-      ) : null}
+      <div className="space-y-4 border-t border-gray-100 pt-4">
+        {renderConfiguredFilters()}
+        {nonPriceGeneralFilters.map(renderFilter)}
+      </div>
 
       <div className="flex gap-2 border-t border-gray-100 pt-4">
         <button type="submit" className="flex-1 rounded-xl bg-gray-900 px-4 py-3 text-sm font-black text-white hover:bg-brand-cyan hover:text-black">
@@ -420,7 +561,7 @@ export default function CategoryPage() {
                         <button
                           onClick={() => {
                             addItem(product);
-                            alert('Añadido al carrito');
+                            alert('Anadido al carrito');
                           }}
                           disabled={product.stock <= 0}
                           className="bg-gray-900 text-white p-2.5 rounded-xl hover:bg-brand-cyan hover:text-black transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed group-active:scale-95"
@@ -439,3 +580,5 @@ export default function CategoryPage() {
     </div>
   );
 }
+
+

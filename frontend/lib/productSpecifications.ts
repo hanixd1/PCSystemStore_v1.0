@@ -42,13 +42,19 @@ const SPEC_RELATION_BY_CATEGORY: Record<string, string> = {
   HEADSET: 'headsetSpecs',
   MICROPHONE: 'microphoneSpecs',
   SPEAKER: 'speakerSpecs',
+  WEBCAM: 'webcamSpecs',
+  CAPTURE_CARD: 'captureCardSpecs',
+  CABLE_HUB: 'cableHubSpecs',
+  LAPTOP_COOLING_BASE: 'laptopCoolingBaseSpecs',
+  BACKPACK: 'backpackSpecs',
 };
 
 const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
   CPU: [
     ['Marca', 'brand'],
     ['Socket', 'socket'],
-    ['TDP', 'tdp', 'W'],
+    ['TDP base', 'baseTdpWatts', 'W'],
+    ['TDP maximo', 'tdp', 'W'],
     ['Nucleos', 'cores'],
     ['Threads', 'threads'],
     ['Frecuencia', 'frequency', 'GHz'],
@@ -56,6 +62,7 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
     ['Incluye cooler', 'includesCooler'],
   ],
   MOTHERBOARD: [
+    ['Marca', 'brand'],
     ['Socket', 'socket'],
     ['Tipo de memoria', 'memoryType'],
     ['Formato', 'formFactor'],
@@ -65,31 +72,37 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
   ],
   RAM: [
     ['Tipo de memoria', 'memoryType'],
-    ['Capacidad', 'capacity', 'GB'],
+    ['Cantidad por módulo', 'capacity', 'GB'],
     ['Frecuencia', 'speed', 'MHz'],
     ['Modulos', 'modules'],
     ['RGB', 'hasRGB'],
   ],
   GPU: [
+    ['Marca ensambladora', 'brand'],
     ['Chipset', 'chipset'],
     ['VRAM', 'vram', 'GB'],
-    ['TDP / Consumo', 'tdp', 'W'],
     ['Longitud', 'length', 'mm'],
+    ['Consumo real', 'gpuPowerWatts', 'W'],
+    ['PSU recomendada', 'recommendedPsuWatts', 'W'],
     ['Ventiladores', 'fans'],
   ],
   PSU: [
+    ['Marca', 'brand'],
     ['Potencia', 'wattage', 'W'],
     ['Certificacion', 'certification'],
     ['Modularidad', 'modular'],
     ['Formato', 'formFactor'],
   ],
   CASE: [
+    ['Marca', 'brand'],
     ['Formato soportado', 'formFactor'],
     ['Largo maximo de GPU', 'maxGpuLength', 'mm'],
     ['Incluye fuente', 'includesPsu'],
+    ['Soporte radiador liquido', 'radiatorSupportMm', 'mm'],
     ['Ventiladores incluidos', 'includedFans'],
   ],
   COOLER: [
+    ['Marca', 'brand'],
     ['Tipo', 'type'],
     ['Sockets compatibles', 'compatibleSockets'],
     ['Socket compatible', 'socketSupport'],
@@ -109,10 +122,11 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
     ['Tamano M.2', 'm2FormFactor'],
   ],
   LAPTOP: [
+    ['Marca', 'brand'],
     ['Procesador', 'processor'],
     ['RAM', 'ram'],
     ['Almacenamiento', 'storage'],
-    ['Pantalla', 'screenSize'],
+    ['Tamaño de pantalla', 'screenSize'],
     ['Frecuencia de pantalla', 'refreshRate', 'Hz'],
     ['Tipo de panel', 'panelType'],
     ['Grafica dedicada', 'hasDedicatedGpu'],
@@ -136,6 +150,7 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
     ['Plataforma', 'platform'],
   ],
   MONITOR: [
+    ['Marca', 'brand'],
     ['Tamano de pantalla', 'screenSize'],
     ['Resolucion', 'resolution'],
     ['Tipo de panel', 'panelType'],
@@ -182,7 +197,9 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
     ['Peso', 'weightKg', 'kg'],
   ],
   HEADSET: [
+    ['Marca', 'brand'],
     ['Conexion', 'connection'],
+    ['Conectividad soportada', 'supportedConnections'],
     ['Driver', 'driverSize', 'mm'],
     ['Impedancia', 'impedance', 'ohm'],
     ['Tipo de microfono', 'micType'],
@@ -190,14 +207,44 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
     ['RGB', 'hasRGB'],
   ],
   MICROPHONE: [
+    ['Marca', 'brand'],
     ['Conexion', 'connection'],
     ['Tipo de microfono', 'micType'],
     ['RGB', 'hasRGB'],
   ],
   SPEAKER: [
+    ['Marca', 'brand'],
     ['Conexion', 'connection'],
     ['Potencia', 'wattage', 'W'],
     ['RGB', 'hasRGB'],
+  ],
+  WEBCAM: [
+    ['Marca', 'brand'],
+    ['Resolucion', 'resolution'],
+    ['FPS', 'fps', 'FPS'],
+  ],
+  CAPTURE_CARD: [
+    ['Marca', 'brand'],
+    ['Resolucion', 'resolution'],
+    ['FPS', 'fps', 'FPS'],
+  ],
+  CABLE_HUB: [
+    ['Marca', 'brand'],
+    ['Tipo', 'type'],
+    ['Tipo de cable', 'cableType'],
+    ['Largo', 'cableLengthMeters', 'm'],
+    ['Tipo de entrada', 'hubInputType'],
+    ['Salida HDMI', 'hasHdmiOutput'],
+    ['Salida RJ45', 'hasRj45Output'],
+  ],
+  LAPTOP_COOLING_BASE: [
+    ['Marca', 'brand'],
+    ['Cantidad de ventiladores', 'fanCount'],
+    ['Conectividad', 'connectivity'],
+  ],
+  BACKPACK: [
+    ['Marca', 'brand'],
+    ['Color', 'color'],
   ],
 };
 
@@ -237,6 +284,25 @@ function formatValue(value: SpecValue, unit?: string) {
   return `${formattedValue} ${unit}`;
 }
 
+function formatLaptopValue(key: string, value: SpecValue, unit?: string) {
+  if (key === 'ram') {
+    return String(value || '').replace(/(\d+)\s*GB/gi, '$1 GB');
+  }
+
+  if (key === 'storage') {
+    return String(value || '')
+      .replace(/(\d+)\s*GB/gi, '$1 GB')
+      .replace(/(\d+)\s*TB/gi, '$1 TB');
+  }
+
+  if (key === 'screenSize') {
+    const screenSize = String(value || '').replace(/"/g, '').trim();
+    return screenSize ? `${screenSize}"` : '';
+  }
+
+  return formatValue(value, unit);
+}
+
 function getSpecsObject(product: Record<string, any>) {
   const relationName = SPEC_RELATION_BY_CATEGORY[product.category];
   if (relationName && product[relationName]) {
@@ -271,10 +337,11 @@ export function buildSpecificationRows(product: Record<string, any>): Specificat
   const mappedRows = fieldMap
     .filter(([, key]) => {
       if (product.category === 'KEYBOARD') {
-        if (key === 'hasLighting') return specs.keyboardType === 'Semi-mecanico';
-        if (key === 'switchType' || key === 'keyboardFormFactor') {
+        if (key === 'hasLighting') return specs.hasLighting !== null && specs.hasLighting !== undefined;
+        if (key === 'switchType') {
           return specs.keyboardType === 'Mecanico' || specs.keyboardType === 'Magnetico';
         }
+        if (key === 'keyboardFormFactor') return true;
       }
 
       if (product.category === 'MOUSE') {
@@ -283,10 +350,16 @@ export function buildSpecificationRows(product: Record<string, any>): Specificat
 
       return true;
     })
-    .map(([label, key, unit]) => ({
-      label,
-      value: formatValue(specs[key], unit),
-    }))
+    .map(([label, key, unit]) => {
+      const value = product.category === 'GPU' && key === 'gpuPowerWatts'
+        ? specs.gpuPowerWatts ?? specs.tdp
+        : specs[key];
+
+      return {
+        label,
+        value: product.category === 'LAPTOP' ? formatLaptopValue(key, value, unit) : formatValue(value, unit),
+      };
+    })
     .filter((row) => hasValue(row.value));
 
   if (mappedRows.length > 0) {

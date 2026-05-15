@@ -18,6 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "clean:products": "ts-node prisma/clean-products.ts",
+    "seed:products:clean": "ts-node prisma/seed-products-clean.ts",
     "seed:qa": "ts-node prisma/seed-qa.ts",
     "prisma:test:deploy": "node scripts/run-prisma-test-deploy.js",
     "test:e2e:qa": "npm run prisma:test:deploy && npm run seed:qa && npm run test:e2e"

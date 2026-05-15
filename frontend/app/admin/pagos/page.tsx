@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FiCheck, FiRefreshCw, FiX } from 'react-icons/fi';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { createIdempotencyKey, IDEMPOTENCY_HEADER } from '@/lib/idempotency';
 
 type PendingPayment = {
   id: string;
@@ -26,6 +27,8 @@ export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [processingAction, setProcessingAction] = useState<string | null>(null);
+  const actionKeysRef = useRef<Record<string, string>>({});
 
   const loadPayments = async () => {
     setLoading(true);
@@ -46,14 +49,28 @@ export default function AdminPaymentsPage() {
   }, []);
 
   const updatePayment = async (id: string, action: 'approve' | 'reject') => {
+    const actionKey = `${id}:${action}`;
+    if (processingAction) {
+      return;
+    }
+
     setMessage('');
+    setProcessingAction(actionKey);
+    actionKeysRef.current[actionKey] ||= createIdempotencyKey();
 
     try {
-      await api.patch(`/admin/payments/${id}/${action}`);
+      await api.patch(`/admin/payments/${id}/${action}`, undefined, {
+        headers: {
+          [IDEMPOTENCY_HEADER]: actionKeysRef.current[actionKey],
+        },
+      });
       setMessage(action === 'approve' ? 'Pago aprobado y stock descontado.' : 'Pago rechazado sin descontar stock.');
+      delete actionKeysRef.current[actionKey];
       await loadPayments();
     } catch (error) {
       setMessage(getApiErrorMessage(error, 'No se pudo actualizar el pago.'));
+    } finally {
+      setProcessingAction(null);
     }
   };
 
@@ -125,16 +142,18 @@ export default function AdminPaymentsPage() {
 
                 <div className="flex items-center gap-3 lg:flex-col lg:justify-center">
                   <button
+                    disabled={processingAction !== null}
                     onClick={() => updatePayment(payment.id, 'approve')}
-                    className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-3 font-black text-white transition hover:bg-green-700"
+                    className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-3 font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <FiCheck /> Aprobar
+                    <FiCheck /> {processingAction === `${payment.id}:approve` ? 'Procesando...' : 'Aprobar'}
                   </button>
                   <button
+                    disabled={processingAction !== null}
                     onClick={() => updatePayment(payment.id, 'reject')}
-                    className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-black text-white transition hover:bg-red-700"
+                    className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <FiX /> Rechazar
+                    <FiX /> {processingAction === `${payment.id}:reject` ? 'Procesando...' : 'Rechazar'}
                   </button>
                 </div>
               </div>

@@ -1,11 +1,12 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FiCheckCircle, FiCreditCard, FiShield, FiSmartphone } from 'react-icons/fi';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useCustomerSession } from '@/lib/customerSession';
+import { createIdempotencyKey, IDEMPOTENCY_HEADER } from '@/lib/idempotency';
 import { useCartStore } from '@/store/useCartStore';
 
 type PaymentMethod = 'CARD_CREDIT' | 'CARD_DEBIT' | 'YAPE' | 'PLIN';
@@ -30,9 +31,15 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const orderIdempotencyKeyRef = useRef<string | null>(null);
+  const paymentIdempotencyKeyRef = useRef<string | null>(null);
 
   const total = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.qty, 0),
+    [items],
+  );
+  const cartSignature = useMemo(
+    () => items.map((item) => `${item.id}:${item.qty}`).sort().join('|'),
     [items],
   );
   const igv = total * (18 / 118);
@@ -46,13 +53,46 @@ export default function CheckoutPage() {
     }
   }, [customer, isCheckingCustomer, router]);
 
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    orderIdempotencyKeyRef.current = null;
+    paymentIdempotencyKeyRef.current = null;
+    setCreatedOrderId(null);
+  }, [cartSignature, method, installments, operationCode, testCard]);
+
+  const getOrderIdempotencyKey = () => {
+    orderIdempotencyKeyRef.current ||= createIdempotencyKey();
+    return orderIdempotencyKeyRef.current;
+  };
+
+  const getPaymentIdempotencyKey = () => {
+    paymentIdempotencyKeyRef.current ||= createIdempotencyKey();
+    return paymentIdempotencyKeyRef.current;
+  };
+
+  const clearIdempotencyKeys = () => {
+    orderIdempotencyKeyRef.current = null;
+    paymentIdempotencyKeyRef.current = null;
+  };
+
   const createOrder = async () => {
+    if (createdOrderId) {
+      return { id: createdOrderId };
+    }
+
     const orderRes = await api.post('/orders', {
       method,
       items: items.map((item) => ({
         productId: String(item.id),
         quantity: item.qty,
       })),
+    }, {
+      headers: {
+        [IDEMPOTENCY_HEADER]: getOrderIdempotencyKey(),
+      },
     });
 
     setCreatedOrderId(orderRes.data.id);
@@ -84,12 +124,18 @@ export default function CheckoutPage() {
         method,
         simulateResult: finalResult,
         installments: isCredit ? installments : undefined,
+      }, {
+        headers: {
+          [IDEMPOTENCY_HEADER]: getPaymentIdempotencyKey(),
+        },
       });
 
       if (finalResult === 'APPROVED') {
         clearCart();
+        clearIdempotencyKeys();
         setMessage('Pago simulado aprobado. Tu orden fue confirmada.');
       } else {
+        clearIdempotencyKeys();
         setMessage('Pago simulado rechazado. No se desconto stock.');
       }
     } catch (error) {
@@ -121,9 +167,14 @@ export default function CheckoutPage() {
         orderId: order.id,
         method,
         operationCode: operationCode.trim(),
+      }, {
+        headers: {
+          [IDEMPOTENCY_HEADER]: getPaymentIdempotencyKey(),
+        },
       });
 
       clearCart();
+      clearIdempotencyKeys();
       setMessage('Pago enviado para validacion. La orden queda pendiente de revision.');
     } catch (error) {
       setMessage(getApiErrorMessage(error, 'No se pudo registrar el pago manual.'));
@@ -220,14 +271,14 @@ export default function CheckoutPage() {
                   onClick={() => handleCardPayment('APPROVED')}
                   className="rounded-xl bg-brand-cyan px-5 py-3 font-black text-gray-900 shadow-lg shadow-brand-cyan/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Simular pago aprobado
+                  {loading ? 'Procesando...' : 'Simular pago aprobado'}
                 </button>
                 <button
                   disabled={loading}
                   onClick={() => handleCardPayment('REJECTED')}
                   className="rounded-xl bg-gray-900 px-5 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Simular pago rechazado
+                  {loading ? 'Procesando...' : 'Simular pago rechazado'}
                 </button>
               </div>
             </div>
@@ -248,7 +299,7 @@ export default function CheckoutPage() {
                 disabled={loading}
                 className="w-full rounded-xl bg-brand-cyan px-5 py-3 font-black text-gray-900 shadow-lg shadow-brand-cyan/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Enviar para validacion
+                {loading ? 'Procesando...' : 'Enviar para validacion'}
               </button>
             </form>
           )}

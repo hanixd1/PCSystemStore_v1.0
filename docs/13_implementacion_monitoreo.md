@@ -75,3 +75,21 @@ El monitoreo productivo aún está pendiente. Para QA/staging se recomienda inic
 | Uso DB Neon | Conexiones, latencia, límites. | Neon monitoring. | Pendiente |
 
 Antes de producción se requiere definir alertas, responsables, umbrales, backups y procedimiento de respuesta ante incidentes.
+
+## 14.5 Limpieza Controlada de Catálogo previo a QA/Staging
+
+Antes del repaso final y despliegue en nube se preparó una limpieza controlada de catálogo para retirar productos de prueba y volver a registrar productos con especificaciones consistentes.
+
+| Aspecto | Definición | Estado |
+|---|---|---|
+| Motivo | El catálogo acumuló productos de prueba y cambios sucesivos de specs. | Documentado |
+| Migración previa | `CpuSpecs.baseTdpWatts` debe existir en DB para evitar `P2022`. | Preparada; aplicación bloqueada por `P1001` en Neon desde este entorno |
+| Comando migración | `npx prisma migrate deploy` o `npx prisma db execute --schema prisma/schema.prisma --file prisma/migrations/20260509120000_add_cpu_base_tdp/migration.sql`. | Pendiente con DB accesible |
+| Script limpieza | `npm run clean:products`. | Creado |
+| Protección limpieza | Requiere `ALLOW_CLEAN_PRODUCTS=true` y aborta si `NODE_ENV=production`. | Implementado |
+| Seed limpio | `npm run seed:products:clean`. | Creado |
+| Protección seed | Requiere `ALLOW_SEED_PRODUCTS_CLEAN=true` y aborta si `NODE_ENV=production`. | Implementado |
+| Conservado | Usuarios, empleados/admins, branding, banners, órdenes y pagos. | Implementado por diseño |
+| Auditoría | Conservada por defecto; limpiar logs de producto solo con `CLEAN_PRODUCT_AUDIT=true`. | Implementado por diseño |
+
+La limpieza no debe ejecutarse sobre producción. Debe realizarse en local o QA/staging con respaldo o base descartable.

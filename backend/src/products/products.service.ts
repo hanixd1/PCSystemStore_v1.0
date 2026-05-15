@@ -37,6 +37,11 @@ export class ProductsService {
     headsetSpecs: true,
     microphoneSpecs: true,
     speakerSpecs: true,
+    webcamSpecs: true,
+    captureCardSpecs: true,
+    cableHubSpecs: true,
+    laptopCoolingBaseSpecs: true,
+    backpackSpecs: true,
   } satisfies Prisma.ProductInclude;
 
   private readonly nameRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,+\-/%\s]{10,120}$/;
@@ -51,6 +56,10 @@ export class ProductsService {
   private toFloat(val: any): number {
     const n = parseFloat(val);
     return isNaN(n) ? 0 : n;
+  }
+
+  private hasValue(val: any): boolean {
+    return val !== undefined && val !== null && val !== '';
   }
 
   private toBool(val: any): boolean {
@@ -69,6 +78,20 @@ export class ProductsService {
       return String(val).split(',').map((item) => item.trim()).filter(Boolean);
     }
     return [];
+  }
+
+  private normalizeCoolerType(val: any): 'Torre' | 'Líquida' {
+    const value = String(val || '').trim().toLowerCase();
+    if (value === 'aio' || value.includes('liqu') || value.includes('líqu')) return 'Líquida';
+    return 'Torre';
+  }
+
+  private buildCoolerTypeWhere(value: string) {
+    const normalized = this.normalizeCoolerType(value);
+    const variants = normalized === 'Torre'
+      ? ['Torre', 'AIR', 'Air', 'aire', 'Aire (Torre)']
+      : ['Líquida', 'Liquida', 'AIO', 'aio', 'Liquida (AIO)', 'Líquida (AIO)'];
+    return { OR: variants.map((variant) => ({ type: { equals: variant, mode: 'insensitive' as const } })) };
   }
 
   private buildSlug(name: string) {
@@ -143,7 +166,7 @@ export class ProductsService {
       CPU: ['cores', 'tdp'],
       MOTHERBOARD: ['memorySlots', 'm2Slots'],
       RAM: ['capacity', 'speed', 'modules'],
-      GPU: ['vram', 'length', 'tdp', 'fans'],
+      GPU: ['vram', 'length', 'gpuPowerWatts'],
       PSU: ['wattage'],
       CASE: ['maxGpuLength', 'includedFans'],
       COOLER: ['fanCount', 'radiatorSize'],
@@ -160,6 +183,11 @@ export class ProductsService {
       HEADSET: ['driverSize', 'impedance'],
       MICROPHONE: [],
       SPEAKER: ['wattage'],
+      WEBCAM: ['fps'],
+      CAPTURE_CARD: ['fps'],
+      CABLE_HUB: [],
+      LAPTOP_COOLING_BASE: ['fanCount'],
+      BACKPACK: [],
     };
 
     for (const field of fieldsByCategory[category] || []) {
@@ -193,6 +221,11 @@ export class ProductsService {
       HEADSET: [],
       MICROPHONE: [],
       SPEAKER: [],
+      WEBCAM: [],
+      CAPTURE_CARD: [],
+      CABLE_HUB: [],
+      LAPTOP_COOLING_BASE: [],
+      BACKPACK: ['color'],
     };
 
     for (const field of textFieldsByCategory[category] || []) {
@@ -216,8 +249,51 @@ export class ProductsService {
       }
     }
 
+    if (category === 'MOTHERBOARD') {
+      const brand = String(data.brand || '').trim();
+      if (!brand) {
+        throw new BadRequestException('Selecciona la marca de la placa madre.');
+      }
+    }
+
+    if (category === 'GPU') {
+      const brand = String(data.brand || '').trim();
+      const powerWatts = this.hasValue(data.gpuPowerWatts)
+        ? this.toInt(data.gpuPowerWatts)
+        : this.toInt(data.tdp);
+
+      if (!brand) {
+        throw new BadRequestException('Selecciona la marca ensambladora de la tarjeta grafica.');
+      }
+
+      if (this.toInt(data.vram) <= 0) {
+        throw new BadRequestException('Selecciona la VRAM de la tarjeta grafica.');
+      }
+
+      if (this.toInt(data.length) <= 0) {
+        throw new BadRequestException('El largo de la GPU debe ser mayor a 0');
+      }
+
+      if (powerWatts <= 0) {
+        throw new BadRequestException('El consumo real de la GPU debe ser mayor a 0');
+      }
+
+      if (this.hasValue(data.recommendedPsuWatts) && this.toInt(data.recommendedPsuWatts) <= 0) {
+        throw new BadRequestException('La PSU recomendada debe ser mayor a 0');
+      }
+
+      if (this.hasValue(data.fans) && this.toInt(data.fans) <= 0) {
+        throw new BadRequestException('La cantidad de ventiladores debe ser mayor a 0');
+      }
+    }
+
     if (category === 'COOLER') {
+      const coolerType = this.normalizeCoolerType(data.type);
       const compatibleSockets = this.toStringArray(data.compatibleSockets);
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca del cooler.');
+      }
+
       if (compatibleSockets.length === 0) {
         throw new BadRequestException('Debes registrar sockets compatibles del cooler');
       }
@@ -225,6 +301,22 @@ export class ProductsService {
       if (this.toInt(data.tdpCapacity) <= 0) {
         throw new BadRequestException('El TDP soportado del cooler debe ser mayor a 0');
       }
+
+      if (coolerType === 'Torre' && this.toInt(data.coolerHeight) <= 0) {
+        throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
+      }
+
+      if (coolerType === 'Líquida' && this.toInt(data.radiatorSize) <= 0) {
+        throw new BadRequestException('Selecciona el tamaño de radiador del cooler líquido');
+      }
+    }
+
+    if (category === 'PSU' && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca de la fuente de poder.');
+    }
+
+    if (category === 'LAPTOP' && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca de la laptop.');
     }
 
     if (category === 'STORAGE') {
@@ -236,6 +328,9 @@ export class ProductsService {
     }
 
     if (category === 'MONITOR') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca del monitor.');
+      }
       const ports = this.toStringArray(data.ports);
       const allowedPorts = ['VGA', 'HDMI', 'DisplayPort', 'USB-C'];
       const invalidPort = ports.find((port) => !allowedPorts.includes(port));
@@ -248,6 +343,14 @@ export class ProductsService {
       this.ensureNonNegative('psuWatts', data.psuWatts, false);
     }
 
+    if (category === 'CASE' && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca del gabinete.');
+    }
+
+    if (category === 'CASE' && data.radiatorSupportMm !== undefined && data.radiatorSupportMm !== '') {
+      this.ensureNonNegative('radiatorSupportMm', data.radiatorSupportMm, false);
+    }
+
     const validConnections = ['Cableado', 'Bluetooth', 'Dongle USB'];
     if ((category === 'KEYBOARD' || category === 'MOUSE') && data.connections !== undefined) {
       const invalidConnection = this.toStringArray(data.connections).find((connection) => !validConnections.includes(connection));
@@ -257,6 +360,9 @@ export class ProductsService {
     }
 
     if (category === 'KEYBOARD') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca del teclado.');
+      }
       const keyboardType = String(data.keyboardType || '').trim();
       if (keyboardType && !['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico'].includes(keyboardType)) {
         throw new BadRequestException('Tipo de teclado no valido');
@@ -264,6 +370,9 @@ export class ProductsService {
     }
 
     if (category === 'MOUSE') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca del mouse.');
+      }
       const mouseType = String(data.mouseType || '').trim();
       if (mouseType && !['Oficina', 'Gamer'].includes(mouseType)) {
         throw new BadRequestException('Tipo de mouse no valido');
@@ -273,6 +382,96 @@ export class ProductsService {
       }
       if (data.powerType !== undefined && !['Pila', 'Bateria', 'Ninguno'].includes(String(data.powerType))) {
         throw new BadRequestException('Tipo de energia de mouse no valido');
+      }
+    }
+
+    if (category === 'WEBCAM' || category === 'CAPTURE_CARD') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException(category === 'WEBCAM' ? 'Selecciona la marca de la webcam.' : 'Selecciona la marca de la capturadora.');
+      }
+      if (!['HD', 'FHD', '4K'].includes(String(data.resolution || '').trim())) {
+        throw new BadRequestException('Selecciona una resolucion valida.');
+      }
+      const allowedFps = category === 'WEBCAM' ? [30, 60] : [30, 60, 120];
+      if (!allowedFps.includes(this.toInt(data.fps))) {
+        throw new BadRequestException('Selecciona FPS validos.');
+      }
+    }
+
+    if (category === 'CABLE_HUB') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca de Cables y Hub.');
+      }
+      const cableHubType = String(data.cableHubType || data.type || '').trim();
+      if (!['Cable', 'Hub'].includes(cableHubType)) {
+        throw new BadRequestException('Selecciona el tipo Cable o Hub.');
+      }
+      if (cableHubType === 'Cable') {
+        if (!['HDMI a HDMI', 'DisplayPort a DisplayPort', 'Tipo C a HDMI', 'Tipo C a DisplayPort', 'Tipo C a Tipo C'].includes(String(data.cableType || '').trim())) {
+          throw new BadRequestException('Selecciona el tipo de cable.');
+        }
+        if (![1, 2, 3].includes(this.toInt(data.cableLengthMeters))) {
+          throw new BadRequestException('Selecciona el largo del cable.');
+        }
+      }
+      if (cableHubType === 'Hub') {
+        if (!['USB-C', 'USB-A'].includes(String(data.hubInputType || '').trim())) {
+          throw new BadRequestException('Selecciona el tipo de entrada del hub.');
+        }
+        if (data.hasHdmiOutput === undefined || data.hasRj45Output === undefined) {
+          throw new BadRequestException('Selecciona las salidas HDMI y RJ45 del hub.');
+        }
+      }
+    }
+
+    if (category === 'LAPTOP_COOLING_BASE') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca de la base refrigeradora.');
+      }
+      if (![1, 2, 3, 4, 5, 6].includes(this.toInt(data.fanCount))) {
+        throw new BadRequestException('Selecciona la cantidad de ventiladores.');
+      }
+      if (!['USB-A', 'USB-C'].includes(String(data.connectivity || '').trim())) {
+        throw new BadRequestException('Selecciona la conectividad de la base refrigeradora.');
+      }
+    }
+
+    if (category === 'BACKPACK') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca de la mochila.');
+      }
+    }
+
+    if (category === 'HEADSET') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca del audifono.');
+      }
+      const connection = String(data.connection || '').trim();
+      if (!['Cableado', 'Inalambrico'].includes(connection)) {
+        throw new BadRequestException('Selecciona la conexion del audifono.');
+      }
+      const supportedConnections = this.toStringArray(data.supportedConnections);
+      if (!supportedConnections.length) {
+        throw new BadRequestException('Selecciona al menos una conectividad soportada.');
+      }
+      const wiredOptions = ['Cable USB', 'Jack 3.5 mm'];
+      const wirelessOptions = [...wiredOptions, 'USB Dongle 2.4 GHz', 'Bluetooth'];
+      const allowedOptions = connection === 'Cableado' ? wiredOptions : wirelessOptions;
+      const invalidOption = supportedConnections.find((option) => !allowedOptions.includes(option));
+      if (invalidOption) {
+        throw new BadRequestException('La conectividad soportada no corresponde al tipo de conexion.');
+      }
+    }
+
+    if (category === 'MICROPHONE') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca del microfono.');
+      }
+    }
+
+    if (category === 'SPEAKER') {
+      if (!String(data.brand || '').trim()) {
+        throw new BadRequestException('Selecciona la marca del parlante.');
       }
     }
   }
@@ -314,6 +513,7 @@ export class ProductsService {
             cores: this.toInt(data.cores),
             threads: this.toInt(data.threads),
             frequency: data.frequency || '',
+            ...(data.baseTdpWatts !== undefined ? { baseTdpWatts: this.toInt(data.baseTdpWatts) } : {}),
             tdp: this.toInt(data.tdp),
             integratedGraphics: this.toBool(data.integratedGraphics),
             includesCooler: this.toBool(data.includesCooler),
@@ -324,6 +524,7 @@ export class ProductsService {
       case 'MOTHERBOARD':
         productData.motherboardSpecs = {
           create: {
+            brand: data.brand || 'Otros',
             socket: data.socket || 'N/A',
             formFactor: data.formFactor || 'ATX',
             memoryType: data.memoryType || 'DDR4',
@@ -346,21 +547,31 @@ export class ProductsService {
         };
         break;
 
-      case 'GPU':
+      case 'GPU': {
+        const gpuPowerWatts = this.hasValue(data.gpuPowerWatts)
+          ? this.toInt(data.gpuPowerWatts)
+          : this.toInt(data.tdp);
         productData.gpuSpecs = {
           create: {
+            brand: data.brand || 'Otros',
             chipset: data.chipset || 'N/A',
             vram: this.toInt(data.vram),
             length: this.toInt(data.length),
-            tdp: this.toInt(data.tdp),
-            fans: this.toInt(data.fans),
+            tdp: gpuPowerWatts,
+            gpuPowerWatts,
+            ...(this.hasValue(data.recommendedPsuWatts)
+              ? { recommendedPsuWatts: this.toInt(data.recommendedPsuWatts) }
+              : {}),
+            fans: this.hasValue(data.fans) ? this.toInt(data.fans) : 0,
           },
         };
         break;
+      }
 
       case 'PSU':
         productData.psuSpecs = {
           create: {
+            brand: data.brand || 'Otros',
             wattage: this.toInt(data.wattage),
             certification: data.certification || 'None',
             modular: data.modular || 'No',
@@ -372,10 +583,12 @@ export class ProductsService {
       case 'CASE':
         productData.caseSpecs = {
           create: {
+            brand: data.brand || 'Otros',
             formFactor: data.formFactor || 'ATX',
             maxGpuLength: this.toInt(data.maxGpuLength),
             includesPsu: this.toBool(data.includesPsu),
             includedFans: this.toInt(data.includedFans),
+            ...(data.radiatorSupportMm !== undefined ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) } : {}),
           },
         };
         break;
@@ -383,15 +596,16 @@ export class ProductsService {
       case 'COOLER':
         productData.coolerSpecs = {
           create: {
-            type: data.type || 'AIR',
+            brand: data.brand || 'Otros',
+            type: this.normalizeCoolerType(data.type),
             socketSupport: this.toStringArray(data.compatibleSockets).join(', '),
             compatibleSockets: this.toStringArray(data.compatibleSockets),
             fanCount: this.toInt(data.fanCount),
-            radiatorSize: this.toInt(data.radiatorSize),
+            radiatorSize: this.normalizeCoolerType(data.type) === 'Líquida' ? this.toInt(data.radiatorSize) : null,
             hasScreen: this.toBool(data.hasScreen),
             hasRGB: this.toBool(data.hasRGB),
             tdpCapacity: this.toInt(data.tdpCapacity),
-            coolerHeight: this.toInt(data.coolerHeight),
+            coolerHeight: this.normalizeCoolerType(data.type) === 'Torre' ? this.toInt(data.coolerHeight) : null,
           },
         };
         break;
@@ -412,6 +626,7 @@ export class ProductsService {
       case 'LAPTOP':
         productData.laptopSpecs = {
           create: {
+            brand: data.brand || 'Otra',
             processor: data.processor || 'N/A',
             ram: data.ram || 'N/A',
             storage: data.storage || 'N/A',
@@ -454,8 +669,9 @@ export class ProductsService {
       case 'MONITOR':
         productData.monitorSpecs = {
           create: {
+            brand: data.brand || 'Otros',
             screenSize: data.screenSize || '24"',
-            resolution: data.resolution || '1080p',
+            resolution: data.resolution || 'FHD (1920x1080)',
             panelType: data.panelType || 'IPS',
             refreshRate: this.toInt(data.refreshRate),
             responseTimeMs: data.responseTimeMs !== undefined ? this.toFloat(data.responseTimeMs) : null,
@@ -539,7 +755,9 @@ export class ProductsService {
       case 'HEADSET':
         productData.headsetSpecs = {
           create: {
-            connection: data.connection || '3.5mm',
+            brand: data.brand || 'Otros',
+            connection: data.connection || 'Cableado',
+            supportedConnections: this.toStringArray(data.supportedConnections),
             driverSize: this.toInt(data.driverSize) || 40,
             impedance: this.toInt(data.impedance) || 32,
             micType: data.micType || 'Estandar',
@@ -552,6 +770,7 @@ export class ProductsService {
       case 'MICROPHONE':
         productData.microphoneSpecs = {
           create: {
+            brand: data.brand || 'Otros',
             connection: data.connection || 'USB',
             micType: data.micType || 'Cardioide',
             hasRGB: this.toBool(data.hasRGB),
@@ -562,9 +781,64 @@ export class ProductsService {
       case 'SPEAKER':
         productData.speakerSpecs = {
           create: {
+            brand: data.brand || 'Otros',
             connection: data.connection || 'Jack',
             wattage: this.toInt(data.wattage),
             hasRGB: this.toBool(data.hasRGB),
+          },
+        };
+        break;
+
+      case 'WEBCAM':
+        productData.webcamSpecs = {
+          create: {
+            brand: data.brand || 'Otros',
+            resolution: data.resolution || 'FHD',
+            fps: this.toInt(data.fps) || 30,
+          },
+        };
+        break;
+
+      case 'CAPTURE_CARD':
+        productData.captureCardSpecs = {
+          create: {
+            brand: data.brand || 'Otros',
+            resolution: data.resolution || 'FHD',
+            fps: this.toInt(data.fps) || 60,
+          },
+        };
+        break;
+
+      case 'CABLE_HUB':
+        const cableHubType = data.cableHubType || data.type || 'Cable';
+        productData.cableHubSpecs = {
+          create: {
+            brand: data.brand || 'Otros',
+            type: cableHubType,
+            cableType: cableHubType === 'Cable' ? data.cableType || null : null,
+            cableLengthMeters: cableHubType === 'Cable' ? this.toInt(data.cableLengthMeters) : null,
+            hubInputType: cableHubType === 'Hub' ? data.hubInputType || null : null,
+            hasHdmiOutput: cableHubType === 'Hub' ? this.toBool(data.hasHdmiOutput) : null,
+            hasRj45Output: cableHubType === 'Hub' ? this.toBool(data.hasRj45Output) : null,
+          },
+        };
+        break;
+
+      case 'LAPTOP_COOLING_BASE':
+        productData.laptopCoolingBaseSpecs = {
+          create: {
+            brand: data.brand || 'Otros',
+            fanCount: this.toInt(data.fanCount) || 1,
+            connectivity: data.connectivity || 'USB-A',
+          },
+        };
+        break;
+
+      case 'BACKPACK':
+        productData.backpackSpecs = {
+          create: {
+            brand: data.brand || 'Otros',
+            color: data.color || '',
           },
         };
         break;
@@ -683,11 +957,22 @@ export class ProductsService {
           { description: this.textContains(search) },
           { sku: this.textContains(search) },
           { cpuSpecs: { is: { brand: this.textContains(search) } } },
+          { gpuSpecs: { is: { brand: this.textContains(search) } } },
+          { coolerSpecs: { is: { brand: this.textContains(search) } } },
+          { monitorSpecs: { is: { brand: this.textContains(search) } } },
           { keyboardSpecs: { is: { brand: this.textContains(search) } } },
           { mouseSpecs: { is: { brand: this.textContains(search) } } },
+          { webcamSpecs: { is: { brand: this.textContains(search) } } },
+          { captureCardSpecs: { is: { brand: this.textContains(search) } } },
+          { cableHubSpecs: { is: { brand: this.textContains(search) } } },
+          { laptopCoolingBaseSpecs: { is: { brand: this.textContains(search) } } },
+          { backpackSpecs: { is: { brand: this.textContains(search) } } },
           { mousepadSpecs: { is: { brand: this.textContains(search) } } },
           { chairSpecs: { is: { brand: this.textContains(search) } } },
           { gamingDeskSpecs: { is: { brand: this.textContains(search) } } },
+          { headsetSpecs: { is: { brand: this.textContains(search) } } },
+          { microphoneSpecs: { is: { brand: this.textContains(search) } } },
+          { speakerSpecs: { is: { brand: this.textContains(search) } } },
         ],
       });
     }
@@ -703,17 +988,216 @@ export class ProductsService {
 
     const brand = this.getQueryString(query, 'brand');
     if (brand) {
-      this.addAnd(where, {
-        OR: [
-          { name: this.textContains(brand) },
-          { cpuSpecs: { is: { brand: this.textContains(brand) } } },
-          { keyboardSpecs: { is: { brand: this.textContains(brand) } } },
-          { mouseSpecs: { is: { brand: this.textContains(brand) } } },
-          { mousepadSpecs: { is: { brand: this.textContains(brand) } } },
-          { chairSpecs: { is: { brand: this.textContains(brand) } } },
-          { gamingDeskSpecs: { is: { brand: this.textContains(brand) } } },
-        ],
-      });
+      if (category === 'MOTHERBOARD') {
+        const knownMotherboardBrands = ['ASUS', 'MSI', 'Gigabyte', 'ASRock'];
+        this.addAnd(where, {
+          motherboardSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: { notIn: knownMotherboardBrands } }] }
+                : { brand },
+          },
+        });
+      } else if (category === 'GPU') {
+        const knownGpuBrands = ['Gigabyte', 'ASUS', 'MSI', 'PNY'];
+        this.addAnd(where, {
+          gpuSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: { notIn: knownGpuBrands } }, { brand: null }] }
+                : { brand },
+          },
+        });
+      } else if (category === 'CASE') {
+        const knownCaseBrands = ['Halion', 'Micronics', 'ASUS', 'Gigabyte', 'DeepCool', 'Antryx', 'MSI', 'Lian Li'];
+        this.addAnd(where, {
+          caseSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: { notIn: knownCaseBrands } }, { brand: null }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'COOLER') {
+        const knownCoolerBrands = ['MSI', 'DeepCool', 'Corsair', 'Gigabyte', 'ASUS'];
+        this.addAnd(where, {
+          coolerSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownCoolerBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'PSU') {
+        const knownPsuBrands = ['MSI', 'ASUS', 'Gigabyte', 'Corsair', 'DeepCool', 'Antryx', 'Cooler Master', 'Seasonic', 'Thermaltake'];
+        this.addAnd(where, {
+          psuSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownPsuBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'LAPTOP') {
+        const knownLaptopBrands = ['ASUS', 'Lenovo', 'HP', 'Acer', 'Dell', 'MSI'];
+        this.addAnd(where, {
+          laptopSpecs: {
+            is:
+              brand === 'Otra' || brand === 'Otros'
+                ? { OR: [{ brand: 'Otra' }, { brand: 'Otros' }, { brand: null }, { NOT: { OR: knownLaptopBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'MONITOR') {
+        const knownMonitorBrands = ['MSI', 'Gigabyte', 'Teros', 'LG', 'Samsung'];
+        this.addAnd(where, {
+          monitorSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownMonitorBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'KEYBOARD') {
+        const knownKeyboardBrands = ['Redragon', 'MSI', 'Logitech', 'Razer', 'Aula', 'Royal Kludge'];
+        this.addAnd(where, {
+          keyboardSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownKeyboardBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : brand === 'Royal Kludge'
+                  ? { OR: [{ brand: this.textContains('Royal Kludge') }, { brand: this.textContains('RoyalKludge') }, { brand: this.textContains('RK') }] }
+                  : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'MOUSE') {
+        const knownMouseBrands = ['Redragon', 'Logitech', 'Razer', 'MSI', 'Teros'];
+        this.addAnd(where, {
+          mouseSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownMouseBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'MOUSEPAD') {
+        const knownMousepadBrands = ['HyperX', 'Logitech', 'Redragon'];
+        this.addAnd(where, {
+          mousepadSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownMousepadBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'WEBCAM') {
+        const knownWebcamBrands = ['Logitech', 'Redragon'];
+        this.addAnd(where, {
+          webcamSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownWebcamBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'CAPTURE_CARD') {
+        const knownCaptureBrands = ['Corsair', 'Streamplify'];
+        this.addAnd(where, {
+          captureCardSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownCaptureBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'CABLE_HUB') {
+        const knownCableHubBrands = ['Cabletime', 'Ugreen'];
+        this.addAnd(where, {
+          cableHubSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownCableHubBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'LAPTOP_COOLING_BASE') {
+        const knownBaseBrands = ['Cooler Master', 'Antryx', 'Teros'];
+        this.addAnd(where, {
+          laptopCoolingBaseSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownBaseBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'BACKPACK') {
+        const knownBackpackBrands = ['Redragon', 'ASUS', 'Teros', 'Gigabyte'];
+        this.addAnd(where, {
+          backpackSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownBackpackBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'HEADSET') {
+        const knownHeadsetBrands = ['Logitech', 'Redragon', 'HyperX', 'Razer', 'Teros'];
+        this.addAnd(where, {
+          headsetSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownHeadsetBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'MICROPHONE') {
+        const knownMicrophoneBrands = ['Fifine', 'Streamplify', 'Redragon', 'Razer', 'Logitech', 'Corsair'];
+        this.addAnd(where, {
+          microphoneSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownMicrophoneBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else if (category === 'SPEAKER') {
+        const knownSpeakerBrands = ['Logitech', 'Redragon', 'Creative', 'Genius'];
+        this.addAnd(where, {
+          speakerSpecs: {
+            is:
+              brand === 'Otros'
+                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownSpeakerBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                : { brand: this.textContains(brand) },
+          },
+        });
+      } else {
+        this.addAnd(where, {
+          OR: [
+            { name: this.textContains(brand) },
+            { cpuSpecs: { is: { brand: this.textContains(brand) } } },
+            { motherboardSpecs: { is: { brand: this.textContains(brand) } } },
+            { gpuSpecs: { is: { brand: this.textContains(brand) } } },
+            { caseSpecs: { is: { brand: this.textContains(brand) } } },
+            { coolerSpecs: { is: { brand: this.textContains(brand) } } },
+            { psuSpecs: { is: { brand: this.textContains(brand) } } },
+            { laptopSpecs: { is: { brand: this.textContains(brand) } } },
+            { monitorSpecs: { is: { brand: this.textContains(brand) } } },
+            { keyboardSpecs: { is: { brand: this.textContains(brand) } } },
+            { mouseSpecs: { is: { brand: this.textContains(brand) } } },
+            { webcamSpecs: { is: { brand: this.textContains(brand) } } },
+            { captureCardSpecs: { is: { brand: this.textContains(brand) } } },
+            { cableHubSpecs: { is: { brand: this.textContains(brand) } } },
+            { laptopCoolingBaseSpecs: { is: { brand: this.textContains(brand) } } },
+            { backpackSpecs: { is: { brand: this.textContains(brand) } } },
+            { mousepadSpecs: { is: { brand: this.textContains(brand) } } },
+            { chairSpecs: { is: { brand: this.textContains(brand) } } },
+            { gamingDeskSpecs: { is: { brand: this.textContains(brand) } } },
+            { headsetSpecs: { is: { brand: this.textContains(brand) } } },
+            { microphoneSpecs: { is: { brand: this.textContains(brand) } } },
+            { speakerSpecs: { is: { brand: this.textContains(brand) } } },
+          ],
+        });
+      }
     }
 
     this.addSpecFilters(where, query);
@@ -770,7 +1254,7 @@ export class ProductsService {
     const gpuTdp = this.numberRange(query, 'minGpuTdp', 'maxGpuTdp') || cpuTdp;
     if (gpuChipset) gpu.chipset = this.textContains(gpuChipset);
     if (vram !== undefined) gpu.vram = vram;
-    if (gpuTdp) gpu.tdp = gpuTdp;
+    if (gpuTdp) gpu.gpuPowerWatts = gpuTdp;
     if (Object.keys(gpu).length && this.shouldApplySpecFilter(targetCategory, 'GPU')) this.addAnd(where, { gpuSpecs: { is: gpu } });
 
     const psu: any = {};
@@ -782,13 +1266,19 @@ export class ProductsService {
     if (modular) psu.modular = this.textContains(modular);
     if (Object.keys(psu).length && this.shouldApplySpecFilter(targetCategory, 'PSU')) this.addAnd(where, { psuSpecs: { is: psu } });
 
+    const caseSpecs: any = {};
+    const caseIncludesPsu = this.getQueryBoolean(query, 'includesPsu');
+    if (formFactor) caseSpecs.formFactor = formFactor;
+    if (caseIncludesPsu !== undefined) caseSpecs.includesPsu = caseIncludesPsu;
+    if (Object.keys(caseSpecs).length && this.shouldApplySpecFilter(targetCategory, 'CASE')) this.addAnd(where, { caseSpecs: { is: caseSpecs } });
+
     const cooler: any = {};
     const coolerType = this.getQueryString(query, 'coolerType') || this.getQueryString(query, 'type');
     const maxTdpWatts = this.numberRange(query, 'minMaxTdp', 'maxMaxTdp') || this.numberRange(query, 'minMaxTdpWatts', 'maxMaxTdpWatts');
     const hasScreen = this.getQueryBoolean(query, 'hasScreen') ?? this.getQueryBoolean(query, 'hasLCD');
     const radiatorSize = this.getQueryNumber(query, 'radiatorSize');
     const compatibleSockets = this.getQueryList(query, 'compatibleSockets');
-    if (coolerType) cooler.type = this.textContains(coolerType);
+    if (coolerType) Object.assign(cooler, this.buildCoolerTypeWhere(coolerType));
     if (maxTdpWatts) cooler.tdpCapacity = maxTdpWatts;
     if (hasRGB !== undefined) cooler.hasRGB = hasRGB;
     if (hasScreen !== undefined) cooler.hasScreen = hasScreen;
@@ -845,7 +1335,7 @@ export class ProductsService {
     const ports = this.getQueryList(query, 'ports');
     const hasSpeakers = this.getQueryBoolean(query, 'hasSpeakers');
     if (screenSize) monitor.screenSize = this.textContains(screenSize);
-    if (resolution) monitor.resolution = this.textContains(resolution);
+    if (resolution) monitor.resolution = resolution === 'Otro' ? { notIn: ['FHD (1920x1080)', 'QHD (2560x1440)', 'Ultra Wide QHD (3440x1440)', '4K UHD (3840x2160)'] } : this.textContains(resolution);
     if (panel) monitor.panelType = this.textContains(panel);
     if (refreshRateHz !== undefined) monitor.refreshRate = refreshRateHz;
     if (responseTimeMs !== undefined) monitor.responseTimeMs = responseTimeMs;
@@ -875,6 +1365,27 @@ export class ProductsService {
     if (dpi) mouse.dpi = dpi;
     if (pollingRateHz !== undefined) mouse.pollingRateHz = pollingRateHz;
     if (Object.keys(mouse).length && this.shouldApplySpecFilter(targetCategory, 'MOUSE')) this.addAnd(where, { mouseSpecs: { is: mouse } });
+
+    const headset: any = {};
+    const headsetConnection = this.getQueryString(query, 'connection');
+    if (headsetConnection) headset.connection = headsetConnection;
+    if (Object.keys(headset).length && this.shouldApplySpecFilter(targetCategory, 'HEADSET')) this.addAnd(where, { headsetSpecs: { is: headset } });
+
+    const fps = this.getQueryNumber(query, 'fps');
+    const webcam: any = {};
+    if (resolution) webcam.resolution = resolution;
+    if (fps !== undefined) webcam.fps = fps;
+    if (Object.keys(webcam).length && this.shouldApplySpecFilter(targetCategory, 'WEBCAM')) this.addAnd(where, { webcamSpecs: { is: webcam } });
+
+    const captureCard: any = {};
+    if (resolution) captureCard.resolution = resolution;
+    if (fps !== undefined) captureCard.fps = fps;
+    if (Object.keys(captureCard).length && this.shouldApplySpecFilter(targetCategory, 'CAPTURE_CARD')) this.addAnd(where, { captureCardSpecs: { is: captureCard } });
+
+    const cableHub: any = {};
+    const cableHubType = this.getQueryString(query, 'cableHubType') || this.getQueryString(query, 'type');
+    if (cableHubType) cableHub.type = cableHubType;
+    if (Object.keys(cableHub).length && this.shouldApplySpecFilter(targetCategory, 'CABLE_HUB')) this.addAnd(where, { cableHubSpecs: { is: cableHub } });
 
     const mousepad: any = {};
     const hasLed = this.getQueryBoolean(query, 'hasLed');
@@ -964,8 +1475,21 @@ export class ProductsService {
       categories: unique(products.map((product) => product.category)),
       brands: unique([
         ...products.map((product: any) => product.cpuSpecs?.brand),
+        ...products.map((product: any) => product.motherboardSpecs?.brand),
+        ...products.map((product: any) => product.gpuSpecs?.brand),
+        ...products.map((product: any) => product.caseSpecs?.brand),
+        ...products.map((product: any) => product.coolerSpecs?.brand),
+        ...products.map((product: any) => product.psuSpecs?.brand),
+        ...products.map((product: any) => product.laptopSpecs?.brand),
+        ...products.map((product: any) => product.monitorSpecs?.brand),
         ...products.map((product: any) => product.keyboardSpecs?.brand),
         ...products.map((product: any) => product.mouseSpecs?.brand),
+        ...products.map((product: any) => product.webcamSpecs?.brand),
+        ...products.map((product: any) => product.captureCardSpecs?.brand),
+        ...products.map((product: any) => product.cableHubSpecs?.brand),
+        ...products.map((product: any) => product.laptopCoolingBaseSpecs?.brand),
+        ...products.map((product: any) => product.backpackSpecs?.brand),
+        ...products.map((product: any) => product.headsetSpecs?.brand),
         ...products.map((product: any) => product.mousepadSpecs?.brand),
         ...products.map((product: any) => product.chairSpecs?.brand),
         ...products.map((product: any) => product.gamingDeskSpecs?.brand),
@@ -1000,7 +1524,16 @@ export class ProductsService {
         ...products.map((product: any) => product.storageSpecs?.m2FormFactor),
         ...products.flatMap((product: any) => product.motherboardSpecs?.supportedM2FormFactors ?? []),
       ]),
-      resolutions: unique(products.map((product: any) => product.monitorSpecs?.resolution)),
+      resolutions: unique([
+        ...products.map((product: any) => product.monitorSpecs?.resolution),
+        ...products.map((product: any) => product.webcamSpecs?.resolution),
+        ...products.map((product: any) => product.captureCardSpecs?.resolution),
+      ]),
+      fps: unique([
+        ...products.map((product: any) => product.webcamSpecs?.fps),
+        ...products.map((product: any) => product.captureCardSpecs?.fps),
+      ]),
+      cableHubTypes: unique(products.map((product: any) => product.cableHubSpecs?.type)),
       panels: unique(products.map((product: any) => product.monitorSpecs?.panelType)),
       refreshRates: unique([
         ...products.map((product: any) => product.monitorSpecs?.refreshRate),
@@ -1047,12 +1580,17 @@ export class ProductsService {
         monitorSpecs: true,
         keyboardSpecs: true,
         mouseSpecs: true,
+        headsetSpecs: true,
         mousepadSpecs: true,
         chairSpecs: true,
         gamingDeskSpecs: true,
-        headsetSpecs: true,
         microphoneSpecs: true,
         speakerSpecs: true,
+        webcamSpecs: true,
+        captureCardSpecs: true,
+        cableHubSpecs: true,
+        laptopCoolingBaseSpecs: true,
+        backpackSpecs: true,
       },
     });
   }
@@ -1083,6 +1621,8 @@ export class ProductsService {
       include: {
         cpuSpecs: true,
         motherboardSpecs: true,
+        gpuSpecs: true,
+        caseSpecs: true,
         coolerSpecs: true,
         storageSpecs: true,
         laptopSpecs: true,
@@ -1093,6 +1633,11 @@ export class ProductsService {
         mousepadSpecs: true,
         chairSpecs: true,
         gamingDeskSpecs: true,
+        webcamSpecs: true,
+        captureCardSpecs: true,
+        cableHubSpecs: true,
+        laptopCoolingBaseSpecs: true,
+        backpackSpecs: true,
       },
     });
     if (!currentProduct) {
@@ -1162,6 +1707,8 @@ export class ProductsService {
       include: {
         cpuSpecs: true,
         motherboardSpecs: true,
+        gpuSpecs: true,
+        caseSpecs: true,
         coolerSpecs: true,
         storageSpecs: true,
         laptopSpecs: true,
@@ -1207,6 +1754,7 @@ export class ProductsService {
           data.cores === undefined &&
           data.threads === undefined &&
           data.frequency === undefined &&
+          data.baseTdpWatts === undefined &&
           data.tdp === undefined &&
           data.integratedGraphics === undefined &&
           data.includesCooler === undefined
@@ -1226,6 +1774,7 @@ export class ProductsService {
               ...(data.cores !== undefined ? { cores: this.toInt(data.cores) } : {}),
               ...(data.threads !== undefined ? { threads: this.toInt(data.threads) } : {}),
               ...(data.frequency !== undefined ? { frequency: data.frequency } : {}),
+              ...(data.baseTdpWatts !== undefined ? { baseTdpWatts: this.toInt(data.baseTdpWatts) } : {}),
               ...(data.tdp !== undefined ? { tdp: this.toInt(data.tdp) } : {}),
               ...(data.integratedGraphics !== undefined ? { integratedGraphics: this.toBool(data.integratedGraphics) } : {}),
               ...(data.includesCooler !== undefined ? { includesCooler: this.toBool(data.includesCooler) } : {}),
@@ -1235,6 +1784,7 @@ export class ProductsService {
 
       case 'MOTHERBOARD':
         if (
+          data.brand === undefined &&
           data.socket === undefined &&
           data.formFactor === undefined &&
           data.memoryType === undefined &&
@@ -1245,9 +1795,15 @@ export class ProductsService {
           return {};
         }
 
+        const nextMotherboardBrand = String(data.brand ?? currentProduct.motherboardSpecs?.brand ?? '').trim();
+        if (!nextMotherboardBrand) {
+          throw new BadRequestException('Selecciona la marca de la placa madre.');
+        }
+
         return {
           motherboardSpecs: {
             update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
               ...(data.socket !== undefined ? { socket: data.socket } : {}),
               ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
               ...(data.memoryType !== undefined ? { memoryType: data.memoryType } : {}),
@@ -1258,8 +1814,92 @@ export class ProductsService {
           },
         };
 
+      case 'GPU':
+        if (
+          data.brand === undefined &&
+          data.chipset === undefined &&
+          data.vram === undefined &&
+          data.length === undefined &&
+          data.gpuPowerWatts === undefined &&
+          data.tdp === undefined &&
+          data.recommendedPsuWatts === undefined &&
+          data.fans === undefined
+        ) {
+          return {};
+        }
+
+        const nextGpuBrand = String(data.brand ?? currentProduct.gpuSpecs?.brand ?? '').trim();
+        const nextGpuPower = this.hasValue(data.gpuPowerWatts)
+          ? this.toInt(data.gpuPowerWatts)
+          : this.toInt(data.tdp ?? currentProduct.gpuSpecs?.gpuPowerWatts ?? currentProduct.gpuSpecs?.tdp);
+
+        if (!nextGpuBrand) {
+          throw new BadRequestException('Selecciona la marca ensambladora de la tarjeta grafica.');
+        }
+
+        if (nextGpuPower <= 0) {
+          throw new BadRequestException('El consumo real de la GPU debe ser mayor a 0');
+        }
+
+        if (this.hasValue(data.recommendedPsuWatts) && this.toInt(data.recommendedPsuWatts) <= 0) {
+          throw new BadRequestException('La PSU recomendada debe ser mayor a 0');
+        }
+
+        if (this.hasValue(data.fans) && this.toInt(data.fans) <= 0) {
+          throw new BadRequestException('La cantidad de ventiladores debe ser mayor a 0');
+        }
+
+        return {
+          gpuSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.chipset !== undefined ? { chipset: data.chipset } : {}),
+              ...(data.vram !== undefined ? { vram: this.toInt(data.vram) } : {}),
+              ...(data.length !== undefined ? { length: this.toInt(data.length) } : {}),
+              ...(data.gpuPowerWatts !== undefined || data.tdp !== undefined
+                ? { gpuPowerWatts: nextGpuPower, tdp: nextGpuPower }
+                : {}),
+              ...(data.recommendedPsuWatts !== undefined
+                ? { recommendedPsuWatts: !this.hasValue(data.recommendedPsuWatts) ? null : this.toInt(data.recommendedPsuWatts) }
+                : {}),
+              ...(data.fans !== undefined ? { fans: !this.hasValue(data.fans) ? 0 : this.toInt(data.fans) } : {}),
+            },
+          },
+        };
+
+      case 'CASE':
+        if (
+          data.brand === undefined &&
+          data.formFactor === undefined &&
+          data.maxGpuLength === undefined &&
+          data.includesPsu === undefined &&
+          data.includedFans === undefined &&
+          data.radiatorSupportMm === undefined
+        ) {
+          return {};
+        }
+
+        const nextCaseBrand = String(data.brand ?? currentProduct.caseSpecs?.brand ?? '').trim();
+        if (!nextCaseBrand) {
+          throw new BadRequestException('Selecciona la marca del gabinete.');
+        }
+
+        return {
+          caseSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
+              ...(data.maxGpuLength !== undefined ? { maxGpuLength: this.toInt(data.maxGpuLength) } : {}),
+              ...(data.includesPsu !== undefined ? { includesPsu: this.toBool(data.includesPsu) } : {}),
+              ...(data.includedFans !== undefined ? { includedFans: this.toInt(data.includedFans) } : {}),
+              ...(data.radiatorSupportMm !== undefined ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) } : {}),
+            },
+          },
+        };
+
       case 'COOLER':
         if (
+          data.brand === undefined &&
           data.type === undefined &&
           data.compatibleSockets === undefined &&
           data.tdpCapacity === undefined &&
@@ -1271,6 +1911,8 @@ export class ProductsService {
           return {};
         }
 
+        const nextCoolerBrand = String(data.brand ?? currentProduct.coolerSpecs?.brand ?? '').trim();
+        const nextCoolerType = this.normalizeCoolerType(data.type ?? currentProduct.coolerSpecs?.type);
         const nextCompatibleSockets =
           data.compatibleSockets !== undefined
             ? this.toStringArray(data.compatibleSockets)
@@ -1278,6 +1920,10 @@ export class ProductsService {
         const nextTdpCapacity = data.tdpCapacity !== undefined
           ? this.toInt(data.tdpCapacity)
           : this.toInt(currentProduct.coolerSpecs?.tdpCapacity);
+
+        if (!nextCoolerBrand) {
+          throw new BadRequestException('Selecciona la marca del cooler.');
+        }
 
         if (nextCompatibleSockets.length === 0) {
           throw new BadRequestException('Debes registrar sockets compatibles del cooler');
@@ -1287,10 +1933,26 @@ export class ProductsService {
           throw new BadRequestException('El TDP soportado del cooler debe ser mayor a 0');
         }
 
+        const nextCoolerHeight = data.coolerHeight !== undefined
+          ? this.toInt(data.coolerHeight)
+          : this.toInt(currentProduct.coolerSpecs?.coolerHeight);
+        const nextRadiatorSize = data.radiatorSize !== undefined
+          ? this.toInt(data.radiatorSize)
+          : this.toInt(currentProduct.coolerSpecs?.radiatorSize);
+
+        if (nextCoolerType === 'Torre' && nextCoolerHeight <= 0) {
+          throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
+        }
+
+        if (nextCoolerType === 'Líquida' && nextRadiatorSize <= 0) {
+          throw new BadRequestException('Selecciona el tamaño de radiador del cooler líquido');
+        }
+
         return {
           coolerSpecs: {
             update: {
-              ...(data.type !== undefined ? { type: data.type } : {}),
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.type !== undefined ? { type: nextCoolerType } : {}),
               ...(data.compatibleSockets !== undefined
                 ? {
                     compatibleSockets: this.toStringArray(data.compatibleSockets),
@@ -1298,10 +1960,46 @@ export class ProductsService {
                   }
                 : {}),
               ...(data.tdpCapacity !== undefined ? { tdpCapacity: this.toInt(data.tdpCapacity) } : {}),
-              ...(data.coolerHeight !== undefined ? { coolerHeight: this.toInt(data.coolerHeight) } : {}),
-              ...(data.radiatorSize !== undefined ? { radiatorSize: this.toInt(data.radiatorSize) } : {}),
+              ...(data.coolerHeight !== undefined || data.type !== undefined ? { coolerHeight: nextCoolerType === 'Torre' ? nextCoolerHeight : null } : {}),
+              ...(data.radiatorSize !== undefined || data.type !== undefined ? { radiatorSize: nextCoolerType === 'Líquida' ? nextRadiatorSize : null } : {}),
               ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
               ...(data.hasScreen !== undefined ? { hasScreen: this.toBool(data.hasScreen) } : {}),
+            },
+          },
+        };
+
+      case 'PSU':
+        if (
+          data.brand === undefined &&
+          data.wattage === undefined &&
+          data.certification === undefined &&
+          data.modular === undefined &&
+          data.formFactor === undefined
+        ) {
+          return {};
+        }
+
+        const nextPsuBrand = String(data.brand ?? currentProduct.psuSpecs?.brand ?? '').trim();
+        const nextWattage = data.wattage !== undefined
+          ? this.toInt(data.wattage)
+          : this.toInt(currentProduct.psuSpecs?.wattage);
+
+        if (!nextPsuBrand) {
+          throw new BadRequestException('Selecciona la marca de la fuente de poder.');
+        }
+
+        if (nextWattage <= 0) {
+          throw new BadRequestException('La potencia de la fuente debe ser mayor a 0');
+        }
+
+        return {
+          psuSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.wattage !== undefined ? { wattage: this.toInt(data.wattage) } : {}),
+              ...(data.certification !== undefined ? { certification: data.certification } : {}),
+              ...(data.modular !== undefined ? { modular: data.modular } : {}),
+              ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
             },
           },
         };
@@ -1339,6 +2037,7 @@ export class ProductsService {
 
       case 'LAPTOP':
         if (
+          data.brand === undefined &&
           data.processor === undefined &&
           data.ram === undefined &&
           data.storage === undefined &&
@@ -1353,10 +2052,16 @@ export class ProductsService {
           return {};
         }
 
+        const nextLaptopBrand = String(data.brand ?? currentProduct.laptopSpecs?.brand ?? '').trim();
+        if (!nextLaptopBrand) {
+          throw new BadRequestException('Selecciona la marca de la laptop.');
+        }
+
         this.ensureNonNegative('refreshRate', data.refreshRate);
         return {
           laptopSpecs: {
             update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
               ...(data.processor !== undefined ? { processor: data.processor } : {}),
               ...(data.ram !== undefined ? { ram: data.ram } : {}),
               ...(data.storage !== undefined ? { storage: data.storage } : {}),
@@ -1405,6 +2110,7 @@ export class ProductsService {
 
       case 'MONITOR':
         if (
+          data.brand === undefined &&
           data.screenSize === undefined &&
           data.resolution === undefined &&
           data.panelType === undefined &&
@@ -1416,11 +2122,17 @@ export class ProductsService {
           return {};
         }
 
+        const nextMonitorBrand = String(data.brand ?? currentProduct.monitorSpecs?.brand ?? '').trim();
+        if (!nextMonitorBrand) {
+          throw new BadRequestException('Selecciona la marca del monitor.');
+        }
+
         this.ensureNonNegative('refreshRate', data.refreshRate);
         this.ensureNonNegative('responseTimeMs', data.responseTimeMs, false);
         return {
           monitorSpecs: {
             update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
               ...(data.screenSize !== undefined ? { screenSize: data.screenSize } : {}),
               ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
               ...(data.panelType !== undefined ? { panelType: data.panelType } : {}),
@@ -1443,6 +2155,11 @@ export class ProductsService {
           data.keyboardFormFactor === undefined
         ) {
           return {};
+        }
+
+        const nextKeyboardBrand = String(data.brand ?? currentProduct.keyboardSpecs?.brand ?? '').trim();
+        if (!nextKeyboardBrand) {
+          throw new BadRequestException('Selecciona la marca del teclado.');
         }
 
         return {
@@ -1479,6 +2196,9 @@ export class ProductsService {
         }
 
         const isUpdatingGamerMouse = data.mouseType === 'Gamer';
+        if (data.brand !== undefined && !String(data.brand || '').trim()) {
+          throw new BadRequestException('Selecciona la marca del mouse.');
+        }
         if (isUpdatingGamerMouse) {
           this.ensureNonNegative('buttonCount', data.buttonCount, false);
           this.ensureNonNegative('dpi', data.dpi, false);
@@ -1501,6 +2221,223 @@ export class ProductsService {
               ...(isUpdatingGamerMouse && data.pollingRateHz !== undefined ? { pollingRateHz: this.toInt(data.pollingRateHz) } : {}),
               ...(data.weightGrams !== undefined ? { weightGrams: this.toInt(data.weightGrams) } : {}),
               ...(data.powerType !== undefined ? { powerType: data.powerType } : {}),
+            },
+          },
+        };
+
+      case 'WEBCAM':
+        if (data.brand === undefined && data.resolution === undefined && data.fps === undefined) {
+          return {};
+        }
+        if (data.brand !== undefined && !String(data.brand || '').trim()) {
+          throw new BadRequestException('Selecciona la marca de la webcam.');
+        }
+        if (data.fps !== undefined && ![30, 60].includes(this.toInt(data.fps))) {
+          throw new BadRequestException('Selecciona FPS validos.');
+        }
+        return {
+          webcamSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
+              ...(data.fps !== undefined ? { fps: this.toInt(data.fps) } : {}),
+            },
+          },
+        };
+
+      case 'CAPTURE_CARD':
+        if (data.brand === undefined && data.resolution === undefined && data.fps === undefined) {
+          return {};
+        }
+        if (data.brand !== undefined && !String(data.brand || '').trim()) {
+          throw new BadRequestException('Selecciona la marca de la capturadora.');
+        }
+        if (data.fps !== undefined && ![30, 60, 120].includes(this.toInt(data.fps))) {
+          throw new BadRequestException('Selecciona FPS validos.');
+        }
+        return {
+          captureCardSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
+              ...(data.fps !== undefined ? { fps: this.toInt(data.fps) } : {}),
+            },
+          },
+        };
+
+      case 'CABLE_HUB':
+        if (
+          data.brand === undefined &&
+          data.cableHubType === undefined &&
+          data.type === undefined &&
+          data.cableType === undefined &&
+          data.cableLengthMeters === undefined &&
+          data.hubInputType === undefined &&
+          data.hasHdmiOutput === undefined &&
+          data.hasRj45Output === undefined
+        ) {
+          return {};
+        }
+        if (data.brand !== undefined && !String(data.brand || '').trim()) {
+          throw new BadRequestException('Selecciona la marca de Cables y Hub.');
+        }
+        const nextCableHubType = data.cableHubType || data.type;
+        if (nextCableHubType === 'Cable') {
+          if (!['HDMI a HDMI', 'DisplayPort a DisplayPort', 'Tipo C a HDMI', 'Tipo C a DisplayPort', 'Tipo C a Tipo C'].includes(String(data.cableType || '').trim())) {
+            throw new BadRequestException('Selecciona el tipo de cable.');
+          }
+          if (![1, 2, 3].includes(this.toInt(data.cableLengthMeters))) {
+            throw new BadRequestException('Selecciona el largo del cable.');
+          }
+        }
+        if (nextCableHubType === 'Hub') {
+          if (!['USB-C', 'USB-A'].includes(String(data.hubInputType || '').trim())) {
+            throw new BadRequestException('Selecciona el tipo de entrada del hub.');
+          }
+          if (data.hasHdmiOutput === undefined || data.hasRj45Output === undefined) {
+            throw new BadRequestException('Selecciona las salidas HDMI y RJ45 del hub.');
+          }
+        }
+        return {
+          cableHubSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(nextCableHubType !== undefined ? {
+                type: nextCableHubType,
+                cableType: nextCableHubType === 'Cable' ? data.cableType || null : null,
+                cableLengthMeters: nextCableHubType === 'Cable' ? this.toInt(data.cableLengthMeters) : null,
+                hubInputType: nextCableHubType === 'Hub' ? data.hubInputType || null : null,
+                hasHdmiOutput: nextCableHubType === 'Hub' ? this.toBool(data.hasHdmiOutput) : null,
+                hasRj45Output: nextCableHubType === 'Hub' ? this.toBool(data.hasRj45Output) : null,
+              } : {}),
+              ...(nextCableHubType === undefined && data.cableType !== undefined ? { cableType: data.cableType } : {}),
+              ...(nextCableHubType === undefined && data.cableLengthMeters !== undefined ? { cableLengthMeters: this.toInt(data.cableLengthMeters) } : {}),
+              ...(nextCableHubType === undefined && data.hubInputType !== undefined ? { hubInputType: data.hubInputType } : {}),
+              ...(nextCableHubType === undefined && data.hasHdmiOutput !== undefined ? { hasHdmiOutput: this.toBool(data.hasHdmiOutput) } : {}),
+              ...(nextCableHubType === undefined && data.hasRj45Output !== undefined ? { hasRj45Output: this.toBool(data.hasRj45Output) } : {}),
+            },
+          },
+        };
+
+      case 'LAPTOP_COOLING_BASE':
+        if (data.brand === undefined && data.fanCount === undefined && data.connectivity === undefined) {
+          return {};
+        }
+        if (data.brand !== undefined && !String(data.brand || '').trim()) {
+          throw new BadRequestException('Selecciona la marca de la base refrigeradora.');
+        }
+        if (data.fanCount !== undefined && ![1, 2, 3, 4, 5, 6].includes(this.toInt(data.fanCount))) {
+          throw new BadRequestException('Selecciona la cantidad de ventiladores.');
+        }
+        if (data.connectivity !== undefined && !['USB-A', 'USB-C'].includes(String(data.connectivity))) {
+          throw new BadRequestException('Selecciona la conectividad de la base refrigeradora.');
+        }
+        return {
+          laptopCoolingBaseSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.fanCount !== undefined ? { fanCount: this.toInt(data.fanCount) } : {}),
+              ...(data.connectivity !== undefined ? { connectivity: data.connectivity } : {}),
+            },
+          },
+        };
+
+      case 'BACKPACK':
+        if (data.brand === undefined && data.color === undefined) {
+          return {};
+        }
+        if (data.brand !== undefined && !String(data.brand || '').trim()) {
+          throw new BadRequestException('Selecciona la marca de la mochila.');
+        }
+        return {
+          backpackSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.color !== undefined ? { color: data.color } : {}),
+            },
+          },
+        };
+
+      case 'HEADSET':
+        if (
+          data.brand === undefined &&
+          data.connection === undefined &&
+          data.supportedConnections === undefined &&
+          data.driverSize === undefined &&
+          data.impedance === undefined &&
+          data.micType === undefined &&
+          data.noiseCancel === undefined &&
+          data.hasRGB === undefined
+        ) {
+          return {};
+        }
+        if (data.brand !== undefined && !String(data.brand || '').trim()) {
+          throw new BadRequestException('Selecciona la marca del audifono.');
+        }
+        const nextHeadsetConnection = data.connection;
+        if (nextHeadsetConnection !== undefined && !['Cableado', 'Inalambrico'].includes(String(nextHeadsetConnection))) {
+          throw new BadRequestException('Selecciona la conexion del audifono.');
+        }
+        if (data.supportedConnections !== undefined) {
+          const supportedConnections = this.toStringArray(data.supportedConnections);
+          if (!supportedConnections.length) {
+            throw new BadRequestException('Selecciona al menos una conectividad soportada.');
+          }
+          const wiredOptions = ['Cable USB', 'Jack 3.5 mm'];
+          const wirelessOptions = [...wiredOptions, 'USB Dongle 2.4 GHz', 'Bluetooth'];
+          const allowedOptions = nextHeadsetConnection === 'Cableado' ? wiredOptions : wirelessOptions;
+          const invalidOption = supportedConnections.find((option) => !allowedOptions.includes(option));
+          if (invalidOption) {
+            throw new BadRequestException('La conectividad soportada no corresponde al tipo de conexion.');
+          }
+        }
+        return {
+          headsetSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.connection !== undefined ? { connection: data.connection } : {}),
+              ...(data.supportedConnections !== undefined ? { supportedConnections: this.toStringArray(data.supportedConnections) } : {}),
+              ...(data.driverSize !== undefined ? { driverSize: this.toInt(data.driverSize) } : {}),
+              ...(data.impedance !== undefined ? { impedance: this.toInt(data.impedance) } : {}),
+              ...(data.micType !== undefined ? { micType: data.micType } : {}),
+              ...(data.noiseCancel !== undefined ? { noiseCancel: this.toBool(data.noiseCancel) } : {}),
+              ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+            },
+          },
+        };
+
+      case 'MICROPHONE':
+        if (data.brand === undefined && data.connection === undefined && data.micType === undefined && data.hasRGB === undefined) {
+          return {};
+        }
+        if (data.brand !== undefined && !String(data.brand || '').trim()) {
+          throw new BadRequestException('Selecciona la marca del microfono.');
+        }
+        return {
+          microphoneSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.connection !== undefined ? { connection: data.connection } : {}),
+              ...(data.micType !== undefined ? { micType: data.micType } : {}),
+              ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+            },
+          },
+        };
+
+      case 'SPEAKER':
+        if (data.brand === undefined && data.connection === undefined && data.wattage === undefined && data.hasRGB === undefined) {
+          return {};
+        }
+        if (data.brand !== undefined && !String(data.brand || '').trim()) {
+          throw new BadRequestException('Selecciona la marca del parlante.');
+        }
+        return {
+          speakerSpecs: {
+            update: {
+              ...(data.brand !== undefined ? { brand: data.brand } : {}),
+              ...(data.connection !== undefined ? { connection: data.connection } : {}),
+              ...(data.wattage !== undefined ? { wattage: this.toInt(data.wattage) } : {}),
+              ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
             },
           },
         };
@@ -1711,6 +2648,14 @@ export class ProductsService {
       MONITOR: 'monitorSpecs',
       KEYBOARD: 'keyboardSpecs',
       MOUSE: 'mouseSpecs',
+      HEADSET: 'headsetSpecs',
+      MICROPHONE: 'microphoneSpecs',
+      SPEAKER: 'speakerSpecs',
+      WEBCAM: 'webcamSpecs',
+      CAPTURE_CARD: 'captureCardSpecs',
+      CABLE_HUB: 'cableHubSpecs',
+      LAPTOP_COOLING_BASE: 'laptopCoolingBaseSpecs',
+      BACKPACK: 'backpackSpecs',
       MOUSEPAD: 'mousepadSpecs',
       CHAIR: 'chairSpecs',
       GAMING_DESK: 'gamingDeskSpecs',

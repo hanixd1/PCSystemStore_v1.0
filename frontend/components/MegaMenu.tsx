@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -41,7 +41,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
     setExpandedItem(null);
   };
 
-  /* ================= CATEGORÍAS ================= */
+  /* ================= CATEGORIAS ================= */
 
   const CATEGORIES: Category[] = [
     {
@@ -67,7 +67,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           ]
         },
         {
-          name: 'Tarjetas gráficas',
+          name: 'Tarjetas graficas',
           href: '/categoria/graficas',
           children: [
             { name: 'Graficas NVIDIA', href: '/categoria/NVIDIA' },
@@ -100,7 +100,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           ]
         },
         {
-          name: 'Fuentes de alimentación',
+          name: 'Fuentes de alimentacion',
           href: '/categoria/fuentes',
           children: [
             { name: 'Fuente Certificada', href: '/categoria/certificada' },
@@ -108,7 +108,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           ]
         },
         {
-          name: 'Refrigeración',
+          name: 'Refrigeracion',
           href: '/categoria/refrigeracion',
           children: [
             { name: 'Refrigeracion Liquida', href: '/categoria/liquida' },
@@ -147,24 +147,20 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
             { name: 'Licencias', href: '/categoria/licencias' }
           ]
         },
-        { name: 'Accesorios para portátiles', href: '/categoria/laptop-accessorios' },
         {
-          name: 'Cables y conectividad',
-          href: '/categoria/cables',
+          name: 'Accesorios para portatiles',
+          href: '/categoria/laptop-accessorios',
           children: [
-            { name: 'Adaptadores', href: '/categoria/adapters' },
-            { name: 'Cables HDMI', href: '/categoria/cables/hdmi' },
-            { name: 'Cables DisplayPort', href: '/categoria/cables/dp' },
-            { name: 'Cables de red', href: '/categoria/cables/ethernet' }
+            { name: 'Bases refrigeradoras', href: '/categoria/bases-refrigeradoras' },
+            { name: 'Mochilas', href: '/categoria/mochilas' }
           ]
-        },
-        { name: 'Mochilas', href: '/categoria/mochilas' }
+        }
       ]
     },
 
     {
       id: 'perifericos',
-      name: 'Periféricos',
+      name: 'Perifericos',
       icon: FiMousePointer,
       items: [
         {
@@ -191,11 +187,14 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
             { name: 'Mouse', href: '/categoria/mouse' }
           ]
         },
+        { name: 'Mousepads', href: '/categoria/mousepad' },
         { name: 'Sillas Gaming', href: '/categoria/chairs' },
+        { name: 'Mesas Gamer', href: '/categoria/mesa-gamer' },
         { name: 'Webcams', href: '/categoria/webcams' },
         { name: 'Capturadoras', href: '/categoria/capturadoras' },
+        { name: 'Cables y Hub', href: '/categoria/cables-y-hub' },
         {
-          name: 'Protección eléctrica',
+          name: 'Proteccion electrica',
           href: '/categoria/proteccion',
           children: [
             { name: 'UPS', href: '/categoria/ups' },
@@ -212,15 +211,15 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
       icon: FiHeadphones,
       items: [
         {
-          name: 'Audífonos',
+          name: 'Audifonos',
           href: '/categoria/audifonos',
           children: [
-            { name: 'Audífonos Cableados', href: '/categoria/headsets-cableados' },
-            { name: 'Audífonos Inalambricos', href: '/categoria/headsets-inalambricos' }
+            { name: 'Audifonos Cableados', href: '/categoria/headsets-cableados' },
+            { name: 'Audifonos Inalambricos', href: '/categoria/headsets-inalambricos' }
           ]
         },
         { name: 'Parlantes', href: '/categoria/speakers' },
-        { name: 'Micrófonos', href: '/categoria/microphones' }
+        { name: 'Microfonos', href: '/categoria/microphones' }
       ]
     }
   ];
@@ -245,7 +244,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
         {/* PANEL IZQUIERDO */}
         <div className="w-80 bg-white h-full border-r flex flex-col">
           <div className="p-5 flex justify-between border-b shrink-0">
-            <h2 className="font-bold text-lg">Menú</h2>
+            <h2 className="font-bold text-lg">Menu</h2>
             <FiX onClick={onClose} className="text-2xl cursor-pointer" />
           </div>
 
@@ -282,7 +281,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
               onClick={onClose}
               className="flex items-center gap-3 mt-4 text-gray-600 hover:text-cyan-800"
             >
-              <FiHome /> Tienda física
+              <FiHome /> Tienda fisica
             </Link>
           </div>
         </div>
@@ -306,7 +305,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                     <div key={idx}>
                       {item.children ? (
                         <>
-                          {/* Row: click name → navigate, click arrow → toggle */}
+                          {/* Row: click name â†’ navigate, click arrow â†’ toggle */}
                           <div className="flex items-center justify-between py-2">
                             <Link
                               href={item.href || '#'}
@@ -365,3 +364,5 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
 };
 
 export default MegaMenu;
+
+

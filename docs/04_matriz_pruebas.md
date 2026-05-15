@@ -21,6 +21,9 @@
 | PROD-06 | Productos | RF-02 | Editar precio | Producto existente | price=1000 | Guardar | Precio 1000.00 sin ajuste | E2E/API | Alta | Pendiente de ejecucion |
 | PROD-07 | Productos | RF-12 | Editar imagenes | Producto existente | 1-5 imagenes | Guardar | Imagenes actualizadas | E2E/API | Media | Pendiente de ejecucion |
 | PROD-08 | Auditoria | RF-14 | Auditoria de cambios | AuditLog disponible | Cambio precio/stock | Revisar historial | Evento registrado | API/UI | Alta | Pendiente de ejecucion |
+| PROD-09 | Productos | RF-02 | CPU registra TDP base y TDP maximo | Admin autenticado | baseTdpWatts=65, tdp=105 | Crear/editar CPU | `baseTdpWatts` se guarda como dato informativo y `tdp` permanece para builder | UI/API | Alta | Pendiente de ejecucion |
+| PROD-10 | Productos | RF-02 | Motherboard registra marca tecnica | Admin autenticado | brand=ASUS/MSI/Gigabyte/ASRock/Otros | Crear/editar placa madre | Marca requerida, guardada en specs y visible en detalle publico si existe | UI/API | Alta | Pendiente de ejecucion |
+| PROD-11 | Productos | RF-02 | GPU registra marca, VRAM select y PSU recomendada | Admin autenticado | brand=Gigabyte, vram=32, gpuPowerWatts=450, recommendedPsuWatts=850 | Crear/editar GPU | Marca requerida, VRAM normalizada, consumo real guardado y PSU recomendada opcional/positiva | UI/API | Alta | Pendiente de ejecucion |
 | CAT-01 | Catalogo | RF-03 | Filtrar CPU por marca AMD | Productos CPU cargados | `category=CPU&cpuBrand=AMD` | Aplicar filtro en catalogo/API | Solo procesadores AMD | API/UI | Alta | Pendiente de ejecucion |
 | CAT-02 | Catalogo | RF-03 | Filtrar CPU por socket AM5 | Productos CPU AM4/AM5 | `socket=AM5` | Aplicar filtro | Solo CPU AM5 | API/UI | Alta | Pendiente de ejecucion |
 | CAT-03 | Catalogo | RF-03 | Filtrar motherboard por socket | Placas con sockets distintos | `category=MOTHERBOARD&socket=LGA 1700` | Aplicar filtro | Solo placas LGA 1700 | API/UI | Alta | Pendiente de ejecucion |
@@ -31,6 +34,9 @@
 | CAT-08 | Catalogo | RF-03 | Filtros sin resultados | Filtro incompatible | CPU Intel + AM5 si no existe | Aplicar filtros | Estado vacio claro | UI | Media | Pendiente de ejecucion |
 | CAT-09 | Catalogo | RF-03 | Filtros persistidos en URL | Catalogo abierto | Query params | Compartir/recargar URL | Se conservan filtros | E2E | Media | Pendiente de ejecucion |
 | CAT-10 | Catalogo | RF-03 | Opciones dinamicas de filtros | Productos con specs cargadas | `/products/filter-options` | Consumir endpoint | Devuelve opciones existentes | API | Media | Pendiente de ejecucion |
+| CAT-11 | Catalogo | RF-03 | Filtros CPU comerciales | Pagina Procesadores abierta | Panel filtros | Revisar UI | Muestra marca, socket, graficos integrados, precio, disponibilidad, oferta y orden; no muestra Buscar, Incluye cooler ni TDP | UI | Media | Pendiente de ejecucion |
+| CAT-12 | Catalogo | RF-03 | Filtros Motherboard comerciales | Pagina Placas madre abierta | Panel filtros | Revisar UI | Orden: Marca, Precio, Plataforma, Socket, Formato, Disponibilidad, Oferta, Ordenar; no muestra Tipo de RAM, Slots M.2 ni Biostar | UI/API | Alta | Pendiente de ejecucion |
+| CAT-13 | Catalogo | RF-03 | Filtros GPU comerciales | Pagina Graficas abierta | Panel filtros | Revisar UI | Orden: Marca ensambladora, Precio, Chipset, VRAM, Disponibilidad, Oferta, Ordenar; no muestra TDP minimo ni TDP maximo | UI/API | Alta | Pendiente de ejecucion |
 | SALE-01 | Ofertas | RF-13 | Oferta desactivada no exige salePrice | Producto sin oferta | isOnSale=false | Guardar stock | Sin error salePrice | UI/API | Critica | Pendiente de ejecucion |
 | SALE-02 | Ofertas | RF-13 | Oferta activa exige salePrice > 0 | Admin autenticado | isOnSale=true, salePrice vacio | Guardar | Error mayor a 0 | UI/API | Alta | Pendiente de ejecucion |
 | SALE-03 | Ofertas | RF-13 | salePrice menor a price | Producto con price=1000 | salePrice=1000 | Guardar | Error menor al precio normal | UI/API | Alta | Pendiente de ejecucion |
@@ -49,6 +55,7 @@
 | BLD-04 | Builder | RF-04 | Cooler socket incompatible | CPU elegido | Cooler sin socket CPU | Seleccionar | Bloqueo | E2E | Alta | Pendiente de ejecucion |
 | BLD-05 | Builder | RF-04 | Cooler TDP insuficiente | CPU 125W | Cooler 95W | Seleccionar | Bloqueo | E2E | Alta | Pendiente de ejecucion |
 | BLD-06 | Builder | RF-05 | PSU insuficiente | CPU/GPU altos | PSU baja | Seleccionar | Invalido | E2E | Alta | Pendiente de ejecucion |
+| BLD-06A | Builder | RF-05 | PSU recomendada GPU como piso minimo | CPU/GPU con recomendacion fabricante | gpuPowerWatts bajo, recommendedPsuWatts mayor | Calcular fuente | Usa el mayor entre calculo real con margen y PSU recomendada por fabricante | Unit/E2E | Alta | Pendiente de ejecucion |
 | BLD-07 | Builder | RF-04 | Storage M.2 incompatible | Board sin formato | SSD 22110 | Seleccionar | Invalido si aplica | E2E | Media | Pendiente de ejecucion |
 | BLD-08 | Builder | RF-04 | Configuracion completa valida | Specs correctas | Componentes compatibles | Finalizar | Configuracion valida | E2E | Alta | Pendiente de ejecucion |
 | CART-01 | Carrito | RF-10 | Agregar producto con stock | Producto stock > 0 | qty=1 | Agregar | Item en cesta | E2E | Alta | Pendiente de ejecucion |

@@ -36,7 +36,7 @@ Las pruebas ejecutadas hasta el momento dan evidencia parcial. No sustituyen la 
 
 | Tipo de prueba | Descripción | Evidencia | Resultado | Pendiente |
 |---|---|---|---|---|
-| Funcionales backend | Servicios de auth, productos, ofertas, pagos, stock, auditoría. | `npm test -- --runInBand`. | OK: 12 suites, 45 tests. | HTTP real y UI |
+| Funcionales backend | Servicios de auth, productos, ofertas, pagos, stock, auditoría y filtros de catálogo. | `npm test -- --runInBand`. | OK: 12 suites, 52 tests. | HTTP real y UI |
 | Integración preparada | Suites HTTP E2E con Supertest. | `backend/test/e2e`. | Preparado. | Configurar `DATABASE_URL_TEST` |
 | Regresión | Reejecución de tests tras cambios. | Jest backend. | OK según ejecución local. | CI automático |
 | Seguridad básica | SQLi login, token inválido, rol incorrecto, `.env.example`. | Tests backend/documentales. | Evidencia parcial. | SQLi búsqueda, XSS visual, CORS real |

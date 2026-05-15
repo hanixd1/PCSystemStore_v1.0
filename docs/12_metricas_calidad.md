@@ -2,12 +2,12 @@
 
 ## 13.1 Ejecución de Casos de Pruebas
 
-Las métricas siguientes reflejan evidencia parcial y la última ejecución local documentada en este ciclo. La línea base previa era 11 suites y 37 tests backend; la ejecución actual reportó 12 suites y 45 tests aprobados.
+Las métricas siguientes reflejan evidencia parcial y la última ejecución local documentada en este ciclo. La línea base previa era 11 suites y 37 tests backend; la ejecución actual reportó 12 suites y 52 tests aprobados.
 
 | Métrica | Valor actual | Evidencia | Estado |
 |---|---|---|---|
 | Backend unit/service suites | 12 suites aprobadas | `npm test -- --runInBand` | Validado localmente |
-| Backend unit/service tests | 45 tests aprobados | `npm test -- --runInBand` | Validado localmente |
+| Backend unit/service tests | 52 tests aprobados | `npm test -- --runInBand` | Validado localmente |
 | Backend build | OK | `npm run build` | Validado localmente |
 | Backend typecheck | OK | `npx tsc --noEmit` | Validado localmente |
 | Frontend build | OK | `pnpm run build` | Validado localmente |
@@ -30,6 +30,7 @@ Las métricas siguientes reflejan evidencia parcial y la última ejecución loca
 | DEF-007 | 2026-05 | DB/Neon | Prisma P1001 por conexión remota no disponible. | Alta | Pendiente ambiental | Requiere revisar `DATABASE_URL`, red y Neon. | Pendiente de validación |
 | DEF-008 | 2026-05 | CORS | Riesgo de origen mal configurado entre frontend/backend. | Media | Pendiente | Validar CORS por entorno. | Checklist QA |
 | DEF-009 | 2026-05 | E2E HTTP | Suites preparadas no ejecutan sin DB QA. | Alta | Bloqueado | Configurar `DATABASE_URL_TEST`. | `backend_http_e2e.md` |
+| DEF-010 | 2026-05 | Catálogo público | Rutas como microphones/speakers/audifonos/proteccion/webcams podían caer en listado genérico y mostrar productos incorrectos; además CategoryPage podía entrar en loop de render. | Alta | Corregido | Slugs mapeados, filtros memoizados, guard de ruta conocida y fetch abortable. | Build frontend OK / tests filtros |
 
 ## 13.3 Métricas de Calidad del Software
 

@@ -69,6 +69,14 @@ Estados permitidos: `Pendiente`, `En ejecucion`, `Aprobado`, `Fallido`, `Bloquea
 | CAT-04 | Catalogo | Filtrar por stock y oferta. | Usar disponibilidad/oferta. | Resultados coinciden con stock/oferta. | Pendiente | `docs/evidencias/productos/` |  |
 | CAT-05 | Catalogo | Combinacion de filtros. | Aplicar marca + socket + precio. | Interseccion correcta. | Pendiente | `docs/evidencias/productos/` |  |
 | CAT-06 | Catalogo | Filtros en URL. | Aplicar filtros y recargar. | Query params conservan el estado. | Pendiente | `docs/evidencias/productos/` |  |
+| CAT-07 | Catalogo | Rutas de audio/perifericos no muestran motherboards. | Abrir `/categoria/microphones`, `/categoria/speakers`, `/categoria/audifonos`, `/categoria/proteccion` y `/categoria/webcams`. | Solo se muestran productos del tipo mapeado o estado vacio; no hay fallback a componentes. | Pendiente | `docs/evidencias/productos/` | Fix implementado; pendiente evidencia visual. |
+| CAT-08 | Catalogo | CategoryPage no entra en loop. | Navegar entre Microphones, Procesadores, Webcams e Inicio. | No aparece `Maximum update depth exceeded` y la navegacion responde. | Pendiente | `docs/evidencias/productos/` | Build/typecheck OK; pendiente prueba visual con app levantada. |
+| CAT-09 | Catalogo | Filtros CPU simplificados para cliente. | Abrir Procesadores y revisar panel. | No aparece Buscar, Especificaciones, Incluye cooler ni TDP; precio min/max aparece en una fila y orden solo tiene precio/nombre. | Pendiente | `docs/evidencias/productos/` | El TDP sigue como especificacion tecnica y dato del builder. |
+| PROD-13 | Productos | CPU guarda TDP base y TDP maximo. | Crear/editar CPU con `baseTdpWatts` y `tdp`. | `baseTdpWatts` es informativo; `tdp` sigue validando cooler/fuente. | Pendiente | `docs/evidencias/productos/` | Requiere migracion aplicada en DB QA. |
+| CAT-10 | Catalogo | Filtros Motherboard simplificados para cliente. | Abrir Placas madre y revisar panel. | Marca aparece primero; precio aparece en fila; no aparecen Tipo de RAM, Slots M.2 ni Biostar; opciones de marca son ASUS, MSI, Gigabyte, ASRock y Otros. | Pendiente | `docs/evidencias/productos/` | Tipo RAM y M.2 siguen como specs tecnicas/builder. |
+| PROD-14 | Productos | Motherboard guarda marca tecnica. | Crear/editar Motherboard con marca seleccionada. | Marca es requerida, se guarda en `MotherboardSpecs.brand` y aparece en detalle publico si existe. | Pendiente | `docs/evidencias/productos/` | Requiere migracion `add_motherboard_brand` aplicada en DB QA. |
+| CAT-11 | Catalogo | Filtros GPU simplificados para cliente. | Abrir Graficas y revisar panel. | Marca ensambladora aparece primero, precio aparece debajo en fila, no aparecen TDP minimo/TDP maximo y VRAM incluye 32 GB. | Pendiente | `docs/evidencias/productos/` | Consumo real y PSU recomendada siguen como specs tecnicas. |
+| PROD-15 | Productos | GPU guarda consumo real y PSU recomendada. | Crear/editar GPU con `gpuPowerWatts` y `recommendedPsuWatts`. | `gpuPowerWatts` se usa para consumo real; `recommendedPsuWatts` queda como piso minimo opcional/positivo. | Pendiente | `docs/evidencias/productos/` | Productos antiguos usan fallback desde `tdp`. |
 | STOCK-01 | Stock | Producto con stock 0 no permite compra. | Intentar agregar/comprar producto stock 0. | Boton bloqueado y backend no crea orden valida. | Pendiente | `docs/evidencias/stock/` | Critico. |
 | STOCK-02 | Stock | Producto con stock > 0 permite carrito. | Agregar producto con stock disponible. | Item aparece en carrito. | Pendiente | `docs/evidencias/stock/` |  |
 | STOCK-03 | Stock | Cantidad mayor al stock se bloquea. | Intentar superar stock disponible. | UI/backend bloquean. | Pendiente | `docs/evidencias/stock/` |  |
@@ -91,6 +99,7 @@ Estados permitidos: `Pendiente`, `En ejecucion`, `Aprobado`, `Fallido`, `Bloquea
 | BUILD-05 | Builder | Cooler sin socket compatible invalido. | Seleccionar cooler sin socket CPU. | Bloqueo por socket. | Pendiente | `docs/evidencias/builder/` |  |
 | BUILD-06 | Builder | Cooler maxTdp menor que CPU.tdp invalido. | Seleccionar cooler insuficiente. | Bloqueo por TDP. | Pendiente | `docs/evidencias/builder/` |  |
 | BUILD-07 | Builder | PSU insuficiente invalida. | Seleccionar fuente menor al consumo estimado. | Bloqueo por watts. | Pendiente | `docs/evidencias/builder/` |  |
+| BUILD-07A | Builder | PSU recomendada GPU como piso minimo. | Seleccionar CPU/GPU donde fabricante recomienda mas watts que el calculo real. | La fuente filtrada/recomendada cubre `max(calculo real con margen, recommendedPsuWatts)`. | Pendiente | `docs/evidencias/builder/` | Backend IA y builder frontend usan la misma regla conceptual. |
 | BUILD-08 | Builder | Storage M.2 incompatible invalido. | Seleccionar SSD M.2 no soportado por board. | Bloqueo si aplica. | Pendiente | `docs/evidencias/builder/` |  |
 | BUILD-09 | Builder | Configuracion completa valida permite avanzar. | Completar componentes compatibles. | Flujo permite continuar. | Pendiente | `docs/evidencias/builder/` |  |
 | AUD-01 | Auditoria | Crear producto genera log. | Crear producto y revisar historial. | Log CREATE_PRODUCT. | Pendiente | `docs/evidencias/auditoria/` |  |
@@ -132,6 +141,15 @@ Estados permitidos: `Pendiente`, `En ejecucion`, `Aprobado`, `Fallido`, `Bloquea
 | MET-01 | Calidad | Revisar metricas de calidad. | Actualizar `docs/12_metricas_calidad.md` despues de tests/builds. | Suites, tests, builds, bloqueos y defectos reflejan evidencia real. | Pendiente | `docs/12_metricas_calidad.md` | Actualizacion requerida por ciclo. |
 | MON-01 | Monitoreo | Validar logs basicos post-deploy. | Revisar logs backend/frontend, Prisma, Python e intentos de login. | Errores criticos visibles y trazables. | Pendiente | `docs/evidencias/` | Monitoreo productivo no implementado. |
 | POST-01 | Post-deploy | Ejecutar checklist funcional post-deploy. | Validar health backend, frontend/API, auth, catalogo, checkout, pagos, builder, auditoria e IA. | Stack QA/staging funcional con evidencia. | Pendiente | `docs/evidencias/` | Requisito previo para staging controlado completo. |
+
+## Limpieza controlada de catalogo previo a QA/staging
+
+| ID | Modulo | Caso | Pasos | Resultado esperado | Estado | Evidencia | Observaciones |
+|---|---|---|---|---|---|---|---|
+| CLEAN-01 | Prisma | Aplicar migracion `baseTdpWatts`. | Ejecutar `npx prisma migrate deploy` o fallback `npx prisma db execute --schema prisma/schema.prisma --file prisma/migrations/20260509120000_add_cpu_base_tdp/migration.sql`. | Columna nullable `CpuSpecs.baseTdpWatts` existe y no aparece P2022. | Bloqueado | `docs/evidencias/reporte_qa_staging.md` | En este entorno fallo por `P1001` contra Neon. |
+| CLEAN-02 | Catalogo | Limpiar productos y dependencias. | Ejecutar con `ALLOW_CLEAN_PRODUCTS=true` y `npm run clean:products`. | Productos, specs y orderItems quedan limpios; usuarios, branding, banners, ordenes y pagos se conservan. | Pendiente | `docs/evidencias/` | No ejecutar en produccion. |
+| CLEAN-03 | Catalogo | Cargar seed limpio opcional. | Ejecutar con `ALLOW_SEED_PRODUCTS_CLEAN=true` y `npm run seed:products:clean`. | Catalogo QA queda con productos base compatibles y sin ofertas iniciales. | Pendiente | `docs/evidencias/` | Requiere DB accesible y migracion aplicada. |
+| CLEAN-04 | Catalogo | Verificar endpoints tras limpieza. | Probar `/products` y `/products/filter-options`. | Respuesta vacia o productos limpios, sin Internal Server Error. | Pendiente | `docs/evidencias/productos/` | Requiere backend conectado a DB. |
 
 ## Decision operacional
 

@@ -52,6 +52,7 @@ PCSystemStore presenta una base funcional amplia para un e-commerce especializad
 | HC-03 | Servicio de productos concentra demasiada logica. | Separar validacion, specs, auditoria y pricing. |
 | HC-04 | Pruebas de seguridad SQLi/XSS/Auth pendientes. | Ejecutar antes de staging publico. |
 | HC-05 | Filtros dinamicos de catalogo requieren validacion HTTP/UI real. | Cubrir con API QA y E2E visual antes de produccion. |
+| HC-06 | Filtros CPU deben priorizar criterios visibles al cliente y no exponer TDP como filtro publico. | Validar UI: marca, socket, graficos integrados, precio, disponibilidad, oferta y orden. |
 
 ## 6. Pruebas prioritarias antes de despliegue
 
@@ -116,7 +117,7 @@ PCSystemStore presenta una base funcional amplia para un e-commerce especializad
 
 | Area | Evidencia actual | Estado | Observacion |
 |---|---|---|---|
-| Pruebas backend unit/service | `npm test -- --runInBand`: 12 suites y 45 tests OK. | Validado localmente | La linea base previa era 11 suites y 37 tests; se actualizo con la ejecucion actual. |
+| Pruebas backend unit/service | `npm test -- --runInBand`: 12 suites y 52 tests OK. | Validado localmente | La linea base previa era 11 suites y 37 tests; se actualizo con la ejecucion actual. |
 | Build backend | `npm run build` reportado OK. | Validado recientemente | No sustituye pruebas HTTP reales. |
 | Typecheck backend | `npx tsc --noEmit` reportado OK. | Validado recientemente | Requiere mantenerse en CI. |
 | Build frontend | `pnpm run build` reportado OK. | Validado recientemente | No sustituye pruebas E2E visuales. |
@@ -125,6 +126,10 @@ PCSystemStore presenta una base funcional amplia para un e-commerce especializad
 | HTTP E2E real | Suites preparadas con Supertest y seed QA. | Bloqueado | Falta `DATABASE_URL_TEST` apuntando a una base QA/test real. |
 | E2E visual | Playwright/Cypress documentado como fase siguiente. | Pendiente | No existe evidencia de ejecucion visual automatizada. |
 | Produccion | Checklist critico incompleto. | No recomendado | Requiere E2E, seguridad, concurrencia, monitoreo y DB QA validada. |
+
+Nota de catalogo: los filtros publicos de placa madre fueron ajustados para priorizar marca, precio, plataforma, socket y formato. `Tipo de RAM` y `Slots M.2` se mantienen como especificaciones tecnicas y reglas de compatibilidad, pero no se muestran como filtros principales. La marca se registra en `MotherboardSpecs.brand` y requiere aplicar la migracion `20260509133000_add_motherboard_brand` en cada base QA/staging.
+
+Nota de GPU: la tarjeta grafica separa `gpuPowerWatts` como consumo real/TGP usado por el armador y `recommendedPsuWatts` como recomendacion minima del fabricante. La fuente final recomendada debe cubrir el mayor valor entre el calculo real del sistema con margen de seguridad y la recomendacion de la GPU. Los filtros publicos de GPU se limitan a marca ensambladora, precio, chipset, VRAM, disponibilidad, oferta y orden.
 
 ## 10. Conclusion Senior Tech Lead
 

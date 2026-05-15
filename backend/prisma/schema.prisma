@@ -40,6 +40,11 @@ model Product {
   ramSpecs         RamSpecs?
   softwareSpecs    SoftwareSpecs?
   speakerSpecs     SpeakerSpecs?
+  webcamSpecs      WebcamSpecs?
+  captureCardSpecs CaptureCardSpecs?
+  cableHubSpecs    CableHubSpecs?
+  laptopCoolingBaseSpecs LaptopCoolingBaseSpecs?
+  backpackSpecs    BackpackSpecs?
   storageSpecs     StorageSpecs?
   orderItems       OrderItem[]
 }
@@ -52,6 +57,7 @@ model CpuSpecs {
   cores              Int
   threads            Int?
   frequency          String
+  baseTdpWatts       Int?
   tdp                Int
   integratedGraphics Boolean
   includesCooler     Boolean
@@ -61,6 +67,7 @@ model CpuSpecs {
 model MotherboardSpecs {
   id          String  @id @default(uuid())
   productId   String  @unique
+  brand       String?
   socket      String
   formFactor  String
   memoryType  String
@@ -82,19 +89,23 @@ model RamSpecs {
 }
 
 model GpuSpecs {
-  id        String  @id @default(uuid())
-  productId String  @unique
-  chipset   String
-  vram      Int
-  length    Int
-  tdp       Int
-  fans      Int
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                 String  @id @default(uuid())
+  productId          String  @unique
+  brand              String?
+  chipset            String
+  vram               Int
+  length             Int
+  tdp                Int
+  gpuPowerWatts      Int?
+  recommendedPsuWatts Int?
+  fans               Int
+  product            Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model PsuSpecs {
   id            String  @id @default(uuid())
   productId     String  @unique
+  brand         String?
   wattage       Int
   certification String
   modular       String
@@ -105,16 +116,19 @@ model PsuSpecs {
 model CaseSpecs {
   id           String  @id @default(uuid())
   productId    String  @unique
+  brand        String?
   formFactor   String
   maxGpuLength Int
   includesPsu  Boolean
   includedFans Int
+  radiatorSupportMm Int?
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model CoolerSpecs {
   id            String  @id @default(uuid())
   productId     String  @unique
+  brand         String?
   type          String
   socketSupport String
   compatibleSockets String[] @default([])
@@ -142,6 +156,7 @@ model StorageSpecs {
 model LaptopSpecs {
   id              String  @id @default(uuid())
   productId       String  @unique
+  brand           String?
   processor       String
   ram             String
   storage         String
@@ -181,6 +196,7 @@ model SoftwareSpecs {
 model MonitorSpecs {
   id          String  @id @default(uuid())
   productId   String  @unique
+  brand       String?
   screenSize  String
   resolution  String
   panelType   String
@@ -256,20 +272,23 @@ model GamingDeskSpecs {
 }
 
 model HeadsetSpecs {
-  id          String  @id @default(uuid())
-  productId   String  @unique
-  connection  String
-  driverSize  Int
-  impedance   Int
-  micType     String
-  noiseCancel Boolean
-  hasRGB      Boolean
-  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                   String   @id @default(uuid())
+  productId            String   @unique
+  brand                String?
+  connection           String
+  supportedConnections String[] @default([])
+  driverSize           Int
+  impedance            Int
+  micType              String
+  noiseCancel          Boolean
+  hasRGB               Boolean
+  product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model MicrophoneSpecs {
   id         String  @id @default(uuid())
   productId  String  @unique
+  brand      String?
   connection String
   micType    String
   hasRGB     Boolean
@@ -279,10 +298,59 @@ model MicrophoneSpecs {
 model SpeakerSpecs {
   id         String  @id @default(uuid())
   productId  String  @unique
+  brand      String?
   connection String
   wattage    Int
   hasRGB     Boolean
   product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model WebcamSpecs {
+  id         String  @id @default(uuid())
+  productId  String  @unique
+  brand      String?
+  resolution String
+  fps        Int
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model CaptureCardSpecs {
+  id         String  @id @default(uuid())
+  productId  String  @unique
+  brand      String?
+  resolution String
+  fps        Int
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model CableHubSpecs {
+  id               String   @id @default(uuid())
+  productId        String   @unique
+  brand            String?
+  type             String
+  cableType        String?
+  cableLengthMeters Int?
+  hubInputType     String?
+  hasHdmiOutput    Boolean?
+  hasRj45Output    Boolean?
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model LaptopCoolingBaseSpecs {
+  id           String  @id @default(uuid())
+  productId    String  @unique
+  brand        String?
+  fanCount     Int
+  connectivity String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model BackpackSpecs {
+  id        String  @id @default(uuid())
+  productId String  @unique
+  brand     String?
+  color     String?
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model User {
@@ -433,6 +501,27 @@ model Payment {
   updatedAt             DateTime        @updatedAt
   paidAt                DateTime?
   order                 Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model IdempotencyKey {
+  id           String    @id @default(uuid())
+  key          String
+  userId       String?
+  route        String
+  method       String
+  requestHash  String
+  status       String
+  responseBody Json?
+  statusCode   Int?
+  lockedAt     DateTime?
+  completedAt  DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([key, route, method])
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model StoreBranding {

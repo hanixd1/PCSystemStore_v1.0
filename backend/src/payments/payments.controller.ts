@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
-import { Request } from 'express';
+import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { JwtUserPayload } from '../auth/auth.constants';
 import { Roles } from '../auth/roles.decorator';
+import { IdempotencyService } from '../idempotency/idempotency.service';
 import { ManualPaymentDto } from './dto/manual-payment.dto';
 import { SimulatePaymentDto } from './dto/simulate-payment.dto';
 import { PaymentsService } from './payments.service';
@@ -10,18 +11,53 @@ type AuthenticatedRequest = Request & { user: JwtUserPayload };
 
 @Controller()
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly idempotency: IdempotencyService,
+  ) {}
 
   @Roles('CUSTOMER')
   @Post('payments/simulate')
-  simulate(@Body() body: SimulatePaymentDto, @Req() request: AuthenticatedRequest) {
-    return this.paymentsService.simulate(body, request.user.sub);
+  async simulate(
+    @Body() body: SimulatePaymentDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.idempotency.run({
+      key: idempotencyKey,
+      route: '/payments/simulate',
+      method: 'POST',
+      body,
+      userId: request.user.sub,
+      successStatusCode: 201,
+      handler: () => this.paymentsService.simulate(body, request.user.sub),
+    });
+
+    response.status(result.statusCode);
+    return result.body;
   }
 
   @Roles('CUSTOMER')
   @Post('payments/manual')
-  createManual(@Body() body: ManualPaymentDto, @Req() request: AuthenticatedRequest) {
-    return this.paymentsService.createManual(body, request.user.sub);
+  async createManual(
+    @Body() body: ManualPaymentDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.idempotency.run({
+      key: idempotencyKey,
+      route: '/payments/manual',
+      method: 'POST',
+      body,
+      userId: request.user.sub,
+      successStatusCode: 201,
+      handler: () => this.paymentsService.createManual(body, request.user.sub),
+    });
+
+    response.status(result.statusCode);
+    return result.body;
   }
 
   @Roles('ADMIN')
@@ -32,19 +68,45 @@ export class PaymentsController {
 
   @Roles('ADMIN')
   @Patch('admin/payments/:id/approve')
-  approveManual(
+  async approveManual(
     @Param('id', ParseUUIDPipe) id: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.paymentsService.approveManual(id, request.user.sub);
+    const result = await this.idempotency.run({
+      key: idempotencyKey,
+      route: `/admin/payments/${id}/approve`,
+      method: 'PATCH',
+      body: { id },
+      userId: request.user.sub,
+      successStatusCode: 200,
+      handler: () => this.paymentsService.approveManual(id, request.user.sub),
+    });
+
+    response.status(result.statusCode);
+    return result.body;
   }
 
   @Roles('ADMIN')
   @Patch('admin/payments/:id/reject')
-  rejectManual(
+  async rejectManual(
     @Param('id', ParseUUIDPipe) id: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.paymentsService.rejectManual(id, request.user.sub);
+    const result = await this.idempotency.run({
+      key: idempotencyKey,
+      route: `/admin/payments/${id}/reject`,
+      method: 'PATCH',
+      body: { id },
+      userId: request.user.sub,
+      successStatusCode: 200,
+      handler: () => this.paymentsService.rejectManual(id, request.user.sub),
+    });
+
+    response.status(result.statusCode);
+    return result.body;
   }
 }

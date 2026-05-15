@@ -36,7 +36,7 @@ El proyecto diferencia ambiente local, QA/test y producción futura. Las pruebas
 
 | Script/Comando | Descripción | Estado actual | Resultado |
 |---|---|---|---|
-| `npm test -- --runInBand` | Ejecuta pruebas backend unit/service. | Implementado | OK: 12 suites, 45 tests |
+| `npm test -- --runInBand` | Ejecuta pruebas backend unit/service. | Implementado | OK: 12 suites, 52 tests |
 | `npm run test:e2e` | Ejecuta suite E2E configurada. | Preparado | HTTP real bloqueado sin `DATABASE_URL_TEST` |
 | `npm run test:e2e:qa` | Migración QA + seed QA + E2E. | Preparado | Pendiente de DB QA |
 | `npm run prisma:test:deploy` | Aplica migraciones en DB test. | Preparado | Pendiente de DB QA |
