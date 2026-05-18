@@ -67,7 +67,7 @@ function buildWarnings(mode: UploaderMode, width: number, height: number) {
     }
 
     if (width !== config.width || height !== config.height) {
-      warnings.push('La imagen no tiene el tamaño recomendado de 1920 x 500 px; podria recortarse o verse mal en algunas pantallas.');
+      warnings.push('La imagen no tiene el tamano recomendado de 1920 x 500 px; podria recortarse o verse mal en algunas pantallas.');
     }
   }
 
@@ -105,7 +105,7 @@ export default function ImageUploader({
   const [error, setError] = useState('');
 
   const config = MODE_CONFIG[mode];
-  const totalImages = existingImages.length + files.length;
+  const totalImages = maxFiles === 1 && files.length > 0 ? files.length : existingImages.length + files.length;
 
   useEffect(() => {
     let cancelled = false;
@@ -155,8 +155,13 @@ export default function ImageUploader({
       return;
     }
 
-    if (existingImages.length + files.length + selectedFiles.length > maxFiles) {
+    if (maxFiles === 1 && selectedFiles.length > 1) {
       setError(`Solo puedes tener hasta ${maxFiles} ${maxFiles === 1 ? 'imagen' : 'imagenes'}.`);
+      return;
+    }
+
+    if (maxFiles > 1 && existingImages.length + files.length + selectedFiles.length > maxFiles) {
+      setError(`Solo puedes tener hasta ${maxFiles} imagenes.`);
       return;
     }
 

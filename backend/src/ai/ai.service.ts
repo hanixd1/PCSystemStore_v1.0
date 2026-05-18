@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiPythonRunnerService } from './services/ai-python-runner.service';
 
 type ChatRole = 'user' | 'assistant';
 type ChatIntent = 'build_pc' | 'product_search' | 'compatibility' | 'unknown';
@@ -28,6 +27,57 @@ interface AiProductInput {
   updatedAt?: string;
 }
 
+interface ChatStoredProduct {
+  id: string;
+  name: string;
+  category?: string | null;
+  price: number;
+  stock: number;
+  imageUrl?: string | null;
+  productUrl: string;
+}
+
+interface ChatConversationState {
+  intent?: 'product_search' | 'pc_build' | 'budget_pc_build' | 'cart_action' | 'total_query' | 'checkout_guidance' | 'support' | 'unknown' | null;
+  budget?: number | null;
+  usage?: string | null;
+  includesPeripherals?: boolean | null;
+  mentionedProducts?: string[];
+  lastRecommendedProducts?: ChatStoredProduct[];
+  lastRecommendedBuild?: ChatStoredProduct[];
+  lastFocusedProductId?: string | null;
+  awaiting?: string | null;
+}
+
+interface ChatCatalogProduct {
+  id: string;
+  name: string;
+  slug?: string;
+  category: string;
+  price: number;
+  stock: number;
+  imageUrl: string | null;
+  productUrl: string;
+}
+
+interface CommercialChatResponse {
+  reply: string;
+  intent: string;
+  conversationState: ChatConversationState;
+  products: ChatStoredProduct[];
+  actions?: Array<{
+    type: 'add_to_cart';
+    productId: string;
+    quantity: number;
+  }>;
+  totals?: {
+    subtotal: number;
+    igv: number;
+    total: number;
+  } | null;
+  status: 'ok' | 'degraded';
+}
+
 interface AiPrediction {
   id: string;
   nombre: string;
@@ -36,6 +86,15 @@ interface AiPrediction {
   mensaje_cliente: string;
   alerta_admin: string;
   dias_restantes_estimados?: number;
+}
+
+interface AiServicePrediction {
+  productId: string;
+  productName: string;
+  risk: 'low' | 'medium' | 'high' | 'critical';
+  probability: number;
+  message: string;
+  recommendedReorder: number;
 }
 
 interface ConversationSlots {
@@ -154,6 +213,9 @@ const FALLBACK_PREDICTION: AiPrediction = {
   alerta_admin: 'No se pudo calcular la prediccion automaticamente.',
 };
 
+const AI_UNAVAILABLE_REPLY =
+  'Por el momento el asistente no esta disponible. Puedes seguir navegando por la tienda o usar el buscador para encontrar productos.';
+
 const PRODUCT_INCLUDE = {
   cpuSpecs: true,
   motherboardSpecs: true,
@@ -178,10 +240,7 @@ const PRODUCT_INCLUDE = {
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
-  constructor(
-    private prisma: PrismaService,
-    private readonly pythonRunner: AiPythonRunnerService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   private getFrontendUrl(): string {
     return process.env.FRONTEND_URL?.trim().replace(/\/$/, '') || '';
@@ -238,6 +297,203 @@ export class AiService {
           ? product.updatedAt.toISOString()
           : product.updatedAt,
     };
+  }
+
+  private getAiServiceUrl(): string {
+    return process.env.AI_SERVICE_URL?.trim().replace(/\/$/, '') || '';
+  }
+
+  private getProductUrl(product: { id: string; slug?: string | null }) {
+    return `/product/${product.id}`;
+  }
+
+  private mapCatalogProduct(product: any): ChatCatalogProduct {
+    const images = Array.isArray(product.images) ? product.images : [];
+    return {
+      id: String(product.id),
+      name: product.name ? String(product.name) : 'Producto sin nombre',
+      slug: product.slug ? String(product.slug) : undefined,
+      category: product.category ? String(product.category) : 'GENERAL',
+      price: this.normalizePrice(product.price),
+      stock: Number(product.stock ?? 0),
+      imageUrl: typeof images[0] === 'string' && images[0].trim() ? images[0] : null,
+      productUrl: this.getProductUrl(product),
+    };
+  }
+
+  private async getChatCatalog(message: string): Promise<ChatCatalogProduct[]> {
+    const normalized = this.normalizeText(message);
+    const buildIntent =
+      normalized.includes('pc') ||
+      normalized.includes('computadora') ||
+      normalized.includes('armar') ||
+      normalized.includes('setup') ||
+      normalized.includes('torre');
+
+    if (buildIntent) {
+      const products = await this.prisma.product.findMany({
+        where: {
+          category: { in: ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'STORAGE', 'PSU', 'CASE'] },
+        },
+        take: 50,
+        orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
+      });
+
+      return products.map((product) => this.mapCatalogProduct(product));
+    }
+
+    const terms = this.extractSearchTerms(message);
+    if (terms.length === 0) {
+      const products = await this.prisma.product.findMany({
+        where: { stock: { gt: 0 } },
+        take: 20,
+        orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
+      });
+      return products.map((product) => this.mapCatalogProduct(product));
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        OR: [
+          ...terms.map((term) => ({
+            name: { contains: term, mode: 'insensitive' as const },
+          })),
+          ...terms.map((term) => ({
+            description: { contains: term, mode: 'insensitive' as const },
+          })),
+          ...terms.map((term) => ({
+            category: { contains: term, mode: 'insensitive' as const },
+          })),
+        ],
+      },
+      take: 20,
+      orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
+    });
+
+    return products.map((product) => this.mapCatalogProduct(product));
+  }
+
+  private async requestCommercialChat(
+    message: string,
+    conversationState?: ChatConversationState,
+  ): Promise<CommercialChatResponse> {
+    const aiServiceUrl = this.getAiServiceUrl();
+    if (!aiServiceUrl) {
+      this.logger.warn('[AI] AI_SERVICE_URL no configurado para chat.');
+      return {
+        reply: AI_UNAVAILABLE_REPLY,
+        intent: conversationState?.intent ?? 'unknown',
+        conversationState: conversationState ?? {
+          intent: null,
+          budget: null,
+          usage: null,
+          includesPeripherals: null,
+          mentionedProducts: [],
+        },
+        products: [],
+        actions: [],
+        totals: null,
+        status: 'degraded',
+      };
+    }
+
+    const catalog = await this.getChatCatalog(message);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch(`${aiServiceUrl}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          conversationState,
+          catalog,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`AI chat respondio ${response.status}`);
+      }
+
+      return (await response.json()) as CommercialChatResponse;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private mapRiskToEstado(risk: AiServicePrediction['risk']) {
+    const mapping: Record<AiServicePrediction['risk'], string> = {
+      low: 'BAJO',
+      medium: 'MEDIO',
+      high: 'ALTO',
+      critical: 'CRITICO',
+    };
+
+    return mapping[risk] ?? 'DESCONOCIDO';
+  }
+
+  private mapAiServicePrediction(
+    prediction: AiServicePrediction,
+    productById: Map<string, AiProductInput>,
+  ): AiPrediction {
+    const product = productById.get(prediction.productId);
+    return {
+      id: prediction.productId,
+      nombre: prediction.productName,
+      stock: product?.stock ?? 0,
+      estado: this.mapRiskToEstado(prediction.risk),
+      mensaje_cliente: prediction.message,
+      alerta_admin: `${prediction.message} Reposicion sugerida: ${prediction.recommendedReorder}.`,
+      dias_restantes_estimados:
+        prediction.recommendedReorder > 0 ? Math.max(1, Math.round((product?.stock ?? 0) / Math.max(1, prediction.recommendedReorder))) : undefined,
+    };
+  }
+
+  private async requestStockPredictions(
+    products: AiProductInput[],
+  ): Promise<AiPrediction[]> {
+    const aiServiceUrl = this.getAiServiceUrl();
+    if (!aiServiceUrl) {
+      this.logger.warn('AI_SERVICE_URL no configurado. Se omiten predicciones IA.');
+      return [];
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch(`${aiServiceUrl}/predict-stock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          products: products.map((product) => ({
+            id: product.id,
+            name: product.name,
+            category: product.category ?? 'GENERAL',
+            stock: product.stock,
+            price: product.price,
+            monthlySales: 0,
+          })),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`AI service respondio ${response.status}`);
+      }
+
+      const payload = (await response.json()) as { predictions?: AiServicePrediction[] };
+      const productById = new Map(products.map((product) => [product.id, product]));
+      return Array.isArray(payload.predictions)
+        ? payload.predictions.map((prediction) =>
+            this.mapAiServicePrediction(prediction, productById),
+          )
+        : [];
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private extractSearchTerms(userMessage: string): string[] {
@@ -1333,26 +1589,60 @@ export class AiService {
         return [];
       }
 
-      return await this.pythonRunner.runPredictor(normalizedProducts);
+      return await this.requestStockPredictions(normalizedProducts);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error en el motor de IA de Python: ${errorMessage}`);
+      this.logger.warn(`AI service no disponible. Se aplica degradacion segura: ${errorMessage}`);
 
-      return [{ ...FALLBACK_PREDICTION }];
+      return [];
     }
   }
 
   async processCustomerChat(
     userMessage: string,
     history: ChatMessageInput[] = [],
+    conversationState?: ChatConversationState,
   ): Promise<unknown> {
     const cleanMessage = userMessage.trim();
 
     if (!cleanMessage) {
       return {
-        reply:
-          'Escribeme lo que tienes en mente y lo aterrizamos juntos. Puede ser un componente o toda una PC.',
+        reply: 'Hola, soy Alex. Puedo ayudarte a encontrar productos o armar una PC segun tu presupuesto.',
+        products: [],
+        actions: [],
+        totals: null,
+        status: 'ok',
+        conversationState:
+          conversationState ?? {
+            intent: null,
+            budget: null,
+            usage: null,
+            includesPeripherals: null,
+            mentionedProducts: [],
+          },
+      };
+    }
+
+    try {
+      return await this.requestCommercialChat(cleanMessage, conversationState);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`[AI] Servicio no disponible: ${message}`);
+      return {
+        reply: AI_UNAVAILABLE_REPLY,
+        products: [],
+        actions: [],
+        totals: null,
+        status: 'degraded',
+        conversationState:
+          conversationState ?? {
+            intent: null,
+            budget: null,
+            usage: null,
+            includesPeripherals: null,
+            mentionedProducts: [],
+          },
       };
     }
 

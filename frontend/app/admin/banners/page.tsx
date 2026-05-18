@@ -39,6 +39,15 @@ const emptyBannerForm: BannerForm = {
   isActive: true,
 };
 
+function getFriendlyBrandingError(error: unknown, fallback: string) {
+  const message = getApiErrorMessage(error, fallback);
+  if (message.toLowerCase().includes('uuid')) {
+    return 'No se pudo guardar. Revisa los datos e intenta nuevamente.';
+  }
+
+  return message;
+}
+
 export default function AdminBannersPage() {
   const [branding, setBranding] = useState<Branding>({
     storeName: 'PCSystemStore',
@@ -84,9 +93,7 @@ export default function AdminBannersPage() {
   const uploadImage = async (file: File) => {
     const formData = new FormData();
     formData.append('image', file);
-    const res = await api.post('/admin/uploads/image', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const res = await api.post('/admin/uploads/image', formData);
     return String(res.data.url);
   };
 
@@ -110,7 +117,7 @@ export default function AdminBannersPage() {
       setLogoFiles([]);
       setMessage('Marca actualizada correctamente.');
     } catch (error) {
-      setError(getApiErrorMessage(error, 'No se pudo guardar la marca.'));
+      setError(getFriendlyBrandingError(error, 'No se pudo guardar la marca.'));
     } finally {
       setSavingBranding(false);
     }
@@ -159,7 +166,7 @@ export default function AdminBannersPage() {
       setBannerExistingImages([]);
       setEditingId(null);
     } catch (error) {
-      setError(getApiErrorMessage(error, 'No se pudo guardar el banner.'));
+      setError(getFriendlyBrandingError(error, 'No se pudo guardar el banner.'));
     } finally {
       setSavingBanner(false);
     }
@@ -189,17 +196,27 @@ export default function AdminBannersPage() {
   const toggleBanner = async (id: string) => {
     setMessage('');
     setError('');
+    if (!id) {
+      setError('No se pudo cambiar el estado del banner porque falta su identificador.');
+      return;
+    }
+
     try {
       const res = await api.patch(`/admin/banners/${id}/toggle`);
       setBanners((current) => current.map((banner) => (banner.id === id ? res.data : banner)));
     } catch (error) {
-      setError(getApiErrorMessage(error, 'No se pudo cambiar el estado del banner.'));
+      setError(getFriendlyBrandingError(error, 'No se pudo cambiar el estado del banner.'));
     }
   };
 
   const deleteBanner = async (id: string) => {
     setMessage('');
     setError('');
+    if (!id) {
+      setError('No se pudo eliminar el banner porque falta su identificador.');
+      return;
+    }
+
     try {
       await api.delete(`/admin/banners/${id}`);
       setBanners((current) => current.filter((banner) => banner.id !== id));
@@ -207,7 +224,7 @@ export default function AdminBannersPage() {
         cancelEditing();
       }
     } catch (error) {
-      setError(getApiErrorMessage(error, 'No se pudo eliminar el banner.'));
+      setError(getFriendlyBrandingError(error, 'No se pudo eliminar el banner.'));
     }
   };
 
@@ -258,7 +275,7 @@ export default function AdminBannersPage() {
                 onFilesChange={setLogoFiles}
                 existingImages={branding.logoUrl && logoFiles.length === 0 ? [branding.logoUrl] : []}
                 maxFiles={1}
-                helperText="Recomendacion: sube un logo en formato PNG o WEBP, idealmente con fondo transparente. Tamaño sugerido: 400 x 200 px."
+                helperText="Recomendacion: sube un logo en formato PNG o WEBP, idealmente con fondo transparente. Tamano sugerido: 400 x 200 px."
               />
             </div>
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation'; 
 import { useState } from 'react';
 import { FiPlus, FiLogOut, FiMenu, FiGrid, FiChevronLeft } from 'react-icons/fi';
+import { api, clearStoredAuthSession } from '@/lib/api';
 
 export default function AdminSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -13,8 +14,9 @@ export default function AdminSidebar() {
   // 2. DEFINIR LA VARIABLE pathname
   const pathname = usePathname(); 
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminSession');
+  const handleLogout = async () => {
+    await api.post('/users/admin-logout').catch(() => undefined);
+    clearStoredAuthSession();
     router.push('/admin/login');
   };
 

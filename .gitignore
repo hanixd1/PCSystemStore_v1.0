@@ -1,0 +1,57 @@
+# dependencies
+node_modules
+*/node_modules
+
+# env files
+.env
+.env.*
+!.env.example
+*.env
+
+# next
+.next
+out
+
+# nest / node builds
+dist
+build
+coverage
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# prisma local
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# python
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv
+venv
+env
+ai-service/.venv
+ai-service/venv
+
+# testing
+.pytest_cache
+.coverage
+htmlcov
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+
+# uploads temporales
+uploads
+backend/uploads
+tmp
+temp

@@ -139,6 +139,7 @@ export class BrandingService {
   }
 
   async updateBanner(id: string, data: UpdateBannerDto, actorId?: string) {
+    this.validateEntityId(id);
     this.validateBanner(data);
     const current = await this.ensureBannerExists(id);
 
@@ -173,6 +174,7 @@ export class BrandingService {
   }
 
   async toggleBanner(id: string, actorId?: string) {
+    this.validateEntityId(id);
     const banner = await this.ensureBannerExists(id);
     const updated = await this.prisma.homeBanner.update({
       where: { id },
@@ -198,6 +200,7 @@ export class BrandingService {
   }
 
   async deleteBanner(id: string, actorId?: string) {
+    this.validateEntityId(id);
     const banner = await this.ensureBannerExists(id);
     await this.prisma.homeBanner.delete({ where: { id } });
 
@@ -223,5 +226,11 @@ export class BrandingService {
     }
 
     return banner;
+  }
+
+  private validateEntityId(id: string) {
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new BadRequestException('Identificador de banner invalido');
+    }
   }
 }

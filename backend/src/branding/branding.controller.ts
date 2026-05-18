@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtUserPayload } from '../auth/auth.constants';
 import { Public } from '../auth/public.decorator';
@@ -57,7 +57,7 @@ export class BrandingController {
   @Roles('ADMIN')
   @Patch('admin/banners/:id')
   updateBanner(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Body() body: UpdateBannerDto,
     @Req() request: Request & { user: JwtUserPayload },
   ) {
@@ -67,7 +67,7 @@ export class BrandingController {
   @Roles('ADMIN')
   @Patch('admin/banners/:id/toggle')
   toggleBanner(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Req() request: Request & { user: JwtUserPayload },
   ) {
     return this.brandingService.toggleBanner(id, request.user.sub);
@@ -76,7 +76,7 @@ export class BrandingController {
   @Roles('ADMIN')
   @Delete('admin/banners/:id')
   deleteBanner(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id') id: string,
     @Req() request: Request & { user: JwtUserPayload },
   ) {
     return this.brandingService.deleteBanner(id, request.user.sub);

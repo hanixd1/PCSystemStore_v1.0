@@ -1,4 +1,4 @@
-import axios, { AxiosHeaders } from 'axios';
+import axios from 'axios';
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, '');
 export const API_URL = configuredApiUrl || '';
@@ -32,19 +32,6 @@ api.interceptors.request.use((config) => {
     return Promise.reject(new Error(configurationError));
   }
 
-  if (typeof window !== 'undefined') {
-    const token = getContextToken();
-    if (token) {
-      if (isStoredTokenUsable()) {
-        const headers = AxiosHeaders.from(config.headers);
-        headers.set('Authorization', `Bearer ${token}`);
-        config.headers = headers;
-      } else {
-        clearStoredAuthSession();
-      }
-    }
-  }
-
   return config;
 });
 
@@ -76,16 +63,7 @@ api.interceptors.response.use(
 export const AUTHORIZED_ADMIN_ROLES = new Set(['ADMIN', 'EDITOR', 'EMPLOYEE']);
 
 export function getContextToken() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  const isAdminPath = window.location.pathname.startsWith('/admin');
-  return (
-    localStorage.getItem(isAdminPath ? 'adminToken' : 'customerToken')?.trim() ||
-    localStorage.getItem('token')?.trim() ||
-    ''
-  );
+  return '';
 }
 
 export function clearStoredAuthSession() {
@@ -97,11 +75,9 @@ export function clearStoredAuthSession() {
 
   if (isAdminPath) {
     localStorage.removeItem('adminUser');
-    localStorage.removeItem('adminToken');
     localStorage.removeItem('adminSession');
   } else {
     localStorage.removeItem('customerUser');
-    localStorage.removeItem('customerToken');
   }
 
   const rawUser = localStorage.getItem('user');
@@ -117,45 +93,14 @@ export function clearStoredAuthSession() {
 
     if (shouldRemoveLegacySession) {
       localStorage.removeItem('user');
-      localStorage.removeItem('token');
     }
   } catch {
     localStorage.removeItem('user');
-    localStorage.removeItem('token');
   }
 }
 
 export function isStoredTokenUsable() {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const token = getContextToken();
-  if (!token) {
-    return false;
-  }
-
-  const [, payload] = token.split('.');
-  if (!payload) {
-    return false;
-  }
-
-  try {
-    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const paddedPayload = normalizedPayload.padEnd(
-      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
-      '=',
-    );
-    const decodedPayload = JSON.parse(atob(paddedPayload)) as { exp?: number };
-
-    if (!decodedPayload.exp) {
-      return true;
-    }
-
-    return decodedPayload.exp * 1000 > Date.now();
-  } catch {
-    return false;
-  }
+  return true;
 }
 
 export function isAuthenticationError(error: unknown) {

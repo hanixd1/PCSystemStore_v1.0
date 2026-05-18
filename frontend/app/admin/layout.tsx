@@ -16,7 +16,7 @@ import {
 import {
   AUTHORIZED_ADMIN_ROLES,
   clearStoredAuthSession,
-  isStoredTokenUsable,
+  api,
 } from '@/lib/api';
 
 type SessionUser = {
@@ -58,7 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     let cancelled = false;
 
-    const syncSession = () => {
+    const syncSession = async () => {
       if (cancelled) {
         return;
       }
@@ -69,28 +69,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return;
       }
 
-      const sessionUser = readSessionUser();
+      try {
+        const res = await api.get('/users/admin-me');
+        const sessionUser = res.data as SessionUser;
+        if (!AUTHORIZED_ADMIN_ROLES.has(sessionUser.role)) {
+          throw new Error('Rol administrativo invalido');
+        }
 
-      if (!sessionUser || !isStoredTokenUsable()) {
+        localStorage.setItem('adminUser', JSON.stringify(sessionUser));
+        localStorage.setItem('user', JSON.stringify(sessionUser));
+        setCurrentUser(sessionUser);
+        setIsCheckingSession(false);
+        return;
+      } catch {
+        const sessionUser = readSessionUser();
+        if (!sessionUser) {
+          clearStoredAuthSession();
+          setCurrentUser(null);
+          setIsCheckingSession(false);
+          router.replace('/admin/login');
+          return;
+        }
+
         clearStoredAuthSession();
         setCurrentUser(null);
         setIsCheckingSession(false);
         router.replace('/admin/login');
         return;
       }
-
-      setCurrentUser(sessionUser);
-      setIsCheckingSession(false);
     };
 
-    syncSession();
+    void syncSession();
 
     return () => {
       cancelled = true;
     };
   }, [isPublicAdminRoute, router]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await api.post('/users/admin-logout').catch(() => undefined);
     clearStoredAuthSession();
     setCurrentUser(null);
     router.replace('/admin/login');

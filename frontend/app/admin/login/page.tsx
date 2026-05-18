@@ -21,12 +21,8 @@ export default function LoginPage() {
         throw new Error('Esta cuenta no tiene permisos administrativos.');
       }
 
-      localStorage.removeItem('customerUser');
-      localStorage.removeItem('customerToken');
       localStorage.setItem('adminUser', JSON.stringify(res.data.user));
-      localStorage.setItem('adminToken', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
-      localStorage.setItem('token', res.data.token);
       window.location.href = '/admin';
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, 'Correo o contrasena incorrectos'));

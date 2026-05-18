@@ -45,19 +45,15 @@ export default function LoginPage() {
     password: '',
   });
 
-  const persistSession = (user: { role: string }, token: string) => {
+  const persistSession = (user: { role: string }) => {
     if (user.role !== 'CUSTOMER') {
       setError('Esta cuenta no esta registrada como cliente.');
       return;
     }
 
     resetCartState();
-    localStorage.removeItem('adminUser');
-    localStorage.removeItem('adminToken');
     localStorage.setItem('customerUser', JSON.stringify(user));
-    localStorage.setItem('customerToken', token);
     localStorage.setItem('user', JSON.stringify(user));
-    localStorage.setItem('token', token);
 
     notifyCustomerSessionChanged();
     const redirectTo = new URLSearchParams(window.location.search).get('redirect');
@@ -76,7 +72,7 @@ export default function LoginPage() {
 
     try {
       const res = await api.post('/users/google-auth', { idToken });
-      persistSession(res.data.user, res.data.token);
+      persistSession(res.data.user);
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, 'No se pudo iniciar sesion con Google'));
     } finally {
@@ -118,7 +114,7 @@ export default function LoginPage() {
           password: formData.password,
         });
 
-        persistSession(res.data.user, res.data.token);
+        persistSession(res.data.user);
         return;
       }
 

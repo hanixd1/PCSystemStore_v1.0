@@ -10,6 +10,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { Request } from 'express';
 import { JwtUserPayload, USER_ROLES } from '../auth/auth.constants';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
@@ -19,6 +20,11 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
+  private readonly adminLoginAttempts = new Map<
+    string,
+    { count: number; firstAttemptAt: number }
+  >();
+
   constructor(
     private prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -66,14 +72,28 @@ export class UsersService {
     };
   }
 
+  private getRequestIp(request?: Request) {
+    const forwardedFor = request?.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+      return forwardedFor.split(',')[0]?.trim();
+    }
+
+    return request?.ip || request?.socket?.remoteAddress;
+  }
+
+  private getUserAgent(request?: Request) {
+    return request?.headers['user-agent'];
+  }
+
   private async createLog(
     userId: string,
     action: string,
     entity: string,
     details: string,
+    request?: Request,
   ) {
     const module =
-      action === 'ADMIN_LOGIN'
+      action.startsWith('ADMIN_')
         ? 'SECURITY'
         : entity === 'USER'
           ? 'EMPLOYEES'
@@ -88,8 +108,65 @@ export class UsersService {
         entityType: entity,
         entityId: userId,
         details,
+        ipAddress: this.getRequestIp(request),
+        userAgent: this.getUserAgent(request),
       },
     });
+  }
+
+  private getLoginAttemptKey(email: string, request?: Request) {
+    return `${this.sanitizeEmail(email)}:${this.getRequestIp(request) || 'unknown'}`;
+  }
+
+  private assertAdminLoginAllowed(email: string, request?: Request) {
+    const key = this.getLoginAttemptKey(email, request);
+    const attempt = this.adminLoginAttempts.get(key);
+    const windowMs = 15 * 60 * 1000;
+
+    if (!attempt) {
+      return;
+    }
+
+    if (Date.now() - attempt.firstAttemptAt > windowMs) {
+      this.adminLoginAttempts.delete(key);
+      return;
+    }
+
+    if (attempt.count >= 5) {
+      throw new UnauthorizedException('Credenciales invalidas o acceso no autorizado.');
+    }
+  }
+
+  private registerAdminLoginFailure(email: string, request?: Request) {
+    const key = this.getLoginAttemptKey(email, request);
+    const current = this.adminLoginAttempts.get(key);
+    const windowMs = 15 * 60 * 1000;
+
+    if (!current || Date.now() - current.firstAttemptAt > windowMs) {
+      this.adminLoginAttempts.set(key, {
+        count: 1,
+        firstAttemptAt: Date.now(),
+      });
+      return;
+    }
+
+    this.adminLoginAttempts.set(key, {
+      ...current,
+      count: current.count + 1,
+    });
+  }
+
+  private clearAdminLoginFailures(email: string, request?: Request) {
+    this.adminLoginAttempts.delete(this.getLoginAttemptKey(email, request));
+  }
+
+  private async logAuthEvent(
+    action: string,
+    userId: string,
+    details: string,
+    request?: Request,
+  ) {
+    await this.createLog(userId, action, 'USER', details, request);
   }
 
   private async validateCredentials(email: string, pass: string) {
@@ -116,46 +193,85 @@ export class UsersService {
     return user;
   }
 
-  async login(email: string, pass: string) {
-    const user = await this.validateCredentials(email, pass);
+  async login(email: string, pass: string, request?: Request) {
+    return this.customerLogin(email, pass, request);
+  }
 
-    if (['ADMIN', 'EDITOR'].includes(user.role)) {
-      await this.createLog(
+  async customerLogin(email: string, pass: string, request?: Request) {
+    try {
+      const user = await this.validateCredentials(email, pass);
+
+      if (user.role !== 'CUSTOMER') {
+        await this.logAuthEvent(
+          'CUSTOMER_LOGIN_FAILED',
+          user.id,
+          `Intento de login cliente no autorizado para ${user.email}`,
+          request,
+        );
+        throw new ForbiddenException('Credenciales invalidas o acceso no autorizado.');
+      }
+
+      await this.logAuthEvent(
+        'CUSTOMER_LOGIN_SUCCESS',
         user.id,
-        'ADMIN_LOGIN',
-        'USER',
-        `Inicio de sesion administrativo de ${user.email}`,
+        `Inicio de sesion cliente de ${user.email}`,
+        request,
       );
-    }
 
-    return this.buildSession(user);
+      return this.buildSession(user);
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      throw error;
+    }
   }
 
-  async customerLogin(email: string, pass: string) {
-    const user = await this.validateCredentials(email, pass);
+  async adminLogin(email: string, pass: string, request?: Request) {
+    this.assertAdminLoginAllowed(email, request);
 
-    if (user.role !== 'CUSTOMER') {
-      throw new ForbiddenException('Esta cuenta no esta registrada como cliente.');
+    try {
+      const user = await this.validateCredentials(email, pass);
+
+      if (!['ADMIN', 'EDITOR', 'EMPLOYEE'].includes(user.role)) {
+        this.registerAdminLoginFailure(email, request);
+        await this.logAuthEvent(
+          'ADMIN_LOGIN_FAILED',
+          user.id,
+          `Intento de login administrativo no autorizado para ${user.email}`,
+          request,
+        );
+        throw new ForbiddenException('Credenciales invalidas o acceso no autorizado.');
+      }
+
+      this.clearAdminLoginFailures(email, request);
+      await this.logAuthEvent(
+        'ADMIN_LOGIN_SUCCESS',
+        user.id,
+        `Inicio de sesion administrativo de ${user.email}`,
+        request,
+      );
+      await this.logAuthEvent(
+        'ADMIN_LOGIN',
+        user.id,
+        `Inicio de sesion administrativo de ${user.email}`,
+        request,
+      );
+
+      return this.buildSession(user);
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      this.registerAdminLoginFailure(email, request);
+      throw new UnauthorizedException('Credenciales invalidas o acceso no autorizado.');
     }
-
-    return this.buildSession(user);
   }
 
-  async adminLogin(email: string, pass: string) {
-    const user = await this.validateCredentials(email, pass);
-
-    if (!['ADMIN', 'EDITOR', 'EMPLOYEE'].includes(user.role)) {
-      throw new ForbiddenException('Esta cuenta no tiene permisos administrativos.');
-    }
-
-    await this.createLog(
-      user.id,
-      'ADMIN_LOGIN',
-      'USER',
-      `Inicio de sesion administrativo de ${user.email}`,
-    );
-
-    return this.buildSession(user);
+  async recordLogout(userId: string, action: 'ADMIN_LOGOUT' | 'CUSTOMER_LOGOUT') {
+    await this.createLog(userId, action, 'USER', 'Cierre de sesion');
   }
 
   async register(data: RegisterUserDto) {

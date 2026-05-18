@@ -8,8 +8,9 @@ import {
   Patch,
   Post,
   Req,
+  Res,
 } from '@nestjs/common';
-import { Request } from 'express';
+import type * as express from 'express';
 import { JwtUserPayload } from '../auth/auth.constants';
 import { Public } from '../auth/public.decorator';
 import { Roles } from '../auth/roles.decorator';
@@ -25,7 +26,39 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
-type AuthenticatedRequest = Request & { user: JwtUserPayload };
+type AuthenticatedRequest = express.Request & { user: JwtUserPayload };
+type SessionScope = 'customer' | 'admin';
+
+const CUSTOMER_SESSION_COOKIE = 'pcs_customer_session';
+const ADMIN_SESSION_COOKIE = 'pcs_admin_session';
+
+function getSessionCookieName(scope: SessionScope) {
+  return scope === 'admin' ? ADMIN_SESSION_COOKIE : CUSTOMER_SESSION_COOKIE;
+}
+
+function getCookieOptions() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const maxAgeMs = 1000 * 60 * 60 * 24;
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax' as const,
+    maxAge: maxAgeMs,
+    path: '/',
+  };
+}
+
+function setSessionCookie(response: express.Response, scope: SessionScope, token: string) {
+  response.cookie(getSessionCookieName(scope), token, getCookieOptions());
+}
+
+function clearSessionCookie(response: express.Response, scope: SessionScope) {
+  response.clearCookie(getSessionCookieName(scope), {
+    ...getCookieOptions(),
+    maxAge: undefined,
+  });
+}
 
 @Controller('users')
 export class UsersController {
@@ -33,20 +66,50 @@ export class UsersController {
 
   @Public()
   @Post('login')
-  login(@Body() body: LoginUserDto) {
-    return this.usersService.login(body.email, body.password);
+  async login(
+    @Body() body: LoginUserDto,
+    @Req() request: express.Request,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const session = await this.usersService.customerLogin(
+      body.email,
+      body.password,
+      request,
+    );
+    setSessionCookie(response, 'customer', session.token);
+    return session;
   }
 
   @Public()
   @Post('customer-login')
-  customerLogin(@Body() body: LoginUserDto) {
-    return this.usersService.customerLogin(body.email, body.password);
+  async customerLogin(
+    @Body() body: LoginUserDto,
+    @Req() request: express.Request,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const session = await this.usersService.customerLogin(
+      body.email,
+      body.password,
+      request,
+    );
+    setSessionCookie(response, 'customer', session.token);
+    return session;
   }
 
   @Public()
   @Post('admin-login')
-  adminLogin(@Body() body: LoginUserDto) {
-    return this.usersService.adminLogin(body.email, body.password);
+  async adminLogin(
+    @Body() body: LoginUserDto,
+    @Req() request: express.Request,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const session = await this.usersService.adminLogin(
+      body.email,
+      body.password,
+      request,
+    );
+    setSessionCookie(response, 'admin', session.token);
+    return session;
   }
 
   @Public()
@@ -57,8 +120,35 @@ export class UsersController {
 
   @Public()
   @Post('google-auth')
-  googleAuth(@Body() body: GoogleAuthDto) {
-    return this.usersService.loginWithGoogle(body.idToken);
+  async googleAuth(
+    @Body() body: GoogleAuthDto,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const session = await this.usersService.loginWithGoogle(body.idToken);
+    setSessionCookie(response, 'customer', session.token);
+    return session;
+  }
+
+  @Post('customer-logout')
+  @Roles('CUSTOMER')
+  async customerLogout(
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    clearSessionCookie(response, 'customer');
+    await this.usersService.recordLogout(request.user.sub, 'CUSTOMER_LOGOUT');
+    return { message: 'Sesion de cliente cerrada' };
+  }
+
+  @Post('admin-logout')
+  @Roles('ADMIN', 'EDITOR', 'EMPLOYEE')
+  async adminLogout(
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    clearSessionCookie(response, 'admin');
+    await this.usersService.recordLogout(request.user.sub, 'ADMIN_LOGOUT');
+    return { message: 'Sesion administrativa cerrada' };
   }
 
   @Public()
@@ -76,6 +166,12 @@ export class UsersController {
   @Roles('CUSTOMER')
   @Get('me')
   getMe(@Req() request: AuthenticatedRequest) {
+    return this.usersService.getMe(request.user.sub);
+  }
+
+  @Roles('ADMIN', 'EDITOR', 'EMPLOYEE')
+  @Get('admin-me')
+  getAdminMe(@Req() request: AuthenticatedRequest) {
     return this.usersService.getMe(request.user.sub);
   }
 

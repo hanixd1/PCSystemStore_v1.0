@@ -7,9 +7,21 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { IS_PUBLIC_KEY, JwtUserPayload } from './auth.constants';
+import { IS_PUBLIC_KEY, JwtUserPayload, ROLES_KEY, UserRole } from './auth.constants';
 
 type AuthenticatedRequest = Request & { user?: JwtUserPayload };
+
+function getCookieValue(cookieHeader: string | undefined, name: string) {
+  if (!cookieHeader) {
+    return '';
+  }
+
+  return cookieHeader
+    .split(';')
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith(`${name}=`))
+    ?.slice(name.length + 1) ?? '';
+}
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -31,15 +43,30 @@ export class JwtAuthGuard implements CanActivate {
     const request = context
       .switchToHttp()
       .getRequest<AuthenticatedRequest>();
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    const cookieHeader = request.headers.cookie;
+    const roles = Array.isArray(requiredRoles) ? requiredRoles : [];
+    const needsCustomerSession = roles.includes('CUSTOMER');
+    const needsAdminSession = roles.some((role) =>
+      ['ADMIN', 'EDITOR', 'EMPLOYEE'].includes(role),
+    );
+    const cookieToken = needsCustomerSession
+      ? getCookieValue(cookieHeader, 'pcs_customer_session')
+      : needsAdminSession
+        ? getCookieValue(cookieHeader, 'pcs_admin_session')
+        : getCookieValue(cookieHeader, 'pcs_customer_session') ||
+          getCookieValue(cookieHeader, 'pcs_admin_session');
+
     const authorization = request.headers.authorization;
+    const bearerToken =
+      authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length).trim() : '';
+    const token = cookieToken || bearerToken;
 
-    if (!authorization) {
+    if (!token) {
       throw new UnauthorizedException('Token no proporcionado');
-    }
-
-    const [scheme, token] = authorization.split(' ');
-    if (scheme !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Formato de token invalido');
     }
 
     try {

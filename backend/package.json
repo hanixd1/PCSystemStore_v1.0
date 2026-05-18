@@ -11,7 +11,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -22,7 +22,8 @@
     "seed:products:clean": "ts-node prisma/seed-products-clean.ts",
     "seed:qa": "ts-node prisma/seed-qa.ts",
     "prisma:test:deploy": "node scripts/run-prisma-test-deploy.js",
-    "test:e2e:qa": "npm run prisma:test:deploy && npm run seed:qa && npm run test:e2e"
+    "test:e2e:qa": "npm run prisma:test:deploy && npm run seed:qa && npm run test:e2e",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

@@ -1,13 +1,52 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { FiMessageSquare, FiX, FiSend, FiCpu } from 'react-icons/fi';
 import { api } from '@/lib/api';
+import { MAX_CART_ITEM_QUANTITY, useCartStore } from '@/store/useCartStore';
+
+type ChatProduct = {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  imageUrl?: string | null;
+  productUrl: string;
+};
 
 type ChatMessage = {
   id: string;
   text: string;
   role: 'user' | 'assistant';
+  products?: ChatProduct[];
+};
+
+type ChatAction = {
+  type: 'add_to_cart';
+  productId: string;
+  quantity?: number;
+};
+
+type ConversationState = {
+  intent:
+    | 'product_search'
+    | 'pc_build'
+    | 'budget_pc_build'
+    | 'cart_action'
+    | 'total_query'
+    | 'checkout_guidance'
+    | 'support'
+    | 'unknown'
+    | null;
+  budget: number | null;
+  usage: string | null;
+  includesPeripherals: boolean | null;
+  mentionedProducts: string[];
+  lastRecommendedProducts: ChatProduct[];
+  lastRecommendedBuild: ChatProduct[];
+  lastFocusedProductId: string | null;
+  awaiting: string | null;
 };
 
 const STARTER_PROMPTS = [
@@ -17,10 +56,43 @@ const STARTER_PROMPTS = [
   'Tienes alguna RTX para gaming?',
 ];
 
+function ChatProductImage({ src, alt }: { src?: string | null; alt: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (!src || hasError) {
+    return (
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[10px] font-bold text-gray-400">
+        Sin imagen
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-16 w-16 shrink-0 rounded-lg object-cover bg-gray-100"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const addItem = useCartStore((state) => state.addItem);
+  const [conversationState, setConversationState] = useState<ConversationState>({
+    intent: null,
+    budget: null,
+    usage: null,
+    includesPeripherals: null,
+    mentionedProducts: [],
+    lastRecommendedProducts: [],
+    lastRecommendedBuild: [],
+    lastFocusedProductId: null,
+    awaiting: null,
+  });
   const messageSequenceRef = useRef(1);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -31,6 +103,8 @@ export default function Chatbot() {
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isMountedRef = useRef(false);
+  const activeRequestControllerRef = useRef<AbortController | null>(null);
 
   const nextMessageId = (prefix: 'user' | 'assistant') => {
     const id = `${prefix}-${messageSequenceRef.current}`;
@@ -45,6 +119,118 @@ export default function Chatbot() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      activeRequestControllerRef.current?.abort();
+    };
+  }, []);
+
+  const normalizeRecommendedProducts = (value: unknown): ChatProduct[] => {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter((product): product is ChatProduct => {
+      const candidate = product as Partial<ChatProduct>;
+      return (
+        typeof candidate.id === 'string' &&
+        typeof candidate.name === 'string' &&
+        typeof candidate.price === 'number' &&
+        typeof candidate.stock === 'number' &&
+        typeof candidate.productUrl === 'string'
+      );
+    });
+  };
+
+  const appendAssistantMessage = (text: string) => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: nextMessageId('assistant'),
+        text,
+        role: 'assistant',
+      },
+    ]);
+  };
+
+  const findActionProduct = (
+    productId: string,
+    responseProducts: ChatProduct[],
+    state: ConversationState,
+  ) => {
+    return [
+      ...responseProducts,
+      ...state.lastRecommendedProducts,
+      ...state.lastRecommendedBuild,
+    ].find((product) => String(product.id) === String(productId));
+  };
+
+  const addProductToCart = (product: ChatProduct, quantity = 1): string => {
+    if (product.stock <= 0) {
+      return `${product.name} esta sin stock disponible.`;
+    }
+
+    const currentItem = useCartStore
+      .getState()
+      .items.find((item) => String(item.id) === String(product.id));
+    const currentQty = currentItem?.qty ?? 0;
+    const maxAllowed = Math.min(product.stock, MAX_CART_ITEM_QUANTITY);
+    const availableQty = Math.max(0, maxAllowed - currentQty);
+
+    if (availableQty <= 0) {
+      return `${product.name} ya alcanzo la cantidad maxima disponible en tu carrito.`;
+    }
+
+    const quantityToAdd = Math.min(Math.max(1, quantity), availableQty);
+    for (let index = 0; index < quantityToAdd; index += 1) {
+      addItem({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        qty: 1,
+        image: product.imageUrl ?? undefined,
+      });
+    }
+
+    return quantityToAdd === 1
+      ? `${product.name} agregado al carrito.`
+      : `${product.name} agregado al carrito (${quantityToAdd} unidades).`;
+  };
+
+  const handleBotActions = (
+    actions: ChatAction[],
+    responseProducts: ChatProduct[],
+    nextState: ConversationState,
+  ): string[] => {
+    if (actions.length === 0) {
+      return [];
+    }
+
+    return actions.map((action) => {
+      if (action.type !== 'add_to_cart') {
+        return 'No pude ejecutar una accion no soportada.';
+      }
+
+      const product = findActionProduct(action.productId, responseProducts, nextState);
+      if (!product) {
+        return 'No pude encontrar el producto para agregarlo al carrito.';
+      }
+
+      return addProductToCart(product, action.quantity ?? 1);
+    });
+  };
+
+  const handleProductCardAdd = (product: ChatProduct) => {
+    appendAssistantMessage(addProductToCart(product, 1));
+  };
 
   const sendMessage = async (userText: string) => {
     const trimmed = userText.trim();
@@ -67,11 +253,63 @@ export default function Chatbot() {
     setInput('');
     setIsLoading(true);
 
+    activeRequestControllerRef.current?.abort();
+    const controller = new AbortController();
+    activeRequestControllerRef.current = controller;
+
     try {
-      const res = await api.post('/ai/chat', {
-        message: trimmed,
-        history: historyForBackend,
-      });
+      const res = await api.post(
+        '/ai/chat',
+        {
+          message: trimmed,
+          history: historyForBackend,
+          conversationState,
+        },
+        { signal: controller.signal },
+      );
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const responseState = res.data?.conversationState ?? {};
+      const nextState: ConversationState = {
+        ...conversationState,
+        ...responseState,
+        mentionedProducts: Array.isArray(responseState.mentionedProducts)
+          ? responseState.mentionedProducts
+          : conversationState.mentionedProducts,
+        lastRecommendedProducts: Object.prototype.hasOwnProperty.call(
+          responseState,
+          'lastRecommendedProducts',
+        )
+          ? normalizeRecommendedProducts(responseState.lastRecommendedProducts)
+          : conversationState.lastRecommendedProducts,
+        lastRecommendedBuild: Object.prototype.hasOwnProperty.call(
+          responseState,
+          'lastRecommendedBuild',
+        )
+          ? normalizeRecommendedProducts(responseState.lastRecommendedBuild)
+          : conversationState.lastRecommendedBuild,
+        lastFocusedProductId:
+          typeof responseState.lastFocusedProductId === 'string'
+            ? responseState.lastFocusedProductId
+            : responseState.lastFocusedProductId === null
+              ? null
+              : conversationState.lastFocusedProductId,
+        awaiting:
+          typeof responseState.awaiting === 'string'
+            ? responseState.awaiting
+            : responseState.awaiting === null
+              ? null
+              : conversationState.awaiting,
+      };
+
+      if (res.data?.conversationState) {
+        setConversationState(nextState);
+      }
+
+      const responseProducts = Array.isArray(res.data?.products) ? res.data.products : [];
 
       const botMessage: ChatMessage = {
         id: nextMessageId('assistant'),
@@ -80,10 +318,29 @@ export default function Chatbot() {
             ? res.data.reply
             : 'No pude procesar bien tu pedido. Intentemos con otra forma de decirlo.',
         role: 'assistant',
+        products: responseProducts,
       };
 
-      setMessages((prev) => [...prev, botMessage]);
+      const actionMessages = handleBotActions(
+        Array.isArray(res.data?.actions) ? res.data.actions : [],
+        responseProducts,
+        nextState,
+      ).map<ChatMessage>((text) => ({
+        id: nextMessageId('assistant'),
+        text,
+        role: 'assistant',
+      }));
+
+      setMessages((prev) => [...prev, botMessage, ...actionMessages]);
     } catch {
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
@@ -93,7 +350,13 @@ export default function Chatbot() {
         },
       ]);
     } finally {
-      setIsLoading(false);
+      if (activeRequestControllerRef.current === controller) {
+        activeRequestControllerRef.current = null;
+      }
+
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -169,14 +432,58 @@ export default function Chatbot() {
                 key={msg.id}
                 className={`flex ${msg.role === 'assistant' ? 'justify-start' : 'justify-end'}`}
               >
-                <div
-                  className={`max-w-[88%] p-3.5 text-sm shadow-sm whitespace-pre-line ${
-                    msg.role === 'assistant'
-                      ? 'bg-white border border-gray-100 text-gray-800 rounded-2xl rounded-tl-sm'
-                      : 'bg-brand-cyan text-gray-900 font-medium rounded-2xl rounded-tr-sm'
-                  }`}
-                >
-                  {msg.text}
+                <div className="max-w-[88%] space-y-2">
+                  <div
+                    className={`p-3.5 text-sm shadow-sm whitespace-pre-line ${
+                      msg.role === 'assistant'
+                        ? 'bg-white border border-gray-100 text-gray-800 rounded-2xl rounded-tl-sm'
+                        : 'bg-brand-cyan text-gray-900 font-medium rounded-2xl rounded-tr-sm'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+
+                  {msg.role === 'assistant' && msg.products && msg.products.length > 0 ? (
+                    <div className="space-y-2">
+                      {msg.products.map((product) => (
+                        <div
+                          key={`${msg.id}-${product.id}`}
+                          className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                        >
+                          <div className="flex gap-3 p-3">
+                            <ChatProductImage src={product.imageUrl} alt={product.name} />
+                            <div className="min-w-0 flex-1">
+                              <p className="line-clamp-2 text-xs font-black text-gray-900">
+                                {product.name}
+                              </p>
+                              <p className="mt-1 text-xs font-bold text-gray-700">
+                                S/. {Number(product.price).toFixed(2)}
+                              </p>
+                              <p className="text-[11px] font-medium text-gray-500">
+                                {product.stock > 0 ? `En stock: ${product.stock}` : 'Sin stock'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 border-t border-gray-100 text-center text-xs font-black">
+                            <Link
+                              href={product.productUrl}
+                              className="px-3 py-2 text-brand-cyan hover:bg-cyan-50"
+                            >
+                              Ver producto
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleProductCardAdd(product)}
+                              disabled={product.stock <= 0}
+                              className="border-l border-gray-100 px-3 py-2 text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                            >
+                              Agregar al carrito
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}

@@ -19,7 +19,9 @@ async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';
   const port = Number(process.env.PORT) || 3000;
   const logger = new Logger('Bootstrap');
-  const rawOrigins = process.env.CORS_ORIGINS ?? '';
+  const rawOrigins = [process.env.CORS_ORIGIN, process.env.CORS_ORIGINS]
+    .filter(Boolean)
+    .join(',');
   const configuredOrigins = rawOrigins
     .split(',')
     .map((origin) => origin.trim())
@@ -92,7 +94,7 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
   });
 
   try {

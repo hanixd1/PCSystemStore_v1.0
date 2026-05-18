@@ -17,9 +17,24 @@ export class AiController {
     body: {
       message: string;
       history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+      conversationState?: {
+        intent?: string | null;
+        budget?: number | null;
+        usage?: string | null;
+        includesPeripherals?: boolean | null;
+        mentionedProducts?: string[];
+        lastRecommendedProducts?: unknown[];
+        lastRecommendedBuild?: unknown[];
+        lastFocusedProductId?: string | null;
+        awaiting?: string | null;
+      };
     },
   ): Promise<unknown> {
-    return this.aiService.processCustomerChat(body.message, body.history ?? []);
+    return this.aiService.processCustomerChat(
+      body.message,
+      body.history ?? [],
+      body.conversationState as any,
+    );
   }
 
   // =========================================================

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { resetCartState } from '@/store/useCartStore';
+import { api } from '@/lib/api';
 
 export type CustomerSessionUser = {
   id: string;
@@ -15,11 +16,8 @@ export function getCustomerSession(): CustomerSessionUser | null {
     return null;
   }
 
-  const token =
-    localStorage.getItem('customerToken')?.trim() ||
-    localStorage.getItem('token')?.trim();
   const rawUser = localStorage.getItem('customerUser') || localStorage.getItem('user');
-  if (!token || !rawUser) {
+  if (!rawUser) {
     return null;
   }
 
@@ -46,7 +44,6 @@ export function clearCustomerSession() {
   }
 
   localStorage.removeItem('customerUser');
-  localStorage.removeItem('customerToken');
 
   const rawUser = localStorage.getItem('user');
   if (rawUser) {
@@ -54,13 +51,12 @@ export function clearCustomerSession() {
       const parsedUser = JSON.parse(rawUser) as { role?: string };
       if (parsedUser.role === 'CUSTOMER') {
         localStorage.removeItem('user');
-        localStorage.removeItem('token');
       }
     } catch {
       localStorage.removeItem('user');
-      localStorage.removeItem('token');
     }
   }
+  void api.post('/users/customer-logout').catch(() => undefined);
   resetCartState();
   window.dispatchEvent(new Event(CUSTOMER_SESSION_EVENT));
 }
@@ -88,17 +84,57 @@ export function useCustomerSession() {
   useEffect(() => {
     let mounted = true;
 
-    const syncCustomer = () => {
+    const syncCustomer = async () => {
       if (!mounted) {
         return;
       }
 
-      setCustomer(getCustomerSession());
-      setIsCheckingCustomer(false);
+      const storedCustomer = getCustomerSession();
+      if (!storedCustomer) {
+        setCustomer(null);
+        setIsCheckingCustomer(false);
+        return;
+      }
+
+      try {
+        const res = await api.get('/users/me');
+        if (!mounted) {
+          return;
+        }
+
+        const user = res.data as CustomerSessionUser;
+        if (user.role !== 'CUSTOMER') {
+          throw new Error('Rol cliente invalido');
+        }
+
+        localStorage.setItem('customerUser', JSON.stringify(user));
+        localStorage.setItem('user', JSON.stringify(user));
+        setCustomer(user);
+      } catch {
+        localStorage.removeItem('customerUser');
+        const rawUser = localStorage.getItem('user');
+        if (rawUser) {
+          try {
+            const parsedUser = JSON.parse(rawUser) as { role?: string };
+            if (parsedUser.role === 'CUSTOMER') {
+              localStorage.removeItem('user');
+            }
+          } catch {
+            localStorage.removeItem('user');
+          }
+        }
+        setCustomer(null);
+      } finally {
+        if (mounted) {
+          setIsCheckingCustomer(false);
+        }
+      }
     };
 
-    syncCustomer();
-    const unsubscribe = subscribeCustomerSession(syncCustomer);
+    void syncCustomer();
+    const unsubscribe = subscribeCustomerSession(() => {
+      void syncCustomer();
+    });
 
     return () => {
       mounted = false;
