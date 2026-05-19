@@ -75,6 +75,13 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+## QA credentials
+
+Las credenciales QA no deben estar hardcodeadas. Para pruebas locales, configurar
+`QA_ADMIN_PASSWORD`, `QA_EMPLOYEE_PASSWORD` y `QA_CLIENT_PASSWORD` en el entorno
+local o en `backend/.env.test`. Si no se definen, el fixture QA genera valores
+temporales aleatorios para evitar secretos codificados.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

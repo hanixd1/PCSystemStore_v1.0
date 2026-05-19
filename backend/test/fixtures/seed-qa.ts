@@ -1,10 +1,23 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
+
+const getQaPassword = (envName: string): string =>
+  process.env[envName] ?? `QA_${crypto.randomUUID()}_Test`;
 
 export const qaUsers = {
-  admin: { email: 'admin.qa@pcsystemstore.test', password: 'Admin12345' },
-  employee: { email: 'empleado.qa@pcsystemstore.test', password: 'Empleado12345' },
-  customer: { email: 'cliente.qa@pcsystemstore.test', password: 'Cliente12345' },
+  admin: {
+    email: 'admin.qa@pcsystemstore.test',
+    password: getQaPassword('QA_ADMIN_PASSWORD'),
+  },
+  employee: {
+    email: 'empleado.qa@pcsystemstore.test',
+    password: getQaPassword('QA_EMPLOYEE_PASSWORD'),
+  },
+  customer: {
+    email: 'cliente.qa@pcsystemstore.test',
+    password: getQaPassword('QA_CLIENT_PASSWORD'),
+  },
 };
 
 export const qaSkus = {
