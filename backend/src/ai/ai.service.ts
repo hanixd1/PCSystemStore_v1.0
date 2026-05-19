@@ -38,7 +38,16 @@ interface ChatStoredProduct {
 }
 
 interface ChatConversationState {
-  intent?: 'product_search' | 'pc_build' | 'budget_pc_build' | 'cart_action' | 'total_query' | 'checkout_guidance' | 'support' | 'unknown' | null;
+  intent?:
+    | 'product_search'
+    | 'pc_build'
+    | 'budget_pc_build'
+    | 'cart_action'
+    | 'total_query'
+    | 'checkout_guidance'
+    | 'support'
+    | 'unknown'
+    | null;
   budget?: number | null;
   usage?: string | null;
   includesPeripherals?: boolean | null;
@@ -316,7 +325,8 @@ export class AiService {
       category: product.category ? String(product.category) : 'GENERAL',
       price: this.normalizePrice(product.price),
       stock: Number(product.stock ?? 0),
-      imageUrl: typeof images[0] === 'string' && images[0].trim() ? images[0] : null,
+      imageUrl:
+        typeof images[0] === 'string' && images[0].trim() ? images[0] : null,
       productUrl: this.getProductUrl(product),
     };
   }
@@ -333,7 +343,9 @@ export class AiService {
     if (buildIntent) {
       const products = await this.prisma.product.findMany({
         where: {
-          category: { in: ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'STORAGE', 'PSU', 'CASE'] },
+          category: {
+            in: ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'STORAGE', 'PSU', 'CASE'],
+          },
         },
         take: 50,
         orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
@@ -447,7 +459,15 @@ export class AiService {
       mensaje_cliente: prediction.message,
       alerta_admin: `${prediction.message} Reposicion sugerida: ${prediction.recommendedReorder}.`,
       dias_restantes_estimados:
-        prediction.recommendedReorder > 0 ? Math.max(1, Math.round((product?.stock ?? 0) / Math.max(1, prediction.recommendedReorder))) : undefined,
+        prediction.recommendedReorder > 0
+          ? Math.max(
+              1,
+              Math.round(
+                (product?.stock ?? 0) /
+                  Math.max(1, prediction.recommendedReorder),
+              ),
+            )
+          : undefined,
     };
   }
 
@@ -456,7 +476,9 @@ export class AiService {
   ): Promise<AiPrediction[]> {
     const aiServiceUrl = this.getAiServiceUrl();
     if (!aiServiceUrl) {
-      this.logger.warn('AI_SERVICE_URL no configurado. Se omiten predicciones IA.');
+      this.logger.warn(
+        'AI_SERVICE_URL no configurado. Se omiten predicciones IA.',
+      );
       return [];
     }
 
@@ -484,8 +506,12 @@ export class AiService {
         throw new Error(`AI service respondio ${response.status}`);
       }
 
-      const payload = (await response.json()) as { predictions?: AiServicePrediction[] };
-      const productById = new Map(products.map((product) => [product.id, product]));
+      const payload = (await response.json()) as {
+        predictions?: AiServicePrediction[];
+      };
+      const productById = new Map(
+        products.map((product) => [product.id, product]),
+      );
       return Array.isArray(payload.predictions)
         ? payload.predictions.map((prediction) =>
             this.mapAiServicePrediction(prediction, productById),
@@ -1144,18 +1170,32 @@ export class AiService {
   }
 
   private roundUpCommercialPsu(watts: number) {
-    const commercialWatts = [450, 500, 550, 600, 650, 700, 750, 850, 1000, 1200, 1500];
-    return commercialWatts.find((value) => value >= watts) ?? Math.ceil(watts / 100) * 100;
+    const commercialWatts = [
+      450, 500, 550, 600, 650, 700, 750, 850, 1000, 1200, 1500,
+    ];
+    return (
+      commercialWatts.find((value) => value >= watts) ??
+      Math.ceil(watts / 100) * 100
+    );
   }
 
   private calculateRequiredPsuWattage(cpu: any, gpu: any) {
     const cpuTdp = Number(cpu?.cpuSpecs?.tdp ?? 65);
-    const gpuPowerWatts = Number(gpu?.gpuSpecs?.gpuPowerWatts ?? gpu?.gpuSpecs?.tdp ?? 0);
-    const gpuRecommendedPsuWatts = Number(gpu?.gpuSpecs?.recommendedPsuWatts ?? 0);
+    const gpuPowerWatts = Number(
+      gpu?.gpuSpecs?.gpuPowerWatts ?? gpu?.gpuSpecs?.tdp ?? 0,
+    );
+    const gpuRecommendedPsuWatts = Number(
+      gpu?.gpuSpecs?.recommendedPsuWatts ?? 0,
+    );
 
     // gpuPowerWatts estimates real system draw; recommendedPsuWatts is a manufacturer floor.
     const calculatedWithHeadroom = (cpuTdp + gpuPowerWatts + 180) * 1.25;
-    return Math.max(450, this.roundUpCommercialPsu(Math.max(calculatedWithHeadroom, gpuRecommendedPsuWatts)));
+    return Math.max(
+      450,
+      this.roundUpCommercialPsu(
+        Math.max(calculatedWithHeadroom, gpuRecommendedPsuWatts),
+      ),
+    );
   }
 
   private selectBestCase(
@@ -1540,14 +1580,14 @@ export class AiService {
       ? ` Tambien te podria mostrar ${alternativeProducts}.`
       : '';
 
-      return {
-        reply: `${intro} ${mainPrediction.mensaje_cliente}${alternativeLine}`,
-        productLink:
-          mainProduct.id && this.getFrontendUrl()
-            ? `${this.getFrontendUrl()}/product/${mainProduct.id}`
-            : null,
-        matches: matchedProducts.map((product) => ({
-          id: product.id,
+    return {
+      reply: `${intro} ${mainPrediction.mensaje_cliente}${alternativeLine}`,
+      productLink:
+        mainProduct.id && this.getFrontendUrl()
+          ? `${this.getFrontendUrl()}/product/${mainProduct.id}`
+          : null,
+      matches: matchedProducts.map((product) => ({
+        id: product.id,
         slug: product.slug,
         name: product.name,
         category: product.category,
@@ -1593,7 +1633,9 @@ export class AiService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.warn(`AI service no disponible. Se aplica degradacion segura: ${errorMessage}`);
+      this.logger.warn(
+        `AI service no disponible. Se aplica degradacion segura: ${errorMessage}`,
+      );
 
       return [];
     }
@@ -1608,19 +1650,19 @@ export class AiService {
 
     if (!cleanMessage) {
       return {
-        reply: 'Hola, soy Alex. Puedo ayudarte a encontrar productos o armar una PC segun tu presupuesto.',
+        reply:
+          'Hola, soy Alex. Puedo ayudarte a encontrar productos o armar una PC segun tu presupuesto.',
         products: [],
         actions: [],
         totals: null,
         status: 'ok',
-        conversationState:
-          conversationState ?? {
-            intent: null,
-            budget: null,
-            usage: null,
-            includesPeripherals: null,
-            mentionedProducts: [],
-          },
+        conversationState: conversationState ?? {
+          intent: null,
+          budget: null,
+          usage: null,
+          includesPeripherals: null,
+          mentionedProducts: [],
+        },
       };
     }
 
@@ -1635,14 +1677,13 @@ export class AiService {
         actions: [],
         totals: null,
         status: 'degraded',
-        conversationState:
-          conversationState ?? {
-            intent: null,
-            budget: null,
-            usage: null,
-            includesPeripherals: null,
-            mentionedProducts: [],
-          },
+        conversationState: conversationState ?? {
+          intent: null,
+          budget: null,
+          usage: null,
+          includesPeripherals: null,
+          mentionedProducts: [],
+        },
       };
     }
 

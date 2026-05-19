@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from routers import chatbot, statistics, stock_prediction
 
-
 app = FastAPI(
     title="PCSystemStore AI Service",
     version="1.0.0",
@@ -39,9 +38,3 @@ def root() -> dict[str, str]:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "pcsystemstore-ai-service"}
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("main:app", host="0.0.0.0", port=settings.port)

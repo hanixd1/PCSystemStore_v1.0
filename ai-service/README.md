@@ -10,32 +10,38 @@ Microservicio FastAPI modular para PCSystemStore. Contiene tres dominios separad
 
 ```text
 ai-service/
-├── main.py
-├── core/
-│   └── config.py
-├── routers/
-│   ├── chatbot.py
-│   ├── statistics.py
-│   └── stock_prediction.py
-├── schemas/
-│   ├── chatbot_schema.py
-│   ├── statistics_schema.py
-│   └── prediction_schema.py
-└── services/
-    ├── chatbot_service.py
-    ├── statistics_service.py
-    └── stock_prediction_service.py
+|-- main.py
+|-- core/
+|   `-- config.py
+|-- routers/
+|   |-- chatbot.py
+|   |-- statistics.py
+|   `-- stock_prediction.py
+|-- schemas/
+|   |-- chatbot_schema.py
+|   |-- statistics_schema.py
+|   `-- prediction_schema.py
+`-- services/
+    |-- chatbot_service.py
+    |-- statistics_service.py
+    `-- stock_prediction_service.py
 ```
 
-## Ejecucion Local
+## Ejecucion local
 
 ```powershell
 cd ai-service
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+`main.py` se mantiene como modulo ASGI importable y no ejecuta `uvicorn.run(...)`
+internamente. Esto evita enlazar el servicio a todas las interfaces desde el codigo y
+resuelve la alerta SonarQube `python:S8392`. Para ejecucion local se usa
+`127.0.0.1`; en despliegue, el proveedor debe indicar el comando de arranque
+correspondiente segun su runtime.
 
 ## Variables
 
@@ -139,14 +145,5 @@ Response:
 
 Devuelve una estructura valida aunque no existan datos reales.
 
-## Railway
-
-Servicio apuntando a `ai-service`.
-
-Start command:
-
-```bash
-uvicorn main:app --host 0.0.0.0 --port $PORT
-```
-
-La implementacion actual no usa LLM. Alex responde con reglas, estado conversacional y productos enviados por el backend desde el catalogo real.
+La implementacion actual no usa LLM. Alex responde con reglas, estado conversacional
+y productos enviados por el backend desde el catalogo real.

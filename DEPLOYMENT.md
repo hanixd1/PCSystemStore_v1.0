@@ -74,11 +74,9 @@ MODEL_PATH=
 ENVIRONMENT=production
 ```
 
-Start command:
-
-```bash
-uvicorn main:app --host 0.0.0.0 --port $PORT
-```
+Nota de preparacion futura: en local usar `127.0.0.1`. En despliegue cloud,
+el proveedor indicara el comando de arranque correspondiente para exponer el
+servicio segun su runtime. No ejecutar `uvicorn.run(...)` dentro de `main.py`.
 
 Health check:
 
@@ -133,7 +131,7 @@ cd ai-service
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Terminal 2:
