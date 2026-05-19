@@ -2,6 +2,7 @@ import { Controller, Post, Body, Get } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { AiService } from './ai.service';
+import { ChatDto } from './dto/chat.dto';
 
 @Controller('ai')
 export class AiController {
@@ -12,24 +13,7 @@ export class AiController {
   // =========================================================
   @Public()
   @Post('chat')
-  async chat(
-    @Body()
-    body: {
-      message: string;
-      history?: Array<{ role: 'user' | 'assistant'; content: string }>;
-      conversationState?: {
-        intent?: string | null;
-        budget?: number | null;
-        usage?: string | null;
-        includesPeripherals?: boolean | null;
-        mentionedProducts?: string[];
-        lastRecommendedProducts?: unknown[];
-        lastRecommendedBuild?: unknown[];
-        lastFocusedProductId?: string | null;
-        awaiting?: string | null;
-      };
-    },
-  ): Promise<unknown> {
+  async chat(@Body() body: ChatDto): Promise<unknown> {
     return this.aiService.processCustomerChat(
       body.message,
       body.history ?? [],

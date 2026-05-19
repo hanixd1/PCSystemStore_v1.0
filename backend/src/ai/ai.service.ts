@@ -225,6 +225,54 @@ const FALLBACK_PREDICTION: AiPrediction = {
 const AI_UNAVAILABLE_REPLY =
   'Por el momento el asistente no esta disponible. Puedes seguir navegando por la tienda o usar el buscador para encontrar productos.';
 
+const MAX_CHAT_MESSAGE_LENGTH = 500;
+const MAX_BUDGET_TEXT_LENGTH = 300;
+const MIN_BUDGET_AMOUNT = 100;
+const MAX_BUDGET_AMOUNT = 50000;
+
+const BUDGET_CONTEXT_TOKENS = new Set([
+  'presupuesto',
+  'soles',
+  'sol',
+  's/',
+  's/.',
+  'tengo',
+  'cuento',
+  'gastar',
+  'maximo',
+  'hasta',
+  'invertir',
+]);
+
+const STRONG_BUDGET_CONTEXT_TOKENS = new Set([
+  'presupuesto',
+  'soles',
+  'sol',
+  's/',
+  's/.',
+  'tengo',
+  'cuento',
+  'gastar',
+  'hasta',
+  'invertir',
+]);
+
+const PRODUCT_MODEL_TOKENS = new Set([
+  'rtx',
+  'gtx',
+  'rx',
+  'ryzen',
+  'intel',
+  'core',
+  'i3',
+  'i5',
+  'i7',
+  'i9',
+  'ddr4',
+  'ddr5',
+  'nvme',
+]);
+
 const PRODUCT_INCLUDE = {
   cpuSpecs: true,
   motherboardSpecs: true,
@@ -545,27 +593,174 @@ export class AiService {
     return this.normalizeText(fullConversation);
   }
 
-  private extractBudgetFromText(text: string): number | null {
-    const compact = text.replace(/\s+/g, ' ');
-    const kiloMatch = compact.match(/(\d+(?:[.,]\d+)?)\s*k\b/);
-    if (kiloMatch) {
-      return Math.round(Number(kiloMatch[1].replace(',', '.')) * 1000);
+  private normalizeTextForBudget(text: string): string {
+    const lower = text.slice(0, MAX_BUDGET_TEXT_LENGTH).toLowerCase();
+    let normalized = '';
+    let previousWasSpace = true;
+
+    for (const char of lower) {
+      const mapped = this.mapBudgetCharacter(char);
+      if (mapped === ' ') {
+        if (!previousWasSpace) {
+          normalized += ' ';
+          previousWasSpace = true;
+        }
+        continue;
+      }
+
+      normalized += mapped;
+      previousWasSpace = false;
     }
 
-    const currencyMatch = compact.match(
-      /(?:s\/\.?|s\/|soles|presupuesto|tengo)\s*(\d{3,5}(?:[.,]\d{1,2})?)/,
+    return normalized.trim();
+  }
+
+  private mapBudgetCharacter(char: string): string {
+    const accents: Record<string, string> = {
+      á: 'a',
+      é: 'e',
+      í: 'i',
+      ó: 'o',
+      ú: 'u',
+      ü: 'u',
+      ñ: 'n',
+    };
+    const mapped = accents[char] ?? char;
+    const code = mapped.charCodeAt(0);
+    const isLetter = code >= 97 && code <= 122;
+    const isDigit = code >= 48 && code <= 57;
+
+    if (isLetter || isDigit || mapped === '/' || mapped === '.' || mapped === ',') {
+      return mapped;
+    }
+
+    return ' ';
+  }
+
+  private isBudgetContext(text: string): boolean {
+    const tokens = text.split(' ').filter(Boolean);
+    return tokens.some((token) => BUDGET_CONTEXT_TOKENS.has(token));
+  }
+
+  private hasProductModelContext(tokens: string[], index: number): boolean {
+    const start = Math.max(0, index - 2);
+    const end = Math.min(tokens.length - 1, index + 2);
+
+    for (let i = start; i <= end; i += 1) {
+      if (PRODUCT_MODEL_TOKENS.has(tokens[i])) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private hasStrongBudgetContext(tokens: string[], index: number): boolean {
+    const start = Math.max(0, index - 3);
+    const end = Math.min(tokens.length - 1, index + 2);
+
+    for (let i = start; i <= end; i += 1) {
+      if (STRONG_BUDGET_CONTEXT_TOKENS.has(tokens[i])) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private hasDirectBudgetContext(tokens: string[], index: number): boolean {
+    const previous = tokens[index - 1];
+    const previousTwo = tokens[index - 2];
+    const next = tokens[index + 1];
+
+    return (
+      STRONG_BUDGET_CONTEXT_TOKENS.has(previous) ||
+      (previous === 'de' && STRONG_BUDGET_CONTEXT_TOKENS.has(previousTwo)) ||
+      next === 'sol' ||
+      next === 'soles'
     );
-    if (currencyMatch) {
-      return Math.round(Number(currencyMatch[1].replace(/,/g, '')));
+  }
+
+  private extractBudgetFromText(text: string): number | null {
+    const normalized = this.normalizeTextForBudget(text);
+    if (!this.isBudgetContext(normalized)) {
+      return null;
     }
 
-    const genericAmount = compact.match(/\b(\d{3,5})\b/);
-    if (genericAmount) {
-      const amount = Number(genericAmount[1]);
-      return amount >= 500 ? amount : null;
+    const tokens = normalized.split(' ').filter(Boolean);
+    for (let index = 0; index < tokens.length; index += 1) {
+      const value = this.parseBudgetToken(tokens[index], tokens[index + 1]);
+      if (value === null) {
+        continue;
+      }
+
+      const strongBudgetContext = this.hasStrongBudgetContext(tokens, index);
+      const directBudgetContext = this.hasDirectBudgetContext(tokens, index);
+      if (this.hasProductModelContext(tokens, index) && !directBudgetContext) {
+        continue;
+      }
+
+      if (strongBudgetContext || directBudgetContext) {
+        return value;
+      }
     }
 
     return null;
+  }
+
+  private parseBudgetToken(token: string, nextToken?: string): number | null {
+    let current = token.trim();
+
+    if (current === 's/' || current === 's/.') {
+      current = nextToken?.trim() ?? '';
+    } else if (current.startsWith('s/')) {
+      current = current.slice(2);
+    }
+
+    current = current.endsWith('.') ? current.slice(0, -1) : current;
+    const usesKiloSuffix = current.endsWith('k');
+    const rawNumber = usesKiloSuffix ? current.slice(0, -1) : current;
+    const normalizedNumber = this.normalizeBudgetNumber(rawNumber);
+
+    if (!normalizedNumber) {
+      return null;
+    }
+
+    const parsed = Number(normalizedNumber);
+    if (!Number.isFinite(parsed)) {
+      return null;
+    }
+
+    const amount = Math.round(usesKiloSuffix ? parsed * 1000 : parsed);
+    if (amount < MIN_BUDGET_AMOUNT || amount > MAX_BUDGET_AMOUNT) {
+      return null;
+    }
+
+    return amount;
+  }
+
+  private normalizeBudgetNumber(value: string): string | null {
+    let result = '';
+    let decimalSeparatorSeen = false;
+
+    for (const char of value) {
+      const code = char.charCodeAt(0);
+      const isDigit = code >= 48 && code <= 57;
+      if (isDigit) {
+        result += char;
+        continue;
+      }
+
+      if ((char === '.' || char === ',') && !decimalSeparatorSeen) {
+        result += '.';
+        decimalSeparatorSeen = true;
+        continue;
+      }
+
+      return null;
+    }
+
+    return result.length > 0 ? result : null;
   }
 
   private inferUseCase(text: string): BuildUseCase | null {
@@ -1646,7 +1841,7 @@ export class AiService {
     history: ChatMessageInput[] = [],
     conversationState?: ChatConversationState,
   ): Promise<unknown> {
-    const cleanMessage = userMessage.trim();
+    const cleanMessage = userMessage.slice(0, MAX_CHAT_MESSAGE_LENGTH).trim();
 
     if (!cleanMessage) {
       return {
