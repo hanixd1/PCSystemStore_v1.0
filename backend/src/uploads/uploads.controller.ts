@@ -3,36 +3,37 @@ import {
   Controller,
   Post,
   UploadedFile,
+  UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Roles } from '../auth/roles.decorator';
 import { uploadToCloudinary } from '../utils/cloudinary.util';
-
-const ALLOWED_IMAGE_MIMES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-]);
+import { imageFileFilter } from './image-file.filter';
+import { MAX_ADMIN_IMAGE_SIZE_BYTES } from './upload.constants';
+import { MulterUploadExceptionFilter } from './multer-upload-exception.filter';
 
 @Controller('admin/uploads')
 export class UploadsController {
   @Roles('ADMIN')
   @Post('image')
+  @UseFilters(
+    new MulterUploadExceptionFilter('La imagen supera el tamano maximo permitido de 3 MB.'),
+  )
   @UseInterceptors(
     FileInterceptor('image', {
       storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: {
+        fileSize: MAX_ADMIN_IMAGE_SIZE_BYTES,
+        files: 1,
+      },
+      fileFilter: imageFileFilter,
     }),
   )
   async uploadImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('Debes enviar una imagen');
-    }
-
-    if (!ALLOWED_IMAGE_MIMES.has(file.mimetype)) {
-      throw new BadRequestException('Formato no permitido. Usa JPG, PNG o WEBP.');
     }
 
     const url = await uploadToCloudinary(file);

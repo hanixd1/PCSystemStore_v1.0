@@ -3,6 +3,12 @@ import { PaymentMethod, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ProductPricingService } from '../products/services/product-pricing.service';
+import {
+  isManualWalletPayment,
+  MANUAL_WALLET_PAYMENT_LIMIT,
+  MANUAL_WALLET_PAYMENT_LIMIT_MESSAGE,
+} from '../payments/payment.constants';
+import { BuilderService } from '../builder/builder.service';
 
 const IGV_RATE_INCLUDED = 18 / 118;
 
@@ -11,6 +17,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pricing: ProductPricingService,
+    private readonly builderService: BuilderService,
   ) {}
 
   private readonly orderInclude = {
@@ -50,14 +57,34 @@ export class OrdersService {
       }
     }
 
+    if (data.source === 'builder') {
+      const validation = await this.builderService.validateBuild(
+        normalizedItems.map((item) => ({ productId: item.productId })),
+      );
+
+      if (!validation.compatible) {
+        throw new BadRequestException({
+          message: 'Configuracion de PC incompatible.',
+          errors: validation.errors,
+          warnings: validation.warnings,
+          summary: validation.summary,
+        });
+      }
+    }
+
     const total = normalizedItems.reduce((sum, item) => {
       const product = productById.get(item.productId)!;
       return sum + this.pricing.getEffectivePrice(product) * item.quantity;
     }, 0);
+
+    if (isManualWalletPayment(data.method) && total > MANUAL_WALLET_PAYMENT_LIMIT) {
+      throw new BadRequestException(MANUAL_WALLET_PAYMENT_LIMIT_MESSAGE);
+    }
+
     const igv = total * IGV_RATE_INCLUDED;
     const subtotal = total - igv;
     const status =
-      data.method === PaymentMethod.YAPE || data.method === PaymentMethod.PLIN
+      isManualWalletPayment(data.method)
         ? 'PENDING_REVIEW'
         : 'PENDING_PAYMENT';
 

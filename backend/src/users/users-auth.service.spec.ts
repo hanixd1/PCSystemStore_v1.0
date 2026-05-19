@@ -26,7 +26,7 @@ describe('UsersService auth cliente/admin', () => {
   };
 
   it('AUTH-01 permite login cliente solo con rol CUSTOMER', async () => {
-    const { service } = createService({
+    const { service, jwtService } = createService({
       id: 'customer-1',
       name: 'Cliente QA',
       email: 'cliente@test.com',
@@ -39,10 +39,14 @@ describe('UsersService auth cliente/admin', () => {
 
     expect(result.user.role).toBe('CUSTOMER');
     expect(result.token).toBe('token-CUSTOMER');
+    expect(jwtService.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'CUSTOMER' }),
+      { expiresIn: '12h' },
+    );
   });
 
   it('AUTH-02 permite login admin solo con rol administrativo', async () => {
-    const { service, prisma } = createService({
+    const { service, prisma, jwtService } = createService({
       id: 'admin-1',
       name: 'Admin QA',
       email: 'admin@test.com',
@@ -54,6 +58,10 @@ describe('UsersService auth cliente/admin', () => {
     const result = await service.adminLogin('admin@test.com', 'secret123');
 
     expect(result.user.role).toBe('ADMIN');
+    expect(jwtService.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'ADMIN' }),
+      { expiresIn: '3h' },
+    );
     expect(prisma.actionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ action: 'ADMIN_LOGIN', module: 'SECURITY' }),

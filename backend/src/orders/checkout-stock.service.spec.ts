@@ -25,10 +25,19 @@ describe('OrdersService checkout/stock', () => {
         findMany: jest.fn(),
       },
     };
+    const builderService: any = {
+      validateBuild: jest.fn(async () => ({
+        compatible: true,
+        errors: [],
+        warnings: [],
+        summary: { estimatedPower: 0, recommendedPsu: 0 },
+      })),
+    };
 
     return {
-      service: new OrdersService(prisma as any, new ProductPricingService()),
+      service: new OrdersService(prisma as any, new ProductPricingService(), builderService as any),
       prisma,
+      builderService,
     };
   };
 
@@ -111,5 +120,73 @@ describe('OrdersService checkout/stock', () => {
     );
 
     expect(order.items[0].unitPriceSnapshot).toBe(1000);
+  });
+
+  it('permite Yape/Plin hasta S/. 500', async () => {
+    const { service } = createService([
+      { id: 'product-1', name: 'Producto limite', price: 500, stock: 3 },
+    ]);
+
+    const order = await service.create(
+      { method: PaymentMethod.YAPE, items: [{ productId: 'product-1', quantity: 1 }] },
+      'customer-1',
+    );
+
+    expect(order.status).toBe('PENDING_REVIEW');
+    expect(order.total).toBe(500);
+  });
+
+  it('rechaza Yape/Plin sobre S/. 500', async () => {
+    const { service, prisma } = createService([
+      { id: 'product-1', name: 'Producto sobre limite', price: 501, stock: 3 },
+    ]);
+
+    await expect(
+      service.create(
+        { method: PaymentMethod.PLIN, items: [{ productId: 'product-1', quantity: 1 }] },
+        'customer-1',
+      ),
+    ).rejects.toThrow('Yape/Plin no disponible para pedidos mayores a S/. 500.');
+
+    expect(prisma.order.create).not.toHaveBeenCalled();
+  });
+
+  it('rechaza orden builder incompatible antes de crear la orden', async () => {
+    const { service, prisma, builderService } = createService([
+      { id: 'cpu-1', name: 'CPU', price: 300, stock: 1 },
+      { id: 'board-1', name: 'Motherboard', price: 300, stock: 1 },
+    ]);
+    builderService.validateBuild.mockResolvedValueOnce({
+      compatible: false,
+      errors: [
+        {
+          code: 'CPU_MOTHERBOARD_SOCKET_MISMATCH',
+          message: 'Socket incompatible',
+          products: ['cpu-1', 'board-1'],
+        },
+      ],
+      warnings: [],
+      summary: { estimatedPower: 0, recommendedPsu: 0 },
+    });
+
+    await expect(
+      service.create(
+        {
+          method: PaymentMethod.CARD_CREDIT,
+          source: 'builder',
+          items: [
+            { productId: 'cpu-1', quantity: 1 },
+            { productId: 'board-1', quantity: 1 },
+          ],
+        },
+        'customer-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(builderService.validateBuild).toHaveBeenCalledWith([
+      { productId: 'cpu-1' },
+      { productId: 'board-1' },
+    ]);
+    expect(prisma.order.create).not.toHaveBeenCalled();
   });
 });

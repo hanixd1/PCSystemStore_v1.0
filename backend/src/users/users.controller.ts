@@ -31,14 +31,17 @@ type SessionScope = 'customer' | 'admin';
 
 const CUSTOMER_SESSION_COOKIE = 'pcs_customer_session';
 const ADMIN_SESSION_COOKIE = 'pcs_admin_session';
+const CUSTOMER_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 12;
+const ADMIN_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 3;
 
 function getSessionCookieName(scope: SessionScope) {
   return scope === 'admin' ? ADMIN_SESSION_COOKIE : CUSTOMER_SESSION_COOKIE;
 }
 
-function getCookieOptions() {
+function getCookieOptions(scope: SessionScope) {
   const isProduction = process.env.NODE_ENV === 'production';
-  const maxAgeMs = 1000 * 60 * 60 * 24;
+  const maxAgeMs =
+    scope === 'admin' ? ADMIN_SESSION_MAX_AGE_MS : CUSTOMER_SESSION_MAX_AGE_MS;
 
   return {
     httpOnly: true,
@@ -50,12 +53,12 @@ function getCookieOptions() {
 }
 
 function setSessionCookie(response: express.Response, scope: SessionScope, token: string) {
-  response.cookie(getSessionCookieName(scope), token, getCookieOptions());
+  response.cookie(getSessionCookieName(scope), token, getCookieOptions(scope));
 }
 
 function clearSessionCookie(response: express.Response, scope: SessionScope) {
   response.clearCookie(getSessionCookieName(scope), {
-    ...getCookieOptions(),
+    ...getCookieOptions(scope),
     maxAge: undefined,
   });
 }

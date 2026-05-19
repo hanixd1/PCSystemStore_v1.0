@@ -7,7 +7,6 @@ import { FiAward, FiEye, FiEyeOff, FiTruck } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { notifyCustomerSessionChanged } from '@/lib/customerSession';
-import { resetCartState } from '@/store/useCartStore';
 
 declare global {
   interface Window {
@@ -51,7 +50,6 @@ export default function LoginPage() {
       return;
     }
 
-    resetCartState();
     localStorage.setItem('customerUser', JSON.stringify(user));
     localStorage.setItem('user', JSON.stringify(user));
 

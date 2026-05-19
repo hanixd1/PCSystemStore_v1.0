@@ -7,6 +7,7 @@ import { FiCheckCircle, FiCreditCard, FiShield, FiSmartphone } from 'react-icons
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useCustomerSession } from '@/lib/customerSession';
 import { createIdempotencyKey, IDEMPOTENCY_HEADER } from '@/lib/idempotency';
+import { MANUAL_WALLET_PAYMENT_LIMIT } from '@/lib/payment-constants';
 import { useCartStore } from '@/store/useCartStore';
 
 type PaymentMethod = 'CARD_CREDIT' | 'CARD_DEBIT' | 'YAPE' | 'PLIN';
@@ -49,6 +50,7 @@ export default function CheckoutPage() {
   const igv = total * (18 / 118);
   const subtotal = total - igv;
   const isManual = method === 'YAPE' || method === 'PLIN';
+  const isWalletPaymentDisabled = total > MANUAL_WALLET_PAYMENT_LIMIT;
   const isCredit = method === 'CARD_CREDIT';
 
   useEffect(() => {
@@ -56,6 +58,13 @@ export default function CheckoutPage() {
       router.replace('/auth/login?redirect=/checkout');
     }
   }, [customer, isCheckingCustomer, router]);
+
+  useEffect(() => {
+    if (isWalletPaymentDisabled && isManual) {
+      setMethod('CARD_CREDIT');
+      setMessage('No disponible');
+    }
+  }, [isManual, isWalletPaymentDisabled]);
 
   useEffect(() => {
     if (loading) {
@@ -82,13 +91,29 @@ export default function CheckoutPage() {
     paymentIdempotencyKeyRef.current = null;
   };
 
+  const handleSelectMethod = (nextMethod: PaymentMethod) => {
+    const isBlockedWalletMethod =
+      (nextMethod === 'YAPE' || nextMethod === 'PLIN') && isWalletPaymentDisabled;
+
+    if (isBlockedWalletMethod) {
+      setMessage('No disponible');
+      return;
+    }
+
+    setMessage('');
+    setMethod(nextMethod);
+  };
+
   const createOrder = async () => {
     if (createdOrderId) {
       return { id: createdOrderId };
     }
 
+    const hasBuilderItems = items.some((item) => item.source === 'builder');
+
     const orderRes = await api.post('/orders', {
       method,
+      source: hasBuilderItems ? 'builder' : undefined,
       items: items.map((item) => ({
         productId: String(item.id),
         quantity: item.qty,
@@ -162,6 +187,11 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (isWalletPaymentDisabled) {
+      setMessage('No disponible');
+      return;
+    }
+
     setLoading(true);
     setMessage('');
 
@@ -220,21 +250,34 @@ export default function CheckoutPage() {
           </p>
 
           <div className="mb-6 grid gap-3 sm:grid-cols-2">
-            {(['CARD_CREDIT', 'CARD_DEBIT', 'YAPE', 'PLIN'] as PaymentMethod[]).map((item) => (
-              <button
-                key={item}
-                onClick={() => setMethod(item)}
-                className={[
-                  'flex items-center gap-3 rounded-xl border p-4 text-left font-bold transition',
-                  method === item
-                    ? 'border-brand-cyan bg-cyan-50 text-gray-900'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300',
-                ].join(' ')}
-              >
-                {item.startsWith('CARD') ? <FiCreditCard /> : <FiSmartphone />}
-                {methodLabels[item]}
-              </button>
-            ))}
+            {(['CARD_CREDIT', 'CARD_DEBIT', 'YAPE', 'PLIN'] as PaymentMethod[]).map((item) => {
+              const isBlockedWalletMethod =
+                (item === 'YAPE' || item === 'PLIN') && isWalletPaymentDisabled;
+
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  aria-disabled={isBlockedWalletMethod}
+                  title={isBlockedWalletMethod ? 'No disponible' : undefined}
+                  onClick={() => handleSelectMethod(item)}
+                  className={[
+                    'flex items-center gap-3 rounded-xl border p-4 text-left font-bold transition',
+                    isBlockedWalletMethod
+                      ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
+                      : method === item
+                        ? 'border-brand-cyan bg-cyan-50 text-gray-900'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300',
+                  ].join(' ')}
+                >
+                  {item.startsWith('CARD') ? <FiCreditCard /> : <FiSmartphone />}
+                  <span>{methodLabels[item]}</span>
+                  {isBlockedWalletMethod ? (
+                    <span className="ml-auto text-xs font-black uppercase">No disponible</span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
 
           {!isManual ? (

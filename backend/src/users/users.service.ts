@@ -18,6 +18,9 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
+const CUSTOMER_SESSION_EXPIRES_IN = '12h';
+const ADMIN_SESSION_EXPIRES_IN = '3h';
+
 @Injectable()
 export class UsersService {
   private readonly adminLoginAttempts = new Map<
@@ -60,6 +63,9 @@ export class UsersService {
         : 'CUSTOMER',
     };
 
+    const expiresIn =
+      payload.role === 'CUSTOMER' ? CUSTOMER_SESSION_EXPIRES_IN : ADMIN_SESSION_EXPIRES_IN;
+
     return {
       message: 'Login exitoso',
       user: {
@@ -68,7 +74,7 @@ export class UsersService {
         email: user.email,
         role: user.role,
       },
-      token: await this.jwtService.signAsync(payload),
+      token: await this.jwtService.signAsync(payload, { expiresIn }),
     };
   }
 

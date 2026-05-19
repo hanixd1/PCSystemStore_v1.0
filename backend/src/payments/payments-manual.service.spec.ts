@@ -8,7 +8,7 @@ describe('PaymentsService pagos manuales', () => {
     id: 'order-1',
     userId: 'customer-1',
     status: OrderStatus.PENDING_REVIEW,
-    total: 1000,
+    total: 500,
     currency: 'PEN',
     items: [
       {
@@ -149,5 +149,19 @@ describe('PaymentsService pagos manuales', () => {
         'customer-1',
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rechaza Yape/Plin cuando la orden supera S/. 500', async () => {
+    const { service, prisma } = createService();
+    prisma.order.findUnique.mockResolvedValueOnce({ ...baseOrder, total: 501 });
+
+    await expect(
+      service.createManual(
+        { orderId: 'order-1', method: PaymentMethod.YAPE, operationCode: '123456' },
+        'customer-1',
+      ),
+    ).rejects.toThrow('Yape/Plin no disponible para pedidos mayores a S/. 500.');
+
+    expect(prisma.payment.create).not.toHaveBeenCalled();
   });
 });

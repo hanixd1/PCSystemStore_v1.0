@@ -6,6 +6,8 @@ export interface CartItem {
   price: number;
   qty: number;
   image?: string;
+  category?: string;
+  source?: 'builder';
 }
 
 export const MAX_CART_ITEM_QUANTITY = 10;

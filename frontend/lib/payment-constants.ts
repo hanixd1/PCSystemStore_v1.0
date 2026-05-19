@@ -1,0 +1,1 @@
+export const MANUAL_WALLET_PAYMENT_LIMIT = 500;

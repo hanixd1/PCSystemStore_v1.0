@@ -10,6 +10,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ManualPaymentDto } from './dto/manual-payment.dto';
 import { SimulatePaymentDto } from './dto/simulate-payment.dto';
 import { ManualPaymentProvider, SimulatedPaymentProvider } from './payment-provider.service';
+import {
+  isManualWalletPayment,
+  MANUAL_WALLET_PAYMENT_LIMIT,
+  MANUAL_WALLET_PAYMENT_LIMIT_MESSAGE,
+} from './payment.constants';
 
 const DEFAULT_COMMISSION_RATE = 0.04;
 
@@ -208,6 +213,11 @@ export class PaymentsService {
   async createManual(data: ManualPaymentDto, userId: string) {
     const order = await this.getOrderForPayment(data.orderId, userId);
     const amount = Number(order.total);
+
+    if (isManualWalletPayment(data.method) && amount > MANUAL_WALLET_PAYMENT_LIMIT) {
+      throw new BadRequestException(MANUAL_WALLET_PAYMENT_LIMIT_MESSAGE);
+    }
+
     const commissionRate = this.getCommissionRate();
     const providerResult = this.manualProvider.createPayment();
 
@@ -254,6 +264,13 @@ export class PaymentsService {
 
     if (payment.status !== PaymentStatus.PENDING_REVIEW) {
       throw new BadRequestException('El pago no esta pendiente de revision');
+    }
+
+    if (
+      isManualWalletPayment(payment.method) &&
+      Number(payment.amount) > MANUAL_WALLET_PAYMENT_LIMIT
+    ) {
+      throw new BadRequestException(MANUAL_WALLET_PAYMENT_LIMIT_MESSAGE);
     }
 
     return this.prisma.$transaction(async (tx) => {

@@ -10,6 +10,7 @@ import {
   Query,
   Req,
   UploadedFiles,
+  UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
 import { Request } from 'express';
@@ -22,6 +23,12 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { uploadToCloudinary } from '../utils/cloudinary.util';
+import {
+  MAX_PRODUCT_IMAGES,
+  MAX_PRODUCT_IMAGE_SIZE_BYTES,
+} from '../uploads/upload.constants';
+import { imageFileFilter } from '../uploads/image-file.filter';
+import { MulterUploadExceptionFilter } from '../uploads/multer-upload-exception.filter';
 
 @Controller('products')
 export class ProductsController {
@@ -29,7 +36,19 @@ export class ProductsController {
 
   @Roles('ADMIN', 'EDITOR')
   @Post()
-  @UseInterceptors(FilesInterceptor('images', 5, { storage: memoryStorage() }))
+  @UseFilters(
+    new MulterUploadExceptionFilter('La imagen supera el tamano maximo permitido de 2 MB.'),
+  )
+  @UseInterceptors(
+    FilesInterceptor('images', MAX_PRODUCT_IMAGES, {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: MAX_PRODUCT_IMAGE_SIZE_BYTES,
+        files: MAX_PRODUCT_IMAGES,
+      },
+      fileFilter: imageFileFilter,
+    }),
+  )
   async create(
     @Body() body: CreateProductDto,
     @UploadedFiles() files: Array<Express.Multer.File>,

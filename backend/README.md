@@ -82,6 +82,18 @@ Las credenciales QA no deben estar hardcodeadas. Para pruebas locales, configura
 local o en `backend/.env.test`. Si no se definen, el fixture QA genera valores
 temporales aleatorios para evitar secretos codificados.
 
+## Uploads de imagenes
+
+Las cargas de imagenes se validan en backend antes de enviarlas a Cloudinary:
+
+- Productos: maximo 5 imagenes por producto.
+- Productos: maximo 2 MB por imagen.
+- Upload admin de imagen individual: maximo 3 MB.
+- Formatos permitidos: JPG, PNG y WEBP.
+
+El frontend puede mostrar recomendaciones visuales, pero el backend aplica el
+limite de tamano, cantidad y tipo MIME.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

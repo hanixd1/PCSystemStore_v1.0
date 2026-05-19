@@ -25,6 +25,16 @@ const STEPS = [
   { id: 'summary', title: 'Resumen Final', icon: FiCheckCircle }
 ];
 
+type BuildValidationResponse = {
+  compatible: boolean;
+  errors: { code: string; message: string; products?: string[] }[];
+  warnings: { code: string; message: string; products?: string[] }[];
+  summary: {
+    estimatedPower: number;
+    recommendedPsu: number;
+  };
+};
+
 export default function PCBuilderPage() {
   const router = useRouter();
   const { addItem } = useCartStore();
@@ -35,6 +45,8 @@ export default function PCBuilderPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [platform, setPlatform] = useState<'Intel' | 'AMD' | null>(null);
   const [build, setBuild] = useState<Record<string, any>>({});
+  const [backendValidation, setBackendValidation] = useState<BuildValidationResponse | null>(null);
+  const [validatingBuild, setValidatingBuild] = useState(false);
 
   useEffect(() => {
     api.get('/products')
@@ -69,6 +81,68 @@ export default function PCBuilderPage() {
   };
 
   const getRequiredPsuWatts = () => calculateRecommendedPsuWatts(build);
+
+  const getBuildValidationItems = () =>
+    Object.values(build)
+      .filter(Boolean)
+      .map((product: any) => ({
+        productId: String(product.id),
+        category: String(product.category || '').toLowerCase(),
+      }));
+
+  const validateBuildWithBackend = async () => {
+    const response = await api.post<BuildValidationResponse>('/builder/validate', {
+      source: 'builder',
+      items: getBuildValidationItems(),
+    });
+    setBackendValidation(response.data);
+    return response.data;
+  };
+
+  useEffect(() => {
+    if (currentStep !== STEPS.length - 1) {
+      setBackendValidation(null);
+      return;
+    }
+
+    const items = getBuildValidationItems();
+    if (items.length === 0) {
+      setBackendValidation(null);
+      return;
+    }
+
+    let cancelled = false;
+    setValidatingBuild(true);
+    api.post<BuildValidationResponse>('/builder/validate', {
+      source: 'builder',
+      items,
+    })
+      .then((response) => {
+        if (!cancelled) setBackendValidation(response.data);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBackendValidation({
+            compatible: false,
+            errors: [
+              {
+                code: 'BACKEND_VALIDATION_UNAVAILABLE',
+                message: 'No se pudo validar la compatibilidad con el servidor.',
+              },
+            ],
+            warnings: [],
+            summary: { estimatedPower: 0, recommendedPsu: 0 },
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setValidatingBuild(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [build, currentStep]);
 
   const getCompatibilityErrors = () => {
     const errors: string[] = [];
@@ -219,6 +293,7 @@ export default function PCBuilderPage() {
   const handleSelectPlatform = (selected: 'Intel' | 'AMD') => {
     if (selected !== platform) {
       setBuild({}); // Si cambia de bando, limpiamos todo
+      setBackendValidation(null);
     }
     setPlatform(selected);
     setCurrentStep(1);
@@ -247,6 +322,7 @@ export default function PCBuilderPage() {
       }
       return newBuild;
     });
+    setBackendValidation(null);
     
     setCurrentStep(prev => prev + 1);
   };
@@ -260,15 +336,29 @@ export default function PCBuilderPage() {
 
   const handleSkip = () => setCurrentStep(prev => prev + 1);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     const errors = getCompatibilityErrors();
     if (errors.length > 0) {
       alert(errors.join('\n'));
       return;
     }
 
+    setValidatingBuild(true);
+    try {
+      const validation = await validateBuildWithBackend();
+      if (!validation.compatible) {
+        alert(validation.errors.map((error) => error.message).join('\n'));
+        return;
+      }
+    } catch {
+      alert('No se pudo validar la compatibilidad con el servidor.');
+      return;
+    } finally {
+      setValidatingBuild(false);
+    }
+
     Object.values(build).forEach(product => {
-      if (product) addItem(product);
+      if (product) addItem({ ...product, source: 'builder' });
     });
     alert('¡PC completa añadida al carrito! 🚀');
     router.push('/carrito');
@@ -278,6 +368,7 @@ export default function PCBuilderPage() {
     if (confirm('¿Estás seguro de querer reiniciar la configuración?')) {
       setPlatform(null);
       setBuild({});
+      setBackendValidation(null);
       setCurrentStep(0);
     }
   };
@@ -288,6 +379,8 @@ export default function PCBuilderPage() {
   const StepIcon = currentStepDef.icon;
   const filteredProducts = getFilteredProducts();
   const compatibilityErrors = getCompatibilityErrors();
+  const backendErrorMessages = backendValidation?.errors.map((error) => error.message) ?? [];
+  const backendWarningMessages = backendValidation?.warnings.map((warning) => warning.message) ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -445,6 +538,22 @@ export default function PCBuilderPage() {
                   </div>
                 )}
 
+                {backendErrorMessages.length > 0 && (
+                  <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                    {backendErrorMessages.map((error) => (
+                      <p key={error}>{error}</p>
+                    ))}
+                  </div>
+                )}
+
+                {backendWarningMessages.length > 0 && (
+                  <div className="mt-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-semibold text-yellow-700">
+                    {backendWarningMessages.map((warning) => (
+                      <p key={warning}>{warning}</p>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mt-8 pt-6 border-t-2 border-gray-200 flex justify-between items-end">
                   <span className="text-gray-500 font-bold uppercase tracking-widest">Total Estimado</span>
                   <span className="text-4xl font-black text-blue-600">
@@ -464,10 +573,14 @@ export default function PCBuilderPage() {
                 
                 <button 
                   onClick={handleAddToCart}
-                  disabled={compatibilityErrors.length > 0}
+                  disabled={
+                    validatingBuild ||
+                    compatibilityErrors.length > 0 ||
+                    backendValidation?.compatible === false
+                  }
                   className="flex-1 bg-brand-cyan text-gray-900 py-4 rounded-xl font-black text-lg hover:bg-cyan-400 transition shadow-xl shadow-brand-cyan/30 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
                 >
-                  <FiShoppingCart size={22} /> Añadir al carrito
+                  <FiShoppingCart size={22} /> {validatingBuild ? 'Validando...' : 'Añadir al carrito'}
                 </button>
               </div>
 
