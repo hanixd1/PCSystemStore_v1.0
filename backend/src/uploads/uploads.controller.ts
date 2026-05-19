@@ -7,12 +7,10 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { Roles } from '../auth/roles.decorator';
 import { uploadToCloudinary } from '../utils/cloudinary.util';
-import { imageFileFilter } from './image-file.filter';
-import { MAX_ADMIN_IMAGE_SIZE_BYTES } from './upload.constants';
 import { MulterUploadExceptionFilter } from './multer-upload-exception.filter';
+import { ADMIN_IMAGE_UPLOAD_OPTIONS } from './multer-options';
 
 @Controller('admin/uploads')
 export class UploadsController {
@@ -22,14 +20,7 @@ export class UploadsController {
     new MulterUploadExceptionFilter('La imagen supera el tamano maximo permitido de 3 MB.'),
   )
   @UseInterceptors(
-    FileInterceptor('image', {
-      storage: memoryStorage(),
-      limits: {
-        fileSize: MAX_ADMIN_IMAGE_SIZE_BYTES,
-        files: 1,
-      },
-      fileFilter: imageFileFilter,
-    }),
+    FileInterceptor('image', ADMIN_IMAGE_UPLOAD_OPTIONS),
   )
   async uploadImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {

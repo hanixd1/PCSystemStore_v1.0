@@ -5,6 +5,8 @@ export type SpecificationRow = {
 
 type SpecValue = string | number | boolean | string[] | null | undefined;
 
+const MAX_SPEC_VALUE_LENGTH = 50;
+
 const INTERNAL_FIELDS = new Set([
   'id',
   'productId',
@@ -284,15 +286,69 @@ function formatValue(value: SpecValue, unit?: string) {
   return `${formattedValue} ${unit}`;
 }
 
+function isDigit(char: string) {
+  return char >= '0' && char <= '9';
+}
+
+function skipSpaces(text: string, startIndex: number) {
+  let index = startIndex;
+  while (index < text.length && text[index] === ' ') {
+    index += 1;
+  }
+
+  return index;
+}
+
+function formatCapacityOccurrences(value: SpecValue, allowedUnits: string[]) {
+  const raw = String(value ?? '').slice(0, MAX_SPEC_VALUE_LENGTH).trim();
+  if (!raw) return '';
+
+  let output = '';
+  let index = 0;
+  let changed = false;
+
+  while (index < raw.length) {
+    if (!isDigit(raw[index])) {
+      output += raw[index];
+      index += 1;
+      continue;
+    }
+
+    let digits = '';
+    while (index < raw.length && isDigit(raw[index])) {
+      digits += raw[index];
+      index += 1;
+    }
+
+    const unitStart = skipSpaces(raw, index);
+    const matchedUnit = allowedUnits.find(
+      (unit) => raw.slice(unitStart, unitStart + unit.length).toUpperCase() === unit,
+    );
+
+    if (matchedUnit) {
+      output += `${digits} ${matchedUnit}`;
+      index = unitStart + matchedUnit.length;
+      changed = true;
+      continue;
+    }
+
+    output += digits;
+  }
+
+  return changed ? output.trim() : raw;
+}
+
+function formatRamValue(value: SpecValue) {
+  return formatCapacityOccurrences(value, ['GB']);
+}
+
 function formatLaptopValue(key: string, value: SpecValue, unit?: string) {
   if (key === 'ram') {
-    return String(value || '').replace(/(\d+)\s*GB/gi, '$1 GB');
+    return formatRamValue(value);
   }
 
   if (key === 'storage') {
-    return String(value || '')
-      .replace(/(\d+)\s*GB/gi, '$1 GB')
-      .replace(/(\d+)\s*TB/gi, '$1 TB');
+    return formatCapacityOccurrences(value, ['GB', 'TB']);
   }
 
   if (key === 'screenSize') {

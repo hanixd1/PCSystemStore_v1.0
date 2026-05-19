@@ -14,6 +14,10 @@ from schemas.chatbot_schema import (
 )
 
 
+MAX_BUDGET_TEXT_LENGTH = 300
+MIN_BUDGET = 100
+MAX_BUDGET = 50000
+
 MODEL_PATTERNS = [
     r"\brtx\s?\d{4}\b",
     r"\bgtx\s?\d{3,4}\b",
@@ -32,16 +36,57 @@ MODEL_PATTERNS = [
 BUDGET_MARKERS = [
     "presupuesto",
     "soles",
+    "sol",
     "s/",
     "s/.",
     "tengo",
+    "cuento",
     "cuento con",
+    "gastar",
     "quiero gastar",
     "maximo",
     "hasta",
+    "invertir",
     "para una pc",
     "para pc",
 ]
+
+BUDGET_CONTEXT_TOKENS = {
+    "presupuesto",
+    "soles",
+    "sol",
+    "s/",
+    "s/.",
+    "tengo",
+    "cuento",
+    "gastar",
+    "maximo",
+    "hasta",
+    "invertir",
+}
+
+BUDGET_CONTEXT_PHRASES = [
+    "cuento con",
+    "quiero gastar",
+]
+
+PRODUCT_MODEL_TOKENS = {
+    "rtx",
+    "gtx",
+    "rx",
+    "ryzen",
+    "intel",
+    "core",
+    "i3",
+    "i5",
+    "i7",
+    "i9",
+    "ddr4",
+    "ddr5",
+    "nvme",
+    "ssd",
+    "hdd",
+}
 
 TOTAL_MARKERS = [
     "cuanto sale",
@@ -89,6 +134,109 @@ def normalize_text(value: str) -> str:
     return "".join(char for char in normalized if unicodedata.category(char) != "Mn")
 
 
+def normalize_budget_text(text: str) -> str:
+    normalized = normalize_text(text[:MAX_BUDGET_TEXT_LENGTH])
+    normalized = normalized.replace(",", ".")
+    normalized = normalized.replace("s/.", "s/")
+    normalized = normalized.replace("\n", " ")
+    normalized = normalized.replace("\r", " ")
+    normalized = normalized.replace("\t", " ")
+    return normalized
+
+
+def has_budget_context(text: str, tokens: list[str]) -> bool:
+    normalized_tokens = [token.strip(".,;:()[]{}") for token in tokens]
+    if any(
+        token in BUDGET_CONTEXT_TOKENS or token.startswith("s/")
+        for token in normalized_tokens
+    ):
+        return True
+    return any(phrase in text for phrase in BUDGET_CONTEXT_PHRASES)
+
+
+def has_product_model_context(tokens: list[str]) -> bool:
+    return any(token.strip(".,;:()[]{}") in PRODUCT_MODEL_TOKENS for token in tokens)
+
+
+def is_budget_context_token(token: str) -> bool:
+    return token.strip(".,;:()[]{}") in BUDGET_CONTEXT_TOKENS
+
+
+def is_budget_candidate(tokens: list[str], index: int) -> bool:
+    token = tokens[index].strip(".,;:()[]{}")
+    if token.startswith("s/") and parse_budget_token(token) is not None:
+        return True
+
+    previous_tokens = tokens[max(0, index - 4):index]
+    next_token = (
+        tokens[index + 1].strip(".,;:()[]{}") if index + 1 < len(tokens) else ""
+    )
+
+    if any(is_budget_context_token(previous) for previous in previous_tokens):
+        return True
+    if next_token in {"sol", "soles"}:
+        return True
+
+    previous_text = " ".join(previous_tokens)
+    return any(phrase in previous_text for phrase in BUDGET_CONTEXT_PHRASES)
+
+
+def parse_budget_token(token: str) -> int | None:
+    cleaned = token.strip(".,;:()[]{}")
+    if cleaned.startswith("s/."):
+        cleaned = cleaned[3:]
+    elif cleaned.startswith("s/"):
+        cleaned = cleaned[2:]
+
+    cleaned = cleaned.strip(".,;:()[]{}").replace(",", ".")
+    if not cleaned:
+        return None
+
+    multiplier = 1
+    if cleaned.endswith("k"):
+        multiplier = 1000
+        cleaned = cleaned[:-1]
+
+    if cleaned.count(".") > 1:
+        return None
+
+    for char in cleaned:
+        if not (char.isdigit() or char == "."):
+            return None
+
+    try:
+        value = float(cleaned) * multiplier
+    except ValueError:
+        return None
+
+    amount = int(round(value))
+    if MIN_BUDGET <= amount <= MAX_BUDGET:
+        return amount
+    return None
+
+
+def extract_budget_from_text(text: str) -> int | None:
+    normalized = normalize_budget_text(text)
+    tokens = normalized.split()
+    if not has_budget_context(normalized, tokens):
+        return None
+
+    has_product_context = has_product_model_context(tokens)
+    has_clear_budget_context = has_budget_context(normalized, tokens)
+    if has_product_context and not has_clear_budget_context:
+        return None
+
+    for index, token in enumerate(tokens):
+        if not is_budget_candidate(tokens, index):
+            continue
+
+        amount = parse_budget_token(token)
+        if amount is not None:
+            return amount
+
+    return None
+
+
 def detect_model_mentions(message: str) -> list[str]:
     normalized = normalize_text(message)
     mentions: list[str] = []
@@ -120,15 +268,7 @@ def detect_budget(message: str, has_model_mention: bool) -> int | None:
     ):
         return None
 
-    match = re.search(
-        r"(?:s\/\.?|soles|presupuesto|tengo|cuento con|quiero gastar|maximo|hasta)?\s*(\d{3,5})",
-        normalized,
-    )
-    if not match:
-        return None
-
-    amount = int(match.group(1))
-    return amount if amount >= 500 else None
+    return extract_budget_from_text(message)
 
 
 def detect_usage(message: str) -> str | None:

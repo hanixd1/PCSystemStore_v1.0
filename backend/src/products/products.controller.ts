@@ -16,16 +16,14 @@ import {
 import { Request } from 'express';
 import { JwtUserPayload } from '../auth/auth.constants';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { uploadToCloudinary } from '../utils/cloudinary.util';
-import { MAX_PRODUCT_IMAGES } from '../uploads/upload.constants';
-import { imageFileFilter } from '../uploads/image-file.filter';
 import { MulterUploadExceptionFilter } from '../uploads/multer-upload-exception.filter';
+import { PRODUCT_IMAGE_UPLOAD_OPTIONS } from '../uploads/multer-options';
 
 @Controller('products')
 export class ProductsController {
@@ -37,15 +35,7 @@ export class ProductsController {
     new MulterUploadExceptionFilter('La imagen supera el tamano maximo permitido de 2 MB.'),
   )
   @UseInterceptors(
-    FilesInterceptor('images', MAX_PRODUCT_IMAGES, {
-      storage: memoryStorage(),
-      limits: {
-        // 2 MB per image. Required to avoid unbounded memory usage with memoryStorage.
-        fileSize: 2 * 1024 * 1024,
-        files: MAX_PRODUCT_IMAGES,
-      },
-      fileFilter: imageFileFilter,
-    }),
+    FilesInterceptor('images', 5, PRODUCT_IMAGE_UPLOAD_OPTIONS),
   )
   async create(
     @Body() body: CreateProductDto,
