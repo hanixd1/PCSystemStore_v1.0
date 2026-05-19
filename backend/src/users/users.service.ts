@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { Request } from 'express';
+import { createHash, randomBytes } from 'node:crypto';
 import { JwtUserPayload, USER_ROLES } from '../auth/auth.constants';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
@@ -20,6 +21,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 const CUSTOMER_SESSION_EXPIRES_IN = '12h';
 const ADMIN_SESSION_EXPIRES_IN = '3h';
+const RESET_PASSWORD_TOKEN_EXPIRES_MS = 30 * 60 * 1000;
 
 @Injectable()
 export class UsersService {
@@ -47,6 +49,14 @@ export class UsersService {
     }
 
     return process.env.CLIENT_RESET_PASSWORD_PATH?.trim() || '/auth/reset-password';
+  }
+
+  private generateSecureResetToken(): string {
+    return randomBytes(32).toString('hex');
+  }
+
+  private hashResetToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 
   private async buildSession(user: {
@@ -408,14 +418,14 @@ export class UsersService {
       return genericResponse;
     }
 
-    const token =
-      Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const plainToken = this.generateSecureResetToken();
+    const tokenHash = this.hashResetToken(plainToken);
 
     await this.prisma.user.update({
       where: { email: normalizedEmail },
       data: {
-        resetToken: token,
-        resetTokenExpiry: new Date(Date.now() + 3600000),
+        resetToken: tokenHash,
+        resetTokenExpiry: new Date(Date.now() + RESET_PASSWORD_TOKEN_EXPIRES_MS),
       },
     });
 
@@ -427,7 +437,7 @@ export class UsersService {
     }
 
     const resetPath = this.getResetPasswordPath(flow);
-    const resetLink = `${frontendUrl}${resetPath}?token=${token}`;
+    const resetLink = `${frontendUrl}${resetPath}?token=${plainToken}`;
     console.log(
       '[SIMULACION EMAIL] Para recuperar contrasena entra aqui:',
       resetLink,
@@ -437,15 +447,16 @@ export class UsersService {
   }
 
   async resetPassword(token: string, newPassword: string) {
+    const tokenHash = this.hashResetToken(token);
     const user = await this.prisma.user.findFirst({
       where: {
-        resetToken: token,
+        resetToken: tokenHash,
         resetTokenExpiry: { gt: new Date() },
       },
     });
 
     if (!user) {
-      throw new BadRequestException('Token invalido o expirado');
+      throw new BadRequestException('El enlace de recuperacion no es valido o ha expirado.');
     }
 
     const salt = await bcrypt.genSalt(10);

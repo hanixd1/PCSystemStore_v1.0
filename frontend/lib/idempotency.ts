@@ -1,9 +1,21 @@
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
 
 export function createIdempotencyKey() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
+  const cryptoApi = globalThis.crypto;
+
+  if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
+    return `idem_${cryptoApi.randomUUID()}`;
   }
 
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  if (cryptoApi && typeof cryptoApi.getRandomValues === 'function') {
+    const values = new Uint32Array(4);
+    cryptoApi.getRandomValues(values);
+    const randomPart = Array.from(values)
+      .map((value) => value.toString(16).padStart(8, '0'))
+      .join('');
+
+    return `idem_${Date.now()}_${randomPart}`;
+  }
+
+  throw new Error('Secure random generator is not available.');
 }

@@ -28,12 +28,16 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates python3 python3-pip \
   && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/requirements.txt ./requirements.txt
+RUN groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs appuser
+
+COPY --from=build --chown=appuser:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=appuser:nodejs /app/dist ./dist
+COPY --from=build --chown=appuser:nodejs /app/prisma ./prisma
+COPY --from=build --chown=appuser:nodejs /app/package.json ./package.json
+COPY --from=build --chown=appuser:nodejs /app/requirements.txt ./requirements.txt
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt || true
 
+USER appuser
 EXPOSE 3002
 CMD ["node", "dist/main.js"]

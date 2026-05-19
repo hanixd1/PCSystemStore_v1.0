@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentMethod, PaymentProvider, PaymentStatus } from '@prisma/client';
+import { randomInt, randomUUID } from 'node:crypto';
 
 export type ProviderPaymentInput = {
   method: PaymentMethod;
@@ -16,14 +17,18 @@ export type ProviderPaymentResult = {
 
 @Injectable()
 export class SimulatedPaymentProvider {
+  private generateApprovalCode(): string {
+    return `APP-${randomInt(100000, 1000000)}`;
+  }
+
   createPayment(input: ProviderPaymentInput): ProviderPaymentResult {
     const approved = input.simulateResult === 'APPROVED';
 
     return {
       provider: PaymentProvider.SIMULATED,
       status: approved ? PaymentStatus.APPROVED : PaymentStatus.REJECTED,
-      providerTransactionId: `sim_${Date.now()}`,
-      approvalCode: approved ? `APP-${Math.floor(100000 + Math.random() * 900000)}` : undefined,
+      providerTransactionId: `sim_${randomUUID()}`,
+      approvalCode: approved ? this.generateApprovalCode() : undefined,
     };
   }
 }
