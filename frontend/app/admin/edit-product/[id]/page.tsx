@@ -14,6 +14,7 @@ import {
 import ProductOfferSection from '@/components/admin/product/ProductOfferSection';
 import { buildProductPayload } from '@/lib/products/buildProductPayload';
 import { validateProductForm } from '@/lib/products/validateProductForm';
+import { normalizeLaptopStorage } from '@/lib/normalizers';
 
 const CPU_BRANDS = ['AMD', 'Intel'];
 const MOTHERBOARD_BRANDS = ['ASUS', 'MSI', 'Gigabyte', 'ASRock', 'Otros'];
@@ -330,14 +331,6 @@ function normalizeLaptopRam(value: unknown) {
   const text = String(value || '').trim().toUpperCase().replace(/\s+/g, '');
   const match = text.match(/(\d+)/);
   return match ? `${match[1]}GB` : '';
-}
-
-function normalizeLaptopStorage(value: unknown) {
-  const text = String(value || '').trim().toUpperCase().replace(/\s+/g, '');
-  if (!text) return '';
-  return text
-    .replace(/(\d+)(GB|TB)(SSD|HDD)/g, '$1$2 $3')
-    .replace(/\+/g, ' + ');
 }
 
 function normalizeLaptopScreen(value: unknown) {

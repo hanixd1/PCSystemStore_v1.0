@@ -23,10 +23,7 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { uploadToCloudinary } from '../utils/cloudinary.util';
-import {
-  MAX_PRODUCT_IMAGES,
-  MAX_PRODUCT_IMAGE_SIZE_BYTES,
-} from '../uploads/upload.constants';
+import { MAX_PRODUCT_IMAGES } from '../uploads/upload.constants';
 import { imageFileFilter } from '../uploads/image-file.filter';
 import { MulterUploadExceptionFilter } from '../uploads/multer-upload-exception.filter';
 
@@ -43,7 +40,8 @@ export class ProductsController {
     FilesInterceptor('images', MAX_PRODUCT_IMAGES, {
       storage: memoryStorage(),
       limits: {
-        fileSize: MAX_PRODUCT_IMAGE_SIZE_BYTES,
+        // 2 MB per image. Required to avoid unbounded memory usage with memoryStorage.
+        fileSize: 2 * 1024 * 1024,
         files: MAX_PRODUCT_IMAGES,
       },
       fileFilter: imageFileFilter,
