@@ -39,7 +39,11 @@ export default function CheckoutPage() {
     [items],
   );
   const cartSignature = useMemo(
-    () => items.map((item) => `${item.id}:${item.qty}`).sort().join('|'),
+    () =>
+      items
+        .map((item) => `${item.id}:${item.qty}`)
+        .sort((a, b) => a.localeCompare(b))
+        .join('|'),
     [items],
   );
   const igv = total * (18 / 118);

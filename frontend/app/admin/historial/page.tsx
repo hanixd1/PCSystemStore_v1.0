@@ -94,7 +94,9 @@ export default function HistorialPage() {
 
   const actionOptions = useMemo(() => {
     const source = activeTab === 'security' ? securityLogs : productLogs;
-    return Array.from(new Set(source.map((log) => log.action))).sort();
+    return Array.from(new Set(source.map((log) => log.action))).sort((a, b) =>
+      a.localeCompare(b),
+    );
   }, [activeTab, productLogs, securityLogs]);
 
   return (

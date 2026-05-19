@@ -40,7 +40,7 @@ function stableStringify(value: unknown): string {
 
   const record = value as Record<string, unknown>;
   return `{${Object.keys(record)
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
     .join(',')}}`;
 }
