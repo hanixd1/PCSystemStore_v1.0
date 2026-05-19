@@ -33,11 +33,11 @@ RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs appuser
 RUN corepack enable
 
-COPY --from=build --chown=appuser:nodejs /app/.next ./.next
-COPY --from=build --chown=appuser:nodejs /app/public ./public
-COPY --from=build --chown=appuser:nodejs /app/node_modules ./node_modules
-COPY --from=build --chown=appuser:nodejs /app/package.json ./package.json
-COPY --from=build --chown=appuser:nodejs /app/next.config.ts ./next.config.ts
+COPY --from=build --chown=root:root --chmod=755 /app/.next ./.next
+COPY --from=build --chown=root:root --chmod=755 /app/public ./public
+COPY --from=build --chown=root:root --chmod=755 /app/node_modules ./node_modules
+COPY --from=build --chown=root:root --chmod=644 /app/package.json ./package.json
+COPY --from=build --chown=root:root --chmod=644 /app/next.config.ts ./next.config.ts
 
 USER appuser
 EXPOSE 3000
