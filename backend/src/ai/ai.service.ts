@@ -626,7 +626,11 @@ export class AiService {
       ñ: 'n',
     };
     const mapped = accents[char] ?? char;
-    const code = mapped.charCodeAt(0);
+    const code = mapped.codePointAt(0);
+    if (code === undefined) {
+      return ' ';
+    }
+
     const isLetter = code >= 97 && code <= 122;
     const isDigit = code >= 48 && code <= 57;
 
@@ -744,7 +748,11 @@ export class AiService {
     let decimalSeparatorSeen = false;
 
     for (const char of value) {
-      const code = char.charCodeAt(0);
+      const code = char.codePointAt(0);
+      if (code === undefined) {
+        continue;
+      }
+
       const isDigit = code >= 48 && code <= 57;
       if (isDigit) {
         result += char;

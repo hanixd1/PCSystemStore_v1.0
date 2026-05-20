@@ -15,34 +15,24 @@ function getDatabaseHost(databaseUrl?: string) {
   }
 }
 
+function parseOrigins(value?: string): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';
   const port = Number(process.env.PORT) || 3000;
   const logger = new Logger('Bootstrap');
-  const rawOrigins = [process.env.CORS_ORIGIN, process.env.CORS_ORIGINS]
-    .filter(Boolean)
-    .join(',');
-  const configuredOrigins = rawOrigins
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  const frontendUrl = process.env.FRONTEND_URL?.trim();
-  const devOrigins = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://26.163.180.225:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3001',
-    'http://26.163.180.225:3001',
-  ];
+  const frontendUrl = parseOrigins(process.env.FRONTEND_URL);
   const allowedOrigins = [
-    ...new Set(
-      (
-        isProduction
-          ? [...configuredOrigins, frontendUrl]
-          : [...configuredOrigins, frontendUrl, ...devOrigins]
-      ).filter((origin): origin is string => Boolean(origin)),
-    ),
+    ...new Set([
+      ...parseOrigins(process.env.CORS_ORIGINS),
+      ...parseOrigins(process.env.CORS_ORIGIN),
+      ...frontendUrl,
+    ]),
   ];
 
   if (isProduction && !process.env.JWT_SECRET?.trim()) {
@@ -71,6 +61,16 @@ async function bootstrap() {
     throw new Error(
       'Configura FRONTEND_URL o CORS_ORIGINS en produccion antes de iniciar el backend.',
     );
+  }
+
+  if (isProduction) {
+    const insecureOrigins = allowedOrigins.filter((origin) =>
+      origin.startsWith('http://'),
+    );
+
+    if (insecureOrigins.length > 0) {
+      throw new Error('HTTP origins are not allowed in production CORS configuration.');
+    }
   }
 
   app.enableCors({
