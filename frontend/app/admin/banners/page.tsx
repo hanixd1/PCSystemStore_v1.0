@@ -384,8 +384,12 @@ export default function AdminBannersPage() {
               />
             </div>
 
-            <label className="flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700">
+            <label
+              htmlFor="banner-is-active"
+              className="inline-flex items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700"
+            >
               <input
+                id="banner-is-active"
                 type="checkbox"
                 checked={bannerForm.isActive}
                 onChange={(event) =>
@@ -393,7 +397,7 @@ export default function AdminBannersPage() {
                 }
                 className="h-4 w-4 accent-brand-cyan"
               />
-              Banner activo
+              <span>Banner activo</span>
             </label>
 
             <button
