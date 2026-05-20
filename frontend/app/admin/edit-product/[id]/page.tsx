@@ -660,56 +660,6 @@ export default function EditProductPage() {
     }
 
     return null;
-
-    if (Number(formData.price) <= 0) {
-      return 'El precio debe ser mayor a 0.';
-    }
-
-    if (formData.isOnSale === 'true') {
-      const price = Number(formData.price);
-      const salePrice = Number(formData.salePrice);
-      if (!Number.isFinite(salePrice) || salePrice <= 0) {
-        return 'El precio de oferta debe ser mayor a 0.';
-      }
-
-      if (salePrice >= price) {
-        return 'El precio de oferta debe ser menor al precio normal.';
-      }
-    }
-
-    if (formData.category === 'CPU') {
-      const validSockets = CPU_SOCKETS_BY_BRAND[formData.cpuBrand] ?? [];
-      if (!validSockets.includes(formData.socket)) return 'El socket no corresponde a la marca del procesador.';
-      if (Number(formData.tdp) <= 0) return 'El TDP del procesador debe ser mayor a 0.';
-    }
-
-    if (formData.category === 'COOLER') {
-      if (!formData.brand) return 'Selecciona la marca del cooler.';
-      if (formData.compatibleSockets.length === 0) return 'Selecciona al menos un socket compatible para el cooler.';
-      if (Number(formData.tdpCapacity) <= 0) return 'El TDP soportado del cooler debe ser mayor a 0.';
-      if (formData.type === 'Torre' && Number(formData.coolerHeight) <= 0) return 'La altura del cooler de torre debe ser mayor a 0.';
-      if (formData.type === 'Liquida' && Number(formData.radiatorSize) <= 0) return 'Selecciona el tamaño de radiador del cooler liquido.';
-    }
-
-    if (formData.category === 'PSU') {
-      if (!formData.brand) return 'Selecciona la marca de la fuente de poder.';
-      if (Number(formData.wattage) <= 0) return 'La potencia de la fuente debe ser mayor a 0.';
-    }
-
-    if (formData.category === 'STORAGE') {
-      const isM2 = formData.type.includes('M.2') || formData.type.toUpperCase().includes('NVME');
-      if (isM2 && !formData.m2FormFactor) return 'Selecciona el tamaño fisico M.2.';
-    }
-
-    if (formData.category === 'PC_DESKTOP' && formData.psuWatts !== '' && Number(formData.psuWatts) < 100) {
-      return 'La fuente de poder debe ser un numero positivo. Recomendado minimo 100W.';
-    }
-
-    if (formData.category === 'MONITOR' && formData.responseTimeMs !== '' && Number(formData.responseTimeMs) < 0.1) {
-      return 'El tiempo de respuesta debe ser mayor o igual a 0.1 ms.';
-    }
-
-    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
