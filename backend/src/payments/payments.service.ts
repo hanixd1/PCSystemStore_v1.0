@@ -6,6 +6,7 @@ import {
   PaymentStatus,
   Prisma,
 } from '@prisma/client';
+import { randomInt } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ManualPaymentDto } from './dto/manual-payment.dto';
 import { SimulatePaymentDto } from './dto/simulate-payment.dto';
@@ -40,6 +41,10 @@ export class PaymentsService {
     return Number.isFinite(configured) && configured >= 0
       ? configured
       : DEFAULT_COMMISSION_RATE;
+  }
+
+  private generateManualApprovalCode(): string {
+    return `MAN-${randomInt(100000, 1000000)}`;
   }
 
   private async getOrderForPayment(orderId: string, userId: string) {
@@ -280,7 +285,7 @@ export class PaymentsService {
         data: {
           status: PaymentStatus.APPROVED,
           paidAt: new Date(),
-          approvalCode: `MAN-${Math.floor(100000 + Math.random() * 900000)}`,
+          approvalCode: this.generateManualApprovalCode(),
         },
       });
 
