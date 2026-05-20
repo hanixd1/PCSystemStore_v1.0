@@ -46,7 +46,7 @@ function getBadge(action: string) {
 }
 
 function getActionLabel(action: string) {
-  return action.replace(/_/g, ' ');
+  return action.replaceAll('_', ' ');
 }
 
 export default function HistorialPage() {

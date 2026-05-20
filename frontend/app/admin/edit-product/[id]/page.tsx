@@ -422,7 +422,7 @@ function normalizeLaptopRam(value: unknown) {
 
 function normalizeLaptopScreen(value: unknown) {
   return String(value || '')
-    .replace(/"/g, '')
+    .replaceAll('"', '')
     .trim();
 }
 

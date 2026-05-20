@@ -355,7 +355,7 @@ function formatLaptopValue(key: string, value: SpecValue, unit?: string) {
 
   if (key === 'screenSize') {
     const screenSize = String(value || '')
-      .replace(/"/g, '')
+      .replaceAll('"', '')
       .trim();
     return screenSize ? `${screenSize}"` : '';
   }

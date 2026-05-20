@@ -388,10 +388,13 @@ export default function Chatbot() {
               </div>
               <div>
                 <h3 className="font-bold text-sm tracking-wide">Alex</h3>
-                <p className="text-[10px] text-green-400 flex items-center gap-1 font-medium">
-                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-                  En linea
-                </p>
+                <div className="flex items-center gap-2 text-[10px] font-medium text-green-400">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400"
+                  />
+                  <span>En linea</span>
+                </div>
               </div>
             </div>
             <button
