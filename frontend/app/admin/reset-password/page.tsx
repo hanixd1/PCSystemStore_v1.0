@@ -1,91 +1,33 @@
 'use client';
 
-import { FormEvent, Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { api, getApiErrorMessage } from '@/lib/api';
+import { Suspense } from 'react';
+import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 
-function ResetForm() {
-  const searchParams = useSearchParams();
-  const token = searchParams.get('token');
-  const router = useRouter();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError('');
-
-    if (password.length < 6) {
-      setError('La contrasena debe tener al menos 6 caracteres.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Las contrasenas no coinciden.');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await api.post('/users/reset-password', {
-        token,
-        newPassword: password,
-      });
-      alert('Contrasena cambiada. Ahora inicia sesion.');
-      router.push('/admin/login');
-    } catch (error: unknown) {
-      setError(getApiErrorMessage(error, 'El token es invalido o expiro'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+function AdminResetForm() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-900 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-8">
-        <h2 className="mb-4 text-center text-2xl font-bold">ADMIN PANEL</h2>
-        <p className="mb-6 text-center text-sm text-gray-500">
-          Crea una nueva contrasena administrativa.
-        </p>
-        {error && <p className="mb-4 text-center font-bold text-red-600">{error}</p>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="password"
-            placeholder="Escribe tu nueva clave"
-            className="w-full rounded-lg border p-3"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Confirma tu nueva clave"
-            className="w-full rounded-lg border p-3"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            minLength={6}
-            required
-          />
-          <button
-            type="submit"
-            disabled={!token || isSubmitting}
-            className="w-full rounded-lg bg-black py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? 'Guardando...' : 'Cambiar Contrasena'}
-          </button>
-        </form>
-      </div>
-    </div>
+    <ResetPasswordForm
+      title="ADMIN PANEL"
+      description="Crea una nueva contrasena administrativa."
+      loginPath="/admin/login"
+      passwordPlaceholder="Escribe tu nueva clave"
+      confirmPasswordPlaceholder="Confirma tu nueva clave"
+      successMessage="Contrasena cambiada. Ahora inicia sesion."
+      errorFallback="El token es invalido o expiro"
+      shellClassName="flex min-h-screen items-center justify-center bg-gray-900 p-4"
+      cardClassName="w-full max-w-md rounded-xl bg-white p-8"
+      titleClassName="mb-4 text-center text-2xl font-bold"
+      descriptionClassName="mb-6 text-center text-sm text-gray-500"
+      inputClassName="w-full rounded-lg border p-3"
+      buttonClassName="w-full rounded-lg bg-black py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+      errorClassName="mb-4 text-center font-bold text-red-600"
+    />
   );
 }
 
 export default function ResetPage() {
   return (
     <Suspense fallback={<div>Cargando...</div>}>
-      <ResetForm />
+      <AdminResetForm />
     </Suspense>
   );
 }
