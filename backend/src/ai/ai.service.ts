@@ -1844,52 +1844,10 @@ export class AiService {
     }
   }
 
-  async processCustomerChat(
-    userMessage: string,
-    history: ChatMessageInput[] = [],
-    conversationState?: ChatConversationState,
+  private async processCustomerChatFallback(
+    cleanMessage: string,
+    history: ChatMessageInput[],
   ): Promise<unknown> {
-    const cleanMessage = userMessage.slice(0, MAX_CHAT_MESSAGE_LENGTH).trim();
-
-    if (!cleanMessage) {
-      return {
-        reply:
-          'Hola, soy Alex. Puedo ayudarte a encontrar productos o armar una PC segun tu presupuesto.',
-        products: [],
-        actions: [],
-        totals: null,
-        status: 'ok',
-        conversationState: conversationState ?? {
-          intent: null,
-          budget: null,
-          usage: null,
-          includesPeripherals: null,
-          mentionedProducts: [],
-        },
-      };
-    }
-
-    try {
-      return await this.requestCommercialChat(cleanMessage, conversationState);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`[AI] Servicio no disponible: ${message}`);
-      return {
-        reply: AI_UNAVAILABLE_REPLY,
-        products: [],
-        actions: [],
-        totals: null,
-        status: 'degraded',
-        conversationState: conversationState ?? {
-          intent: null,
-          budget: null,
-          usage: null,
-          includesPeripherals: null,
-          mentionedProducts: [],
-        },
-      };
-    }
-
     const sanitizedHistory = history
       .filter(
         (message) =>
@@ -1957,5 +1915,70 @@ export class AiService {
         'Te puedo ayudar de dos formas: encontrar un componente puntual o armarte una PC por presupuesto. Si quieres, dime algo como "busco una RTX 4060" o "tengo 3000 soles y quiero una PC para oficina".',
       detectedIntent: 'unknown',
     };
+  }
+
+  async processCustomerChat(
+    userMessage: string,
+    history: ChatMessageInput[] = [],
+    conversationState?: ChatConversationState,
+  ): Promise<unknown> {
+    const cleanMessage = userMessage.slice(0, MAX_CHAT_MESSAGE_LENGTH).trim();
+
+    if (!cleanMessage) {
+      return {
+        reply:
+          'Hola, soy Alex. Puedo ayudarte a encontrar productos o armar una PC segun tu presupuesto.',
+        products: [],
+        actions: [],
+        totals: null,
+        status: 'ok',
+        conversationState: conversationState ?? {
+          intent: null,
+          budget: null,
+          usage: null,
+          includesPeripherals: null,
+          mentionedProducts: [],
+        },
+      };
+    }
+
+    try {
+      const response = await this.requestCommercialChat(
+        cleanMessage,
+        conversationState,
+      );
+
+      if (response.status === 'degraded') {
+        return await this.processCustomerChatFallback(cleanMessage, history);
+      }
+
+      return response;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`[AI] Servicio no disponible: ${message}`);
+      try {
+        return await this.processCustomerChatFallback(cleanMessage, history);
+      } catch (fallbackError: unknown) {
+        const fallbackMessage =
+          fallbackError instanceof Error
+            ? fallbackError.message
+            : String(fallbackError);
+        this.logger.warn(`[AI] Fallback local no disponible: ${fallbackMessage}`);
+        return {
+          reply: AI_UNAVAILABLE_REPLY,
+          products: [],
+          actions: [],
+          totals: null,
+          status: 'degraded',
+          conversationState: conversationState ?? {
+            intent: null,
+            budget: null,
+            usage: null,
+            includesPeripherals: null,
+            mentionedProducts: [],
+          },
+        };
+      }
+    }
   }
 }
