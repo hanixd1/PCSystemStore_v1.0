@@ -236,8 +236,10 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
   return (
     <>
       {/* Overlay */}
-      <div
-        className={`fixed inset-0 bg-black/40 z-40 transition ${
+      <button
+        type="button"
+        aria-label="Cerrar menu de categorias"
+        className={`fixed inset-0 z-40 border-0 bg-black/40 p-0 transition ${
           isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
         }`}
         onClick={onClose}
@@ -252,15 +254,24 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
         <div className="w-80 bg-white h-full border-r flex flex-col">
           <div className="p-5 flex justify-between border-b shrink-0">
             <h2 className="font-bold text-lg">Menu</h2>
-            <FiX onClick={onClose} className="text-2xl cursor-pointer" />
+            <button
+              type="button"
+              aria-label="Cerrar menu"
+              onClick={onClose}
+              className="rounded p-1 text-2xl hover:bg-gray-100"
+            >
+              <FiX />
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto">
             {CATEGORIES.map((cat) => (
-              <div
+              <button
                 key={cat.id}
+                type="button"
                 onClick={() => handleCategorySelect(cat.id)}
-                className={`flex items-center justify-between px-6 py-3 cursor-pointer ${
+                aria-pressed={selectedCategory === cat.id}
+                className={`flex w-full items-center justify-between px-6 py-3 text-left ${
                   selectedCategory === cat.id
                     ? 'text-cyan-800 font-semibold'
                     : 'hover:bg-gray-50 text-gray-700'
@@ -271,7 +282,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                   {cat.name}
                 </div>
                 <FiChevronRight />
-              </div>
+              </button>
             ))}
           </div>
 

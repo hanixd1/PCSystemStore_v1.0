@@ -17,8 +17,10 @@ export default function CartSidebar() {
   return (
     <>
       {/* OVERLAY (Fondo oscuro) */}
-      <div
-        className={`fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${
+      <button
+        type="button"
+        aria-label="Cerrar carrito"
+        className={`fixed inset-0 z-50 border-0 bg-black/60 p-0 transition-opacity duration-300 ${
           isCartOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
         }`}
         onClick={closeCart}
@@ -26,7 +28,7 @@ export default function CartSidebar() {
 
       {/* PANEL LATERAL */}
       <div
-        className={`fixed top-0 right-0 h-full w-full md:w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`fixed top-0 right-0 h-full w-full md:w-[450px] bg-white shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out flex flex-col ${
           isCartOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
