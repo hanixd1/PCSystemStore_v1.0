@@ -48,14 +48,14 @@ export class ProductsService {
   private readonly descriptionRegex =
     /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,;:+\-/%\s]{20,1200}$/;
 
-  private toInt(val: any): number {
-    const n = parseInt(val);
-    return isNaN(n) ? 0 : n;
+  private toInt(val: unknown): number {
+    const n = Number.parseInt(String(val ?? ''), 10);
+    return Number.isNaN(n) ? 0 : n;
   }
 
-  private toFloat(val: any): number {
-    const n = parseFloat(val);
-    return isNaN(n) ? 0 : n;
+  private toFloat(val: unknown): number {
+    const n = Number.parseFloat(String(val ?? ''));
+    return Number.isNaN(n) ? 0 : n;
   }
 
   private hasValue(val: any): boolean {
@@ -95,11 +95,38 @@ export class ProductsService {
   }
 
   private buildSlug(name: string) {
-    const baseSlug = name
-      .toLowerCase()
-      .trim()
-      .replace(/ /g, '-')
-      .replace(/[^\w-]+/g, '');
+    const normalized = name.toLowerCase().trim().normalize('NFD');
+    const slugChars: string[] = [];
+    let previousWasSeparator = false;
+
+    for (const char of normalized) {
+      const code = char.codePointAt(0);
+      if (code === undefined) {
+        continue;
+      }
+
+      if (code >= 0x0300 && code <= 0x036f) {
+        continue;
+      }
+
+      const isLowerLetter = code >= 97 && code <= 122;
+      const isDigit = code >= 48 && code <= 57;
+
+      if (isLowerLetter || isDigit || char === '_') {
+        slugChars.push(char);
+        previousWasSeparator = false;
+        continue;
+      }
+
+      if (char === ' ' || char === '-') {
+        if (!previousWasSeparator && slugChars.length > 0) {
+          slugChars.push('-');
+          previousWasSeparator = true;
+        }
+      }
+    }
+
+    const baseSlug = slugChars.join('').split('-').filter(Boolean).join('-');
 
     return `${baseSlug || 'producto'}-${Date.now()}`;
   }

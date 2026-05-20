@@ -3,7 +3,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 @Injectable()
 export class ProductPricingService {
   toFloat(value: unknown): number {
-    const parsed = parseFloat(String(value));
+    const parsed = Number.parseFloat(String(value ?? ''));
     return Number.isNaN(parsed) ? 0 : parsed;
   }
 
