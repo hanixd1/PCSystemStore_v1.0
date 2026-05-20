@@ -1888,31 +1888,34 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('connection', value)}
                 options={includeCurrentOption(HEADSET_CONNECTION_TYPES, formData.connection)}
               />
-              <div className="col-span-2">
-                <span className="mb-2 block text-sm font-bold text-gray-700">
+              <fieldset className="col-span-2">
+                <legend className="mb-2 block text-sm font-bold text-gray-700">
                   Conectividad soportada
-                </span>
+                </legend>
                 <div className="grid grid-cols-2 gap-2">
                   {(formData.connection === 'Cableado'
                     ? HEADSET_WIRED_CONNECTIONS
                     : HEADSET_WIRELESS_CONNECTIONS
-                  ).map((option) => (
-                    <label
-                      key={option}
-                      htmlFor={`edit-product-supported-connections-${option}`}
-                      className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
-                    >
-                      <input
-                        id={`edit-product-supported-connections-${option}`}
-                        type="checkbox"
-                        checked={formData.supportedConnections.includes(option)}
-                        onChange={() => toggleArrayValue('supportedConnections', option)}
-                      />
-                      <span>{option}</span>
-                    </label>
-                  ))}
+                  ).map((option) => {
+                    const optionId = optionFieldId('edit-product-supported-connections', option);
+                    return (
+                      <label
+                        key={option}
+                        htmlFor={optionId}
+                        className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
+                      >
+                        <input
+                          id={optionId}
+                          type="checkbox"
+                          checked={formData.supportedConnections.includes(option)}
+                          onChange={() => toggleArrayValue('supportedConnections', option)}
+                        />
+                        <span>{option}</span>
+                      </label>
+                    );
+                  })}
                 </div>
-              </div>
+              </fieldset>
               <NumberField
                 label="Drivers (mm)"
                 value={formData.driverSize}
@@ -2106,6 +2109,10 @@ function fieldId(label: string) {
   return `edit-product-${normalized}`;
 }
 
+function optionFieldId(prefix: string, value: string) {
+  return `${prefix}-${fieldId(value).replace('edit-product-', '')}`;
+}
+
 function TextField({
   label,
   value,
@@ -2207,26 +2214,30 @@ function MultiCheckField({
   values: string[];
   onToggle: (value: string) => void;
 }) {
+  const groupId = fieldId(label);
   return (
-    <div className="col-span-2">
-      <span className="mb-2 block text-sm font-bold text-gray-700">{label}</span>
+    <fieldset className="col-span-2">
+      <legend className="mb-2 block text-sm font-bold text-gray-700">{label}</legend>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-        {options.map((option) => (
-          <label
-            key={option}
-            htmlFor={`${fieldId(label)}-${option}`}
-            className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
-          >
-            <input
-              id={`${fieldId(label)}-${option}`}
-              type="checkbox"
-              checked={values.includes(option)}
-              onChange={() => onToggle(option)}
-            />
-            <span>{option}</span>
-          </label>
-        ))}
+        {options.map((option) => {
+          const optionId = optionFieldId(groupId, option);
+          return (
+            <label
+              key={option}
+              htmlFor={optionId}
+              className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
+            >
+              <input
+                id={optionId}
+                type="checkbox"
+                checked={values.includes(option)}
+                onChange={() => onToggle(option)}
+              />
+              <span>{option}</span>
+            </label>
+          );
+        })}
       </div>
-    </div>
+    </fieldset>
   );
 }
