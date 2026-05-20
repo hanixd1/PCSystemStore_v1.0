@@ -9,11 +9,22 @@
 | `logProductChanges`                           | Deteccion y persistencia de logs en el mismo metodo                          | Separacion de recoleccion y persistencia               | `collectProductChangeLogs`                                                                                                                                              | Eventos, campos auditados y metadatos existentes                                                                        | Corregido            |
 | `create`, `addSpecFilters`, `buildSpecUpdate` | Bloques grandes con reglas por categoria                                     | Refactor agresivo no aplicado en esta iteracion        | N/A                                                                                                                                                                     | Se evita alterar reglas criticas de creacion, filtros tecnicos y merge de specs sin pruebas dedicadas por categoria     | Pendiente controlado |
 
+## Segunda pasada
+
+| Funcion                      | Estrategia aplicada                                      | Helpers nuevos                                                                                                                                                                                                                                     | Comportamiento preservado                                     | Estado    |
+| ---------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | --------- |
+| `validateCoreCategoryFields` | Dispatcher por categoria core                            | `getCoreCategoryValidator`, `validateCpuCategory`, `validateGpuCategory`, `validateCoolerCategory`, `validateStorageCategory`, `validateMonitorCategory`, `validateDesktopCategory`, `validateCaseCategory`                                        | Mismos mensajes y validaciones por categoria                  | Corregido |
+| `validateCableHubCategory`   | Early return y validadores por tipo Cable/Hub            | `getCableHubType`, `validateCableHubType`, `validateCableFields`, `validateHubFields`                                                                                                                                                              | Marca, tipo, cable, largo, entrada y salidas obligatorias     | Corregido |
+| `addBrandFilter`             | Configuracion por categoria y condicion para marca Otros | `getBrandFilterConfig`, `buildBrandSpecCondition`, `isOtherBrand`, `buildOtherBrandCondition`, `addDefaultBrandFilter`                                                                                                                             | Filtros por marca, aliases de Royal Kludge y fallback general | Corregido |
+| `buildProductUpdateData`     | Separacion de campos basicos, precio, stock e imagenes   | `applyBasicProductUpdate`, `applyPricingProductUpdate`, `applyStockProductUpdate`, `applyImageProductUpdate`                                                                                                                                       | Actualizacion parcial y validacion de maximo 5 imagenes       | Corregido |
+| `collectProductChangeLogs`   | Separacion de cambios por grupo                          | `collectBasicProductChangeLogs`, `collectPricingProductChangeLogs`, `collectStockProductChangeLogs`, `collectImageProductChangeLogs`, `collectSpecProductChangeLogs`, `addChangeIfDifferent`, `pushChangeIfDifferent`, `getSpecRelationByCategory` | Eventos y descripciones de auditoria existentes               | Corregido |
+
 ## Pruebas realizadas
 
 - `npm run build`
+- `npm test`
 
 ## Riesgos pendientes
 
-- `create`, `addSpecFilters` y `buildSpecUpdate` siguen siendo candidatos a una segunda iteracion con tests por categoria antes de extraer mapas de builders/mergers.
+- `create`, `addSpecFilters` y `buildSpecUpdate` siguen siendo candidatos a una iteracion especifica con tests por categoria antes de extraer mapas de builders/mergers.
 - Validar manualmente creacion/edicion de productos por categoria y filtros tecnicos antes de despliegue.

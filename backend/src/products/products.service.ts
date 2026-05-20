@@ -7,6 +7,16 @@ import { AuditService } from '../audit/audit.service';
 import { ProductPricingService } from './services/product-pricing.service';
 
 type ProductQuery = Record<string, string | string[] | undefined>;
+type ProductChangeLog = {
+  action: string;
+  module: string;
+  fieldName: string;
+  oldValue?: string | number | null;
+  newValue?: string | number | null;
+  stockBefore?: number | null;
+  stockAfter?: number | null;
+  description: string;
+};
 
 @Injectable()
 export class ProductsService {
@@ -306,129 +316,118 @@ export class ProductsService {
   }
 
   private validateCoreCategoryFields(category: string, data: any) {
-    if (category === 'CPU') {
-      const brand = String(data.cpuBrand || '').trim();
-      const socket = String(data.socket || '').trim();
-      const socketsByBrand: Record<string, string[]> = {
-        AMD: ['AM4', 'AM5'],
-        Intel: ['LGA 1200', 'LGA 1700', 'LGA 1851'],
-      };
+    const validator = this.getCoreCategoryValidator(category);
+    validator?.(data);
+  }
 
-      if (!brand || !socketsByBrand[brand]) {
-        throw new BadRequestException('La marca del procesador es obligatoria');
-      }
+  private getCoreCategoryValidator(category: string): ((data: any) => void) | undefined {
+    const validators: Record<string, (data: any) => void> = {
+      CPU: (data) => this.validateCpuCategory(data),
+      MOTHERBOARD: (data) =>
+        this.validateBrandRequired(data, 'Selecciona la marca de la placa madre.'),
+      GPU: (data) => this.validateGpuCategory(data),
+      COOLER: (data) => this.validateCoolerCategory(data),
+      PSU: (data) => this.validateBrandRequired(data, 'Selecciona la marca de la fuente de poder.'),
+      LAPTOP: (data) => this.validateBrandRequired(data, 'Selecciona la marca de la laptop.'),
+      STORAGE: (data) => this.validateStorageCategory(data),
+      MONITOR: (data) => this.validateMonitorCategory(data),
+      PC_DESKTOP: (data) => this.validateDesktopCategory(data),
+      CASE: (data) => this.validateCaseCategory(data),
+    };
 
-      if (!socketsByBrand[brand].includes(socket)) {
-        throw new BadRequestException('El socket no corresponde a la marca del procesador');
-      }
+    return validators[category];
+  }
+
+  private validateCpuCategory(data: any) {
+    const brand = String(data.cpuBrand || '').trim();
+    const socket = String(data.socket || '').trim();
+    this.validateCpuBrandSocket(brand, socket);
+  }
+
+  private validateGpuCategory(data: any) {
+    const brand = String(data.brand || '').trim();
+    const powerWatts = this.hasValue(data.gpuPowerWatts)
+      ? this.toInt(data.gpuPowerWatts)
+      : this.toInt(data.tdp);
+
+    if (!brand) {
+      throw new BadRequestException('Selecciona la marca ensambladora de la tarjeta grafica.');
     }
 
-    if (category === 'MOTHERBOARD') {
-      this.validateBrandRequired(data, 'Selecciona la marca de la placa madre.');
+    if (this.toInt(data.vram) <= 0) {
+      throw new BadRequestException('Selecciona la VRAM de la tarjeta grafica.');
     }
 
-    if (category === 'GPU') {
-      const brand = String(data.brand || '').trim();
-      const powerWatts = this.hasValue(data.gpuPowerWatts)
-        ? this.toInt(data.gpuPowerWatts)
-        : this.toInt(data.tdp);
-
-      if (!brand) {
-        throw new BadRequestException('Selecciona la marca ensambladora de la tarjeta grafica.');
-      }
-
-      if (this.toInt(data.vram) <= 0) {
-        throw new BadRequestException('Selecciona la VRAM de la tarjeta grafica.');
-      }
-
-      if (this.toInt(data.length) <= 0) {
-        throw new BadRequestException('El largo de la GPU debe ser mayor a 0');
-      }
-
-      if (powerWatts <= 0) {
-        throw new BadRequestException('El consumo real de la GPU debe ser mayor a 0');
-      }
-
-      if (this.hasValue(data.recommendedPsuWatts) && this.toInt(data.recommendedPsuWatts) <= 0) {
-        throw new BadRequestException('La PSU recomendada debe ser mayor a 0');
-      }
-
-      if (this.hasValue(data.fans) && this.toInt(data.fans) <= 0) {
-        throw new BadRequestException('La cantidad de ventiladores debe ser mayor a 0');
-      }
+    if (this.toInt(data.length) <= 0) {
+      throw new BadRequestException('El largo de la GPU debe ser mayor a 0');
     }
 
-    if (category === 'COOLER') {
-      const coolerType = this.normalizeCoolerType(data.type);
-      const compatibleSockets = this.toStringArray(data.compatibleSockets);
-      if (!String(data.brand || '').trim()) {
-        throw new BadRequestException('Selecciona la marca del cooler.');
-      }
-
-      if (compatibleSockets.length === 0) {
-        throw new BadRequestException('Debes registrar sockets compatibles del cooler');
-      }
-
-      if (this.toInt(data.tdpCapacity) <= 0) {
-        throw new BadRequestException('El TDP soportado del cooler debe ser mayor a 0');
-      }
-
-      if (coolerType === 'Torre' && this.toInt(data.coolerHeight) <= 0) {
-        throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
-      }
-
-      if (coolerType === 'Líquida' && this.toInt(data.radiatorSize) <= 0) {
-        throw new BadRequestException('Selecciona el tamaño de radiador del cooler líquido');
-      }
+    if (powerWatts <= 0) {
+      throw new BadRequestException('El consumo real de la GPU debe ser mayor a 0');
     }
 
-    if (category === 'PSU' && !String(data.brand || '').trim()) {
-      throw new BadRequestException('Selecciona la marca de la fuente de poder.');
+    if (this.hasValue(data.recommendedPsuWatts) && this.toInt(data.recommendedPsuWatts) <= 0) {
+      throw new BadRequestException('La PSU recomendada debe ser mayor a 0');
     }
 
-    if (category === 'LAPTOP' && !String(data.brand || '').trim()) {
-      throw new BadRequestException('Selecciona la marca de la laptop.');
-    }
-
-    if (category === 'STORAGE') {
-      const storageType = String(data.type || '').toUpperCase();
-      const isM2 = storageType.includes('M.2') || storageType.includes('NVME');
-      if (isM2 && !data.m2FormFactor) {
-        throw new BadRequestException(
-          'El tamaño fisico M.2 es obligatorio para almacenamientos M.2',
-        );
-      }
-    }
-
-    if (category === 'MONITOR') {
-      if (!String(data.brand || '').trim()) {
-        throw new BadRequestException('Selecciona la marca del monitor.');
-      }
-      const ports = this.toStringArray(data.ports);
-      const allowedPorts = ['VGA', 'HDMI', 'DisplayPort', 'USB-C'];
-      const invalidPort = ports.find((port) => !allowedPorts.includes(port));
-      if (invalidPort) {
-        throw new BadRequestException('Puerto de monitor no valido');
-      }
-    }
-
-    if (category === 'PC_DESKTOP' && data.psuWatts !== undefined && data.psuWatts !== '') {
-      this.ensureNonNegative('psuWatts', data.psuWatts, false);
-    }
-
-    if (category === 'CASE' && !String(data.brand || '').trim()) {
-      throw new BadRequestException('Selecciona la marca del gabinete.');
-    }
-
-    if (
-      category === 'CASE' &&
-      data.radiatorSupportMm !== undefined &&
-      data.radiatorSupportMm !== ''
-    ) {
-      this.ensureNonNegative('radiatorSupportMm', data.radiatorSupportMm, false);
+    if (this.hasValue(data.fans) && this.toInt(data.fans) <= 0) {
+      throw new BadRequestException('La cantidad de ventiladores debe ser mayor a 0');
     }
   }
 
+  private validateCoolerCategory(data: any) {
+    const coolerType = this.normalizeCoolerType(data.type);
+    const compatibleSockets = this.toStringArray(data.compatibleSockets);
+    this.validateBrandRequired(data, 'Selecciona la marca del cooler.');
+
+    if (compatibleSockets.length === 0) {
+      throw new BadRequestException('Debes registrar sockets compatibles del cooler');
+    }
+
+    if (this.toInt(data.tdpCapacity) <= 0) {
+      throw new BadRequestException('El TDP soportado del cooler debe ser mayor a 0');
+    }
+
+    if (coolerType === 'Torre' && this.toInt(data.coolerHeight) <= 0) {
+      throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
+    }
+
+    if (coolerType === 'Líquida' && this.toInt(data.radiatorSize) <= 0) {
+      throw new BadRequestException('Selecciona el tamaño de radiador del cooler líquido');
+    }
+  }
+
+  private validateStorageCategory(data: any) {
+    const storageType = String(data.type || '').toUpperCase();
+    const isM2 = storageType.includes('M.2') || storageType.includes('NVME');
+    if (isM2 && !data.m2FormFactor) {
+      throw new BadRequestException('El tamaño fisico M.2 es obligatorio para almacenamientos M.2');
+    }
+  }
+
+  private validateMonitorCategory(data: any) {
+    this.validateBrandRequired(data, 'Selecciona la marca del monitor.');
+    const ports = this.toStringArray(data.ports);
+    const allowedPorts = ['VGA', 'HDMI', 'DisplayPort', 'USB-C'];
+    const invalidPort = ports.find((port) => !allowedPorts.includes(port));
+    if (invalidPort) {
+      throw new BadRequestException('Puerto de monitor no valido');
+    }
+  }
+
+  private validateDesktopCategory(data: any) {
+    if (data.psuWatts !== undefined && data.psuWatts !== '') {
+      this.ensureNonNegative('psuWatts', data.psuWatts, false);
+    }
+  }
+
+  private validateCaseCategory(data: any) {
+    this.validateBrandRequired(data, 'Selecciona la marca del gabinete.');
+
+    if (data.radiatorSupportMm !== undefined && data.radiatorSupportMm !== '') {
+      this.ensureNonNegative('radiatorSupportMm', data.radiatorSupportMm, false);
+    }
+  }
   private validatePeripheralCategoryFields(category: string, data: any) {
     this.validateKeyboardMouseConnections(category, data);
     this.validateKeyboardCategory(category, data);
@@ -513,41 +512,62 @@ export class ProductsService {
   }
 
   private validateCableHubCategory(category: string, data: any) {
-    if (category === 'CABLE_HUB') {
-      if (!String(data.brand || '').trim()) {
-        throw new BadRequestException('Selecciona la marca de Cables y Hub.');
-      }
-      const cableHubType = String(data.cableHubType || data.type || '').trim();
-      if (!['Cable', 'Hub'].includes(cableHubType)) {
-        throw new BadRequestException('Selecciona el tipo Cable o Hub.');
-      }
-      if (cableHubType === 'Cable') {
-        if (
-          ![
-            'HDMI a HDMI',
-            'DisplayPort a DisplayPort',
-            'Tipo C a HDMI',
-            'Tipo C a DisplayPort',
-            'Tipo C a Tipo C',
-          ].includes(String(data.cableType || '').trim())
-        ) {
-          throw new BadRequestException('Selecciona el tipo de cable.');
-        }
-        if (![1, 2, 3].includes(this.toInt(data.cableLengthMeters))) {
-          throw new BadRequestException('Selecciona el largo del cable.');
-        }
-      }
-      if (cableHubType === 'Hub') {
-        if (!['USB-C', 'USB-A'].includes(String(data.hubInputType || '').trim())) {
-          throw new BadRequestException('Selecciona el tipo de entrada del hub.');
-        }
-        if (data.hasHdmiOutput === undefined || data.hasRj45Output === undefined) {
-          throw new BadRequestException('Selecciona las salidas HDMI y RJ45 del hub.');
-        }
-      }
+    if (category !== 'CABLE_HUB') {
+      return;
+    }
+
+    this.validateBrandRequired(data, 'Selecciona la marca de Cables y Hub.');
+    const cableHubType = this.getCableHubType(data);
+    this.validateCableHubType(cableHubType);
+    this.validateCableFields(cableHubType, data);
+    this.validateHubFields(cableHubType, data);
+  }
+
+  private getCableHubType(data: any): string {
+    return String(data.cableHubType || data.type || '').trim();
+  }
+
+  private validateCableHubType(cableHubType: string) {
+    if (!['Cable', 'Hub'].includes(cableHubType)) {
+      throw new BadRequestException('Selecciona el tipo Cable o Hub.');
     }
   }
 
+  private validateCableFields(cableHubType: string, data: any) {
+    if (cableHubType !== 'Cable') {
+      return;
+    }
+
+    const validCableTypes = [
+      'HDMI a HDMI',
+      'DisplayPort a DisplayPort',
+      'Tipo C a HDMI',
+      'Tipo C a DisplayPort',
+      'Tipo C a Tipo C',
+    ];
+
+    if (!validCableTypes.includes(String(data.cableType || '').trim())) {
+      throw new BadRequestException('Selecciona el tipo de cable.');
+    }
+
+    if (![1, 2, 3].includes(this.toInt(data.cableLengthMeters))) {
+      throw new BadRequestException('Selecciona el largo del cable.');
+    }
+  }
+
+  private validateHubFields(cableHubType: string, data: any) {
+    if (cableHubType !== 'Hub') {
+      return;
+    }
+
+    if (!['USB-C', 'USB-A'].includes(String(data.hubInputType || '').trim())) {
+      throw new BadRequestException('Selecciona el tipo de entrada del hub.');
+    }
+
+    if (data.hasHdmiOutput === undefined || data.hasRj45Output === undefined) {
+      throw new BadRequestException('Selecciona las salidas HDMI y RJ45 del hub.');
+    }
+  }
   private validateLaptopCoolingBaseCategory(category: string, data: any) {
     if (category === 'LAPTOP_COOLING_BASE') {
       if (!String(data.brand || '').trim()) {
@@ -1197,33 +1217,52 @@ export class ProductsService {
     const category =
       this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
     const brand = this.getQueryString(query, 'brand');
-    if (brand) {
-      if (category === 'MOTHERBOARD') {
-        const knownMotherboardBrands = ['ASUS', 'MSI', 'Gigabyte', 'ASRock'];
-        this.addAnd(where, {
-          motherboardSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [{ brand: 'Otros' }, { brand: { notIn: knownMotherboardBrands } }],
-                  }
-                : { brand },
-          },
-        });
-      } else if (category === 'GPU') {
-        const knownGpuBrands = ['Gigabyte', 'ASUS', 'MSI', 'PNY'];
-        this.addAnd(where, {
-          gpuSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [{ brand: 'Otros' }, { brand: { notIn: knownGpuBrands } }, { brand: null }],
-                  }
-                : { brand },
-          },
-        });
-      } else if (category === 'CASE') {
-        const knownCaseBrands = [
+
+    if (!brand) {
+      return;
+    }
+
+    const config = this.getBrandFilterConfig(category);
+    if (!config) {
+      this.addDefaultBrandFilter(where, brand);
+      return;
+    }
+
+    this.addAnd(where, {
+      [config.relation]: {
+        is: this.buildBrandSpecCondition(brand, config),
+      },
+    });
+  }
+
+  private getBrandFilterConfig(category?: string) {
+    const configs: Record<
+      string,
+      {
+        relation: string;
+        knownBrands: string[];
+        exactMatch?: boolean;
+        includeNullForOther?: boolean;
+        otherLabels?: string[];
+        royalKludgeAliases?: boolean;
+      }
+    > = {
+      MOTHERBOARD: {
+        relation: 'motherboardSpecs',
+        knownBrands: ['ASUS', 'MSI', 'Gigabyte', 'ASRock'],
+        exactMatch: true,
+        otherLabels: ['Otros'],
+      },
+      GPU: {
+        relation: 'gpuSpecs',
+        knownBrands: ['Gigabyte', 'ASUS', 'MSI', 'PNY'],
+        exactMatch: true,
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      CASE: {
+        relation: 'caseSpecs',
+        knownBrands: [
           'Halion',
           'Micronics',
           'ASUS',
@@ -1232,45 +1271,19 @@ export class ProductsService {
           'Antryx',
           'MSI',
           'Lian Li',
-        ];
-        this.addAnd(where, {
-          caseSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: { notIn: knownCaseBrands } },
-                      { brand: null },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'COOLER') {
-        const knownCoolerBrands = ['MSI', 'DeepCool', 'Corsair', 'Gigabyte', 'ASUS'];
-        this.addAnd(where, {
-          coolerSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownCoolerBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'PSU') {
-        const knownPsuBrands = [
+        ],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      COOLER: {
+        relation: 'coolerSpecs',
+        knownBrands: ['MSI', 'DeepCool', 'Corsair', 'Gigabyte', 'ASUS'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      PSU: {
+        relation: 'psuSpecs',
+        knownBrands: [
           'MSI',
           'ASUS',
           'Gigabyte',
@@ -1280,371 +1293,177 @@ export class ProductsService {
           'Cooler Master',
           'Seasonic',
           'Thermaltake',
-        ];
-        this.addAnd(where, {
-          psuSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownPsuBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'LAPTOP') {
-        const knownLaptopBrands = ['ASUS', 'Lenovo', 'HP', 'Acer', 'Dell', 'MSI'];
-        this.addAnd(where, {
-          laptopSpecs: {
-            is:
-              brand === 'Otra' || brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otra' },
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownLaptopBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'MONITOR') {
-        const knownMonitorBrands = ['MSI', 'Gigabyte', 'Teros', 'LG', 'Samsung'];
-        this.addAnd(where, {
-          monitorSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownMonitorBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'KEYBOARD') {
-        const knownKeyboardBrands = [
-          'Redragon',
-          'MSI',
-          'Logitech',
-          'Razer',
-          'Aula',
-          'Royal Kludge',
-        ];
-        this.addAnd(where, {
-          keyboardSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownKeyboardBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : brand === 'Royal Kludge'
-                  ? {
-                      OR: [
-                        { brand: this.textContains('Royal Kludge') },
-                        { brand: this.textContains('RoyalKludge') },
-                        { brand: this.textContains('RK') },
-                      ],
-                    }
-                  : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'MOUSE') {
-        const knownMouseBrands = ['Redragon', 'Logitech', 'Razer', 'MSI', 'Teros'];
-        this.addAnd(where, {
-          mouseSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownMouseBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'MOUSEPAD') {
-        const knownMousepadBrands = ['HyperX', 'Logitech', 'Redragon'];
-        this.addAnd(where, {
-          mousepadSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownMousepadBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'WEBCAM') {
-        const knownWebcamBrands = ['Logitech', 'Redragon'];
-        this.addAnd(where, {
-          webcamSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownWebcamBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'CAPTURE_CARD') {
-        const knownCaptureBrands = ['Corsair', 'Streamplify'];
-        this.addAnd(where, {
-          captureCardSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownCaptureBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'CABLE_HUB') {
-        const knownCableHubBrands = ['Cabletime', 'Ugreen'];
-        this.addAnd(where, {
-          cableHubSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownCableHubBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'LAPTOP_COOLING_BASE') {
-        const knownBaseBrands = ['Cooler Master', 'Antryx', 'Teros'];
-        this.addAnd(where, {
-          laptopCoolingBaseSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownBaseBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'BACKPACK') {
-        const knownBackpackBrands = ['Redragon', 'ASUS', 'Teros', 'Gigabyte'];
-        this.addAnd(where, {
-          backpackSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownBackpackBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'HEADSET') {
-        const knownHeadsetBrands = ['Logitech', 'Redragon', 'HyperX', 'Razer', 'Teros'];
-        this.addAnd(where, {
-          headsetSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownHeadsetBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'MICROPHONE') {
-        const knownMicrophoneBrands = [
-          'Fifine',
-          'Streamplify',
-          'Redragon',
-          'Razer',
-          'Logitech',
-          'Corsair',
-        ];
-        this.addAnd(where, {
-          microphoneSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownMicrophoneBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else if (category === 'SPEAKER') {
-        const knownSpeakerBrands = ['Logitech', 'Redragon', 'Creative', 'Genius'];
-        this.addAnd(where, {
-          speakerSpecs: {
-            is:
-              brand === 'Otros'
-                ? {
-                    OR: [
-                      { brand: 'Otros' },
-                      { brand: null },
-                      {
-                        NOT: {
-                          OR: knownSpeakerBrands.map((knownBrand) => ({
-                            brand: this.textContains(knownBrand),
-                          })),
-                        },
-                      },
-                    ],
-                  }
-                : { brand: this.textContains(brand) },
-          },
-        });
-      } else {
-        this.addAnd(where, {
-          OR: [
-            { name: this.textContains(brand) },
-            { cpuSpecs: { is: { brand: this.textContains(brand) } } },
-            { motherboardSpecs: { is: { brand: this.textContains(brand) } } },
-            { gpuSpecs: { is: { brand: this.textContains(brand) } } },
-            { caseSpecs: { is: { brand: this.textContains(brand) } } },
-            { coolerSpecs: { is: { brand: this.textContains(brand) } } },
-            { psuSpecs: { is: { brand: this.textContains(brand) } } },
-            { laptopSpecs: { is: { brand: this.textContains(brand) } } },
-            { monitorSpecs: { is: { brand: this.textContains(brand) } } },
-            { keyboardSpecs: { is: { brand: this.textContains(brand) } } },
-            { mouseSpecs: { is: { brand: this.textContains(brand) } } },
-            { webcamSpecs: { is: { brand: this.textContains(brand) } } },
-            { captureCardSpecs: { is: { brand: this.textContains(brand) } } },
-            { cableHubSpecs: { is: { brand: this.textContains(brand) } } },
-            {
-              laptopCoolingBaseSpecs: {
-                is: { brand: this.textContains(brand) },
-              },
-            },
-            { backpackSpecs: { is: { brand: this.textContains(brand) } } },
-            { mousepadSpecs: { is: { brand: this.textContains(brand) } } },
-            { chairSpecs: { is: { brand: this.textContains(brand) } } },
-            { gamingDeskSpecs: { is: { brand: this.textContains(brand) } } },
-            { headsetSpecs: { is: { brand: this.textContains(brand) } } },
-            { microphoneSpecs: { is: { brand: this.textContains(brand) } } },
-            { speakerSpecs: { is: { brand: this.textContains(brand) } } },
-          ],
-        });
-      }
-    }
+        ],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      LAPTOP: {
+        relation: 'laptopSpecs',
+        knownBrands: ['ASUS', 'Lenovo', 'HP', 'Acer', 'Dell', 'MSI'],
+        includeNullForOther: true,
+        otherLabels: ['Otra', 'Otros'],
+      },
+      MONITOR: {
+        relation: 'monitorSpecs',
+        knownBrands: ['MSI', 'Gigabyte', 'Teros', 'LG', 'Samsung'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      KEYBOARD: {
+        relation: 'keyboardSpecs',
+        knownBrands: ['Redragon', 'MSI', 'Logitech', 'Razer', 'Aula', 'Royal Kludge'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+        royalKludgeAliases: true,
+      },
+      MOUSE: {
+        relation: 'mouseSpecs',
+        knownBrands: ['Redragon', 'Logitech', 'Razer', 'MSI', 'Teros'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      MOUSEPAD: {
+        relation: 'mousepadSpecs',
+        knownBrands: ['HyperX', 'Logitech', 'Redragon'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      WEBCAM: {
+        relation: 'webcamSpecs',
+        knownBrands: ['Logitech', 'Redragon'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      CAPTURE_CARD: {
+        relation: 'captureCardSpecs',
+        knownBrands: ['Corsair', 'Streamplify'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      CABLE_HUB: {
+        relation: 'cableHubSpecs',
+        knownBrands: ['Cabletime', 'Ugreen'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      LAPTOP_COOLING_BASE: {
+        relation: 'laptopCoolingBaseSpecs',
+        knownBrands: ['Cooler Master', 'Antryx', 'Teros'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      BACKPACK: {
+        relation: 'backpackSpecs',
+        knownBrands: ['Redragon', 'ASUS', 'Teros', 'Gigabyte'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      HEADSET: {
+        relation: 'headsetSpecs',
+        knownBrands: ['Logitech', 'Redragon', 'HyperX', 'Razer', 'Teros'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      MICROPHONE: {
+        relation: 'microphoneSpecs',
+        knownBrands: ['Fifine', 'Streamplify', 'Redragon', 'Razer', 'Logitech', 'Corsair'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+      SPEAKER: {
+        relation: 'speakerSpecs',
+        knownBrands: ['Logitech', 'Redragon', 'Creative', 'Genius'],
+        includeNullForOther: true,
+        otherLabels: ['Otros'],
+      },
+    };
+
+    return category ? configs[category] : undefined;
   }
 
+  private buildBrandSpecCondition(
+    brand: string,
+    config: {
+      knownBrands: string[];
+      exactMatch?: boolean;
+      includeNullForOther?: boolean;
+      otherLabels?: string[];
+      royalKludgeAliases?: boolean;
+    },
+  ) {
+    if (this.isOtherBrand(brand, config.otherLabels)) {
+      return this.buildOtherBrandCondition(config);
+    }
+
+    if (config.royalKludgeAliases && brand === 'Royal Kludge') {
+      return {
+        OR: [
+          { brand: this.textContains('Royal Kludge') },
+          { brand: this.textContains('RoyalKludge') },
+          { brand: this.textContains('RK') },
+        ],
+      };
+    }
+
+    return config.exactMatch ? { brand } : { brand: this.textContains(brand) };
+  }
+
+  private isOtherBrand(brand: string, otherLabels: string[] = ['Otros']) {
+    return otherLabels.includes(brand);
+  }
+
+  private buildOtherBrandCondition(config: {
+    knownBrands: string[];
+    exactMatch?: boolean;
+    includeNullForOther?: boolean;
+    otherLabels?: string[];
+  }) {
+    const labels = config.otherLabels ?? ['Otros'];
+    const baseConditions = labels.map((label) => ({ brand: label }));
+    const nullCondition = config.includeNullForOther ? [{ brand: null }] : [];
+    const unknownCondition = config.exactMatch
+      ? [{ brand: { notIn: config.knownBrands } }]
+      : [
+          {
+            NOT: {
+              OR: config.knownBrands.map((knownBrand) => ({
+                brand: this.textContains(knownBrand),
+              })),
+            },
+          },
+        ];
+
+    return { OR: [...baseConditions, ...nullCondition, ...unknownCondition] };
+  }
+
+  private addDefaultBrandFilter(where: any, brand: string) {
+    this.addAnd(where, {
+      OR: [
+        { name: this.textContains(brand) },
+        { cpuSpecs: { is: { brand: this.textContains(brand) } } },
+        { motherboardSpecs: { is: { brand: this.textContains(brand) } } },
+        { gpuSpecs: { is: { brand: this.textContains(brand) } } },
+        { caseSpecs: { is: { brand: this.textContains(brand) } } },
+        { coolerSpecs: { is: { brand: this.textContains(brand) } } },
+        { psuSpecs: { is: { brand: this.textContains(brand) } } },
+        { laptopSpecs: { is: { brand: this.textContains(brand) } } },
+        { monitorSpecs: { is: { brand: this.textContains(brand) } } },
+        { keyboardSpecs: { is: { brand: this.textContains(brand) } } },
+        { mouseSpecs: { is: { brand: this.textContains(brand) } } },
+        { webcamSpecs: { is: { brand: this.textContains(brand) } } },
+        { captureCardSpecs: { is: { brand: this.textContains(brand) } } },
+        { cableHubSpecs: { is: { brand: this.textContains(brand) } } },
+        { laptopCoolingBaseSpecs: { is: { brand: this.textContains(brand) } } },
+        { backpackSpecs: { is: { brand: this.textContains(brand) } } },
+        { mousepadSpecs: { is: { brand: this.textContains(brand) } } },
+        { chairSpecs: { is: { brand: this.textContains(brand) } } },
+        { gamingDeskSpecs: { is: { brand: this.textContains(brand) } } },
+        { headsetSpecs: { is: { brand: this.textContains(brand) } } },
+        { microphoneSpecs: { is: { brand: this.textContains(brand) } } },
+        { speakerSpecs: { is: { brand: this.textContains(brand) } } },
+      ],
+    });
+  }
   private buildProductOrderBy(query: ProductQuery): Prisma.ProductOrderByWithRelationInput {
     const sortBy = this.getQueryString(query, 'sortBy') || 'createdAt';
     const sortOrder = this.getQueryString(query, 'sortOrder') === 'asc' ? 'asc' : 'desc';
@@ -2373,13 +2192,21 @@ export class ProductsService {
 
   private buildProductUpdateData(currentProduct: any, data: UpdateProductDto) {
     const updateData: any = {};
+    this.applyBasicProductUpdate(updateData, data);
+    this.applyPricingProductUpdate(updateData, currentProduct, data);
+    this.applyStockProductUpdate(updateData, data);
+    this.applyImageProductUpdate(updateData, data);
 
+    return updateData;
+  }
+
+  private applyBasicProductUpdate(updateData: any, data: UpdateProductDto) {
     if (data.name !== undefined) {
       updateData.name = data.name;
     }
 
     if (data.description !== undefined) {
-      updateData.description = data.description;
+      updateData.description = String(data.description).trim();
     }
 
     if (data.category !== undefined) {
@@ -2389,7 +2216,9 @@ export class ProductsService {
     if (data.price !== undefined) {
       updateData.price = this.toFloat(data.price);
     }
+  }
 
+  private applyPricingProductUpdate(updateData: any, currentProduct: any, data: UpdateProductDto) {
     if (data.isOnSale !== undefined && !this.toBool(data.isOnSale)) {
       updateData.isOnSale = false;
       updateData.salePrice = null;
@@ -2408,15 +2237,15 @@ export class ProductsService {
       updateData.isOnSale = sale.isOnSale;
       updateData.salePrice = sale.salePrice;
     }
+  }
 
+  private applyStockProductUpdate(updateData: any, data: UpdateProductDto) {
     if (data.stock !== undefined) {
       updateData.stock = this.toInt(data.stock);
     }
+  }
 
-    if (data.description !== undefined) {
-      updateData.description = String(data.description).trim();
-    }
-
+  private applyImageProductUpdate(updateData: any, data: UpdateProductDto) {
     if (data.images !== undefined) {
       if (!Array.isArray(data.images) || data.images.length > 5) {
         throw new BadRequestException('El producto puede tener como maximo 5 imagenes');
@@ -2424,8 +2253,6 @@ export class ProductsService {
 
       updateData.images = data.images.filter((image) => String(image).trim());
     }
-
-    return updateData;
   }
 
   private validateCpuBrandSocket(brand: string, socket: string) {
@@ -3411,95 +3238,107 @@ export class ProductsService {
   }
 
   private collectProductChangeLogs(before: any, after: any, updateData: any) {
-    const logs: Array<{
-      action: string;
-      module: string;
-      fieldName: string;
-      oldValue?: string | number | null;
-      newValue?: string | number | null;
-      stockBefore?: number | null;
-      stockAfter?: number | null;
-      description: string;
-    }> = [];
+    return [
+      ...this.collectBasicProductChangeLogs(before, after, updateData),
+      ...this.collectPricingProductChangeLogs(before, after, updateData),
+      ...this.collectStockProductChangeLogs(before, after, updateData),
+      ...this.collectImageProductChangeLogs(before, after, updateData),
+      ...this.collectSpecProductChangeLogs(before, after),
+    ];
+  }
 
-    const addIfChanged = (
-      fieldName: string,
-      action: string,
-      oldValue: any,
-      newValue: any,
-      description: string,
-      module = 'PRODUCTS',
-    ) => {
-      if (JSON.stringify(oldValue) === JSON.stringify(newValue)) {
-        return;
-      }
-      logs.push({ action, module, fieldName, oldValue, newValue, description });
-    };
+  private collectBasicProductChangeLogs(
+    before: any,
+    after: any,
+    updateData: any,
+  ): ProductChangeLog[] {
+    const logs: ProductChangeLog[] = [];
+    this.addChangeIfDifferent(
+      logs,
+      updateData,
+      'name',
+      'UPDATE_PRODUCT',
+      before.name,
+      after.name,
+      `Cambio el nombre de ${before.name} a ${after.name}.`,
+    );
+    this.addChangeIfDifferent(
+      logs,
+      updateData,
+      'description',
+      'UPDATE_PRODUCT_DESCRIPTION',
+      before.description,
+      after.description,
+      `Modifico la descripcion del producto ${after.name}.`,
+    );
+    this.addChangeIfDifferent(
+      logs,
+      updateData,
+      'category',
+      'UPDATE_PRODUCT_CATEGORY',
+      before.category,
+      after.category,
+      `Cambio la categoria de ${after.name} de ${before.category} a ${after.category}.`,
+    );
+    return logs;
+  }
 
-    if ('name' in updateData) {
-      addIfChanged(
-        'name',
-        'UPDATE_PRODUCT',
-        before.name,
-        after.name,
-        `Cambio el nombre de ${before.name} a ${after.name}.`,
-      );
-    }
-
-    if ('description' in updateData) {
-      addIfChanged(
-        'description',
-        'UPDATE_PRODUCT_DESCRIPTION',
-        before.description,
-        after.description,
-        `Modifico la descripcion del producto ${after.name}.`,
-      );
-    }
-
-    if ('category' in updateData) {
-      addIfChanged(
-        'category',
-        'UPDATE_PRODUCT_CATEGORY',
-        before.category,
-        after.category,
-        `Cambio la categoria de ${after.name} de ${before.category} a ${after.category}.`,
-      );
-    }
-
-    if ('price' in updateData) {
-      addIfChanged(
-        'price',
-        'UPDATE_PRICE',
-        String(before.price),
-        String(after.price),
-        `Cambio el precio de ${after.name} de S/. ${before.price} a S/. ${after.price}.`,
-        'INVENTORY',
-      );
-    }
+  private collectPricingProductChangeLogs(
+    before: any,
+    after: any,
+    updateData: any,
+  ): ProductChangeLog[] {
+    const logs: ProductChangeLog[] = [];
+    this.addChangeIfDifferent(
+      logs,
+      updateData,
+      'price',
+      'UPDATE_PRICE',
+      String(before.price),
+      String(after.price),
+      `Cambio el precio de ${after.name} de S/. ${before.price} a S/. ${after.price}.`,
+      'INVENTORY',
+    );
 
     if ('isOnSale' in updateData) {
       const action = after.isOnSale ? 'ENABLE_PRODUCT_SALE' : 'DISABLE_PRODUCT_SALE';
       const description = after.isOnSale
         ? `Se activo oferta para ${after.name}.`
         : `Se desactivo oferta para ${after.name}.`;
-      addIfChanged('isOnSale', action, before.isOnSale, after.isOnSale, description, 'PRODUCTS');
-    }
-
-    if ('salePrice' in updateData) {
-      addIfChanged(
-        'salePrice',
-        'UPDATE_SALE_PRICE',
-        before.salePrice === null || before.salePrice === undefined
-          ? null
-          : String(before.salePrice),
-        after.salePrice === null || after.salePrice === undefined ? null : String(after.salePrice),
-        `Cambio el precio de oferta de ${after.name} de S/. ${before.salePrice ?? 'sin oferta'} a S/. ${after.salePrice ?? 'sin oferta'}.`,
-        'INVENTORY',
+      this.pushChangeIfDifferent(
+        logs,
+        'isOnSale',
+        action,
+        before.isOnSale,
+        after.isOnSale,
+        description,
       );
     }
 
-    if ('stock' in updateData && before.stock !== after.stock) {
-      logs.push({
+    this.addChangeIfDifferent(
+      logs,
+      updateData,
+      'salePrice',
+      'UPDATE_SALE_PRICE',
+      before.salePrice === null || before.salePrice === undefined ? null : String(before.salePrice),
+      after.salePrice === null || after.salePrice === undefined ? null : String(after.salePrice),
+      `Cambio el precio de oferta de ${after.name} de S/. ${before.salePrice ?? 'sin oferta'} a S/. ${after.salePrice ?? 'sin oferta'}.`,
+      'INVENTORY',
+    );
+    return logs;
+  }
+
+  private collectStockProductChangeLogs(
+    before: any,
+    after: any,
+    updateData: any,
+  ): ProductChangeLog[] {
+    if (!('stock' in updateData) || before.stock === after.stock) {
+      return [];
+    }
+
+    return [
+      {
         action: 'UPDATE_STOCK',
         module: 'INVENTORY',
         fieldName: 'stock',
@@ -3508,38 +3347,99 @@ export class ProductsService {
         stockBefore: before.stock,
         stockAfter: after.stock,
         description: `Cambio el stock de ${after.name} de ${before.stock} a ${after.stock}.`,
-      });
+      },
+    ];
+  }
+
+  private collectImageProductChangeLogs(
+    before: any,
+    after: any,
+    updateData: any,
+  ): ProductChangeLog[] {
+    if (!('images' in updateData)) {
+      return [];
     }
 
-    if ('images' in updateData) {
-      const beforeImages = Array.isArray(before.images) ? before.images : [];
-      const afterImages = Array.isArray(after.images) ? after.images : [];
-      const added = afterImages.filter((image) => !beforeImages.includes(image));
-      const removed = beforeImages.filter((image) => !afterImages.includes(image));
+    const beforeImages = Array.isArray(before.images) ? before.images : [];
+    const afterImages = Array.isArray(after.images) ? after.images : [];
+    const added = afterImages.filter((image) => !beforeImages.includes(image));
+    const removed = beforeImages.filter((image) => !afterImages.includes(image));
 
-      for (const image of added) {
-        logs.push({
-          action: 'ADD_PRODUCT_IMAGE',
-          module: 'PRODUCTS',
-          fieldName: 'images',
-          oldValue: null,
-          newValue: image,
-          description: `Agrego una imagen al producto ${after.name}.`,
-        });
-      }
+    return [
+      ...added.map((image) => ({
+        action: 'ADD_PRODUCT_IMAGE',
+        module: 'PRODUCTS',
+        fieldName: 'images',
+        oldValue: null,
+        newValue: image,
+        description: `Agrego una imagen al producto ${after.name}.`,
+      })),
+      ...removed.map((image) => ({
+        action: 'REMOVE_PRODUCT_IMAGE',
+        module: 'PRODUCTS',
+        fieldName: 'images',
+        oldValue: image,
+        newValue: null,
+        description: `Elimino una imagen del producto ${after.name}.`,
+      })),
+    ];
+  }
 
-      for (const image of removed) {
-        logs.push({
-          action: 'REMOVE_PRODUCT_IMAGE',
-          module: 'PRODUCTS',
-          fieldName: 'images',
-          oldValue: image,
-          newValue: null,
-          description: `Elimino una imagen del producto ${after.name}.`,
-        });
-      }
+  private collectSpecProductChangeLogs(before: any, after: any): ProductChangeLog[] {
+    const specRelation = this.getSpecRelationByCategory(after.category);
+    if (
+      !specRelation ||
+      JSON.stringify(before[specRelation]) === JSON.stringify(after[specRelation])
+    ) {
+      return [];
     }
 
+    return [
+      {
+        action: 'UPDATE_PRODUCT_SPECS',
+        module: 'PRODUCTS',
+        fieldName: 'technicalSpecs',
+        oldValue: JSON.stringify(before[specRelation]),
+        newValue: JSON.stringify(after[specRelation]),
+        description: `Modifico especificaciones tecnicas del producto ${after.name}.`,
+      },
+    ];
+  }
+
+  private addChangeIfDifferent(
+    logs: ProductChangeLog[],
+    updateData: any,
+    fieldName: string,
+    action: string,
+    oldValue: any,
+    newValue: any,
+    description: string,
+    module = 'PRODUCTS',
+  ) {
+    if (!(fieldName in updateData)) {
+      return;
+    }
+
+    this.pushChangeIfDifferent(logs, fieldName, action, oldValue, newValue, description, module);
+  }
+
+  private pushChangeIfDifferent(
+    logs: ProductChangeLog[],
+    fieldName: string,
+    action: string,
+    oldValue: any,
+    newValue: any,
+    description: string,
+    module = 'PRODUCTS',
+  ) {
+    if (JSON.stringify(oldValue) === JSON.stringify(newValue)) {
+      return;
+    }
+
+    logs.push({ action, module, fieldName, oldValue, newValue, description });
+  }
+
+  private getSpecRelationByCategory(category: string): string | undefined {
     const specRelationByCategory: Record<string, string> = {
       CPU: 'cpuSpecs',
       MOTHERBOARD: 'motherboardSpecs',
@@ -3562,21 +3462,7 @@ export class ProductsService {
       CHAIR: 'chairSpecs',
       GAMING_DESK: 'gamingDeskSpecs',
     };
-    const specRelation = specRelationByCategory[after.category];
-    if (
-      specRelation &&
-      JSON.stringify(before[specRelation]) !== JSON.stringify(after[specRelation])
-    ) {
-      logs.push({
-        action: 'UPDATE_PRODUCT_SPECS',
-        module: 'PRODUCTS',
-        fieldName: 'technicalSpecs',
-        oldValue: JSON.stringify(before[specRelation]),
-        newValue: JSON.stringify(after[specRelation]),
-        description: `Modifico especificaciones tecnicas del producto ${after.name}.`,
-      });
-    }
 
-    return logs;
+    return specRelationByCategory[category];
   }
 }
