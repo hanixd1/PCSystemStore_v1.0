@@ -58,13 +58,15 @@ describe('UsersService auth cliente/admin', () => {
     const result = await service.adminLogin('admin@test.com', 'secret123');
 
     expect(result.user.role).toBe('ADMIN');
-    expect(jwtService.signAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'ADMIN' }),
-      { expiresIn: '3h' },
-    );
+    expect(jwtService.signAsync).toHaveBeenCalledWith(expect.objectContaining({ role: 'ADMIN' }), {
+      expiresIn: '3h',
+    });
     expect(prisma.actionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ action: 'ADMIN_LOGIN', module: 'SECURITY' }),
+        data: expect.objectContaining({
+          action: 'ADMIN_LOGIN',
+          module: 'SECURITY',
+        }),
       }),
     );
   });

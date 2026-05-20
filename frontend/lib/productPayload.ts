@@ -36,43 +36,166 @@ export function buildProductPayload(
 
   switch (formData.category) {
     case 'CPU':
-      Object.assign(payload, pick(formData, ['cpuBrand', 'socket', 'baseTdpWatts', 'tdp', 'cores', 'threads', 'frequency', 'integratedGraphics', 'includesCooler']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'cpuBrand',
+          'socket',
+          'baseTdpWatts',
+          'tdp',
+          'cores',
+          'threads',
+          'frequency',
+          'integratedGraphics',
+          'includesCooler',
+        ]),
+      );
       break;
     case 'MOTHERBOARD':
-      Object.assign(payload, pick(formData, ['brand', 'socket', 'formFactor', 'memoryType', 'memorySlots', 'm2Slots', 'supportedM2FormFactors']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'socket',
+          'formFactor',
+          'memoryType',
+          'memorySlots',
+          'm2Slots',
+          'supportedM2FormFactors',
+        ]),
+      );
       break;
     case 'RAM':
-      Object.assign(payload, pick(formData, ['memoryType', 'capacity', 'speed', 'modules', 'hasRGB']));
+      Object.assign(
+        payload,
+        pick(formData, ['memoryType', 'capacity', 'speed', 'modules', 'hasRGB']),
+      );
       break;
     case 'GPU':
-      Object.assign(payload, pick(formData, ['brand', 'chipset', 'vram', 'length', 'gpuPowerWatts', 'recommendedPsuWatts', 'fans']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'chipset',
+          'vram',
+          'length',
+          'gpuPowerWatts',
+          'recommendedPsuWatts',
+          'fans',
+        ]),
+      );
       break;
     case 'PSU':
-      Object.assign(payload, pick(formData, ['brand', 'wattage', 'certification', 'modular', 'formFactor']));
+      Object.assign(
+        payload,
+        pick(formData, ['brand', 'wattage', 'certification', 'modular', 'formFactor']),
+      );
       break;
     case 'CASE':
-      Object.assign(payload, pick(formData, ['brand', 'formFactor', 'maxGpuLength', 'includesPsu', 'includedFans', 'radiatorSupportMm']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'formFactor',
+          'maxGpuLength',
+          'includesPsu',
+          'includedFans',
+          'radiatorSupportMm',
+        ]),
+      );
       break;
     case 'COOLER':
-      Object.assign(payload, pick(formData, ['brand', 'type', 'compatibleSockets', 'fanCount', 'radiatorSize', 'hasScreen', 'hasRGB', 'tdpCapacity', 'coolerHeight']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'type',
+          'compatibleSockets',
+          'fanCount',
+          'radiatorSize',
+          'hasScreen',
+          'hasRGB',
+          'tdpCapacity',
+          'coolerHeight',
+        ]),
+      );
       break;
     case 'STORAGE':
-      Object.assign(payload, pick(formData, ['type', 'capacity', 'interface', 'readSpeed', 'writeSpeed', 'm2FormFactor']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'type',
+          'capacity',
+          'interface',
+          'readSpeed',
+          'writeSpeed',
+          'm2FormFactor',
+        ]),
+      );
       break;
     case 'LAPTOP':
-      Object.assign(payload, pick(formData, ['brand', 'processor', 'ram', 'storage', 'screenSize', 'refreshRate', 'panelType', 'hasDedicatedGpu', 'gpuBrand', 'gpuModel', 'includesWindows']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'processor',
+          'ram',
+          'storage',
+          'screenSize',
+          'refreshRate',
+          'panelType',
+          'hasDedicatedGpu',
+          'gpuBrand',
+          'gpuModel',
+          'includesWindows',
+        ]),
+      );
       break;
     case 'PC_DESKTOP':
-      Object.assign(payload, pick(formData, ['processor', 'ram', 'storage', 'hasDedicatedGpu', 'gpuBrand', 'gpuModel', 'coolerType', 'psuWatts', 'caseModel']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'processor',
+          'ram',
+          'storage',
+          'hasDedicatedGpu',
+          'gpuBrand',
+          'gpuModel',
+          'coolerType',
+          'psuWatts',
+          'caseModel',
+        ]),
+      );
       break;
     case 'SOFTWARE':
       Object.assign(payload, pick(formData, ['licenseType', 'platform']));
       break;
     case 'MONITOR':
-      Object.assign(payload, pick(formData, ['brand', 'screenSize', 'resolution', 'panelType', 'refreshRate', 'responseTimeMs', 'ports', 'hasSpeakers']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'screenSize',
+          'resolution',
+          'panelType',
+          'refreshRate',
+          'responseTimeMs',
+          'ports',
+          'hasSpeakers',
+        ]),
+      );
       break;
     case 'KEYBOARD':
-      Object.assign(payload, pick(formData, ['brand', 'keyboardType', 'connections', 'layoutLanguage', 'keyboardFormFactor']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'keyboardType',
+          'connections',
+          'layoutLanguage',
+          'keyboardFormFactor',
+        ]),
+      );
       if (formData.keyboardType === 'Semi-mecanico') {
         Object.assign(payload, pick(formData, ['hasLighting']));
       }
@@ -81,7 +204,10 @@ export function buildProductPayload(
       }
       break;
     case 'MOUSE':
-      Object.assign(payload, pick(formData, ['brand', 'mouseType', 'connections', 'powerType', 'weightGrams']));
+      Object.assign(
+        payload,
+        pick(formData, ['brand', 'mouseType', 'connections', 'powerType', 'weightGrams']),
+      );
       if (formData.mouseType === 'Gamer') {
         Object.assign(payload, pick(formData, ['buttonCount', 'dpi', 'pollingRateHz']));
       }
@@ -96,7 +222,19 @@ export function buildProductPayload(
       Object.assign(payload, pick(formData, ['brand', 'color', 'surface', 'weightKg']));
       break;
     case 'HEADSET':
-      Object.assign(payload, pick(formData, ['brand', 'connection', 'supportedConnections', 'driverSize', 'impedance', 'micType', 'noiseCancel', 'hasRGB']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'connection',
+          'supportedConnections',
+          'driverSize',
+          'impedance',
+          'micType',
+          'noiseCancel',
+          'hasRGB',
+        ]),
+      );
       break;
     case 'MICROPHONE':
       Object.assign(payload, pick(formData, ['brand', 'connection', 'micType', 'hasRGB']));

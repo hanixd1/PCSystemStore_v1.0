@@ -5,12 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { FiArrowLeft, FiSave } from 'react-icons/fi';
 import Link from 'next/link';
 import ImageUploader from '@/components/ImageUploader';
-import {
-  api,
-  clearStoredAuthSession,
-  getApiErrorMessage,
-  isAuthenticationError,
-} from '@/lib/api';
+import { api, clearStoredAuthSession, getApiErrorMessage, isAuthenticationError } from '@/lib/api';
 import ProductOfferSection from '@/components/admin/product/ProductOfferSection';
 import { buildProductPayload } from '@/lib/products/buildProductPayload';
 import { validateProductForm } from '@/lib/products/validateProductForm';
@@ -30,7 +25,17 @@ const COOLER_RADIATOR_OPTIONS = ['120', '240', '280', '360', '460'];
 const STORAGE_TYPES = ['SSD 2.5', 'NVMe M.2', 'M.2 SATA', 'HDD 3.5'];
 const NVME_GENS = ['SATA', 'PCIe 3.0', 'PCIe 4.0', 'PCIe 5.0'];
 const FORM_FACTORS = ['ATX', 'Micro-ATX', 'Mini-ITX', 'E-ATX'];
-const CASE_BRANDS = ['Halion', 'Micronics', 'ASUS', 'Gigabyte', 'DeepCool', 'Antryx', 'MSI', 'Lian Li', 'Otros'];
+const CASE_BRANDS = [
+  'Halion',
+  'Micronics',
+  'ASUS',
+  'Gigabyte',
+  'DeepCool',
+  'Antryx',
+  'MSI',
+  'Lian Li',
+  'Otros',
+];
 const CASE_RADIATOR_SUPPORT_OPTIONS = ['0', '120', '240', '280', '360', '460'];
 const CASE_RADIATOR_SUPPORT_LABELS: Record<string, string> = {
   0: 'No soporta',
@@ -45,13 +50,53 @@ const RAM_CAPACITIES = ['8', '16', '24', '32'];
 const GPU_BRANDS = ['Gigabyte', 'ASUS', 'MSI', 'PNY', 'Otros'];
 const GPU_CHIPSETS = ['NVIDIA GeForce', 'AMD Radeon', 'Intel Arc'];
 const GPU_VRAM_OPTIONS = ['4', '6', '8', '12', '16', '24', '32'];
-const PSU_BRANDS = ['MSI', 'ASUS', 'Gigabyte', 'Corsair', 'DeepCool', 'Antryx', 'Cooler Master', 'Seasonic', 'Thermaltake', 'Otros'];
-const PSU_WATT_OPTIONS = ['450', '500', '550', '600', '650', '700', '750', '800', '850', '1000', '1200', '1500'];
-const PSU_CERTS = ['Sin Certificacion', '80+ White', '80+ Bronze', '80+ Gold', '80+ Platinum', '80+ Titanium'];
+const PSU_BRANDS = [
+  'MSI',
+  'ASUS',
+  'Gigabyte',
+  'Corsair',
+  'DeepCool',
+  'Antryx',
+  'Cooler Master',
+  'Seasonic',
+  'Thermaltake',
+  'Otros',
+];
+const PSU_WATT_OPTIONS = [
+  '450',
+  '500',
+  '550',
+  '600',
+  '650',
+  '700',
+  '750',
+  '800',
+  '850',
+  '1000',
+  '1200',
+  '1500',
+];
+const PSU_CERTS = [
+  'Sin Certificacion',
+  '80+ White',
+  '80+ Bronze',
+  '80+ Gold',
+  '80+ Platinum',
+  '80+ Titanium',
+];
 const PSU_MODULAR_OPTIONS = ['No Modular', 'Semi Modular', 'Full Modular'];
 const LAPTOP_BRANDS = ['ASUS', 'Lenovo', 'HP', 'Acer', 'Dell', 'MSI', 'Otra'];
 const LAPTOP_RAM_OPTIONS = ['8GB', '16GB', '24GB', '32GB', '64GB'];
-const LAPTOP_STORAGE_OPTIONS = ['256GB SSD', '512GB SSD', '1TB SSD', '2TB SSD', '1TB HDD', '2TB HDD', '512GB SSD + 1TB HDD', '1TB SSD + 1TB HDD'];
+const LAPTOP_STORAGE_OPTIONS = [
+  '256GB SSD',
+  '512GB SSD',
+  '1TB SSD',
+  '2TB SSD',
+  '1TB HDD',
+  '2TB HDD',
+  '512GB SSD + 1TB HDD',
+  '1TB SSD + 1TB HDD',
+];
 const LAPTOP_SCREEN_OPTIONS = ['13', '14', '15.6', '16', '17.3', '18'];
 const LAPTOP_REFRESH_OPTIONS = ['60', '75', '120', '144', '165', '240', '300', '360'];
 const LAPTOP_RAM_LABELS: Record<string, string> = {
@@ -74,8 +119,26 @@ const LAPTOP_STORAGE_LABELS: Record<string, string> = {
 const DESKTOP_COOLER_TYPES = ['De serie', 'Aire (Torre)', 'Liquida (AIO)', 'No especificado'];
 const PANEL_TYPES = ['IPS', 'VA', 'TN', 'OLED'];
 const MONITOR_BRANDS = ['MSI', 'Gigabyte', 'Teros', 'LG', 'Samsung', 'Otros'];
-const MONITOR_RESOLUTION_OPTIONS = ['FHD (1920x1080)', 'QHD (2560x1440)', 'Ultra Wide QHD (3440x1440)', '4K UHD (3840x2160)', 'Otro'];
-const MONITOR_REFRESH_OPTIONS = ['60', '75', '100', '120', '144', '165', '180', '200', '240', '280', '360'];
+const MONITOR_RESOLUTION_OPTIONS = [
+  'FHD (1920x1080)',
+  'QHD (2560x1440)',
+  'Ultra Wide QHD (3440x1440)',
+  '4K UHD (3840x2160)',
+  'Otro',
+];
+const MONITOR_REFRESH_OPTIONS = [
+  '60',
+  '75',
+  '100',
+  '120',
+  '144',
+  '165',
+  '180',
+  '200',
+  '240',
+  '280',
+  '360',
+];
 const MONITOR_PORTS = ['VGA', 'HDMI', 'DisplayPort', 'USB-C'];
 const PERIPHERAL_CONNECTIONS = ['Cableado', 'Bluetooth', 'Dongle USB'];
 const KEYBOARD_BRANDS = ['Redragon', 'MSI', 'Logitech', 'Razer', 'Aula', 'Royal Kludge', 'Otros'];
@@ -90,11 +153,24 @@ const LAPTOP_COOLING_BASE_FAN_COUNTS = ['1', '2', '3', '4', '5', '6'];
 const LAPTOP_ACCESSORY_CONNECTIVITY = ['USB-A', 'USB-C'];
 const BACKPACK_BRANDS = ['Redragon', 'ASUS', 'Teros', 'Gigabyte', 'Otros'];
 const HEADSET_BRANDS = ['Logitech', 'Redragon', 'HyperX', 'Razer', 'Teros', 'Otros'];
-const MICROPHONE_BRANDS = ['Fifine', 'Streamplify', 'Redragon', 'Razer', 'Logitech', 'Corsair', 'Otros'];
+const MICROPHONE_BRANDS = [
+  'Fifine',
+  'Streamplify',
+  'Redragon',
+  'Razer',
+  'Logitech',
+  'Corsair',
+  'Otros',
+];
 const SPEAKER_BRANDS = ['Logitech', 'Redragon', 'Creative', 'Genius', 'Otros'];
 const HEADSET_CONNECTION_TYPES = ['Cableado', 'Inalambrico'];
 const HEADSET_WIRED_CONNECTIONS = ['Cable USB', 'Jack 3.5 mm'];
-const HEADSET_WIRELESS_CONNECTIONS = ['Cable USB', 'Jack 3.5 mm', 'USB Dongle 2.4 GHz', 'Bluetooth'];
+const HEADSET_WIRELESS_CONNECTIONS = [
+  'Cable USB',
+  'Jack 3.5 mm',
+  'USB Dongle 2.4 GHz',
+  'Bluetooth',
+];
 const WEBCAM_BRANDS = ['Logitech', 'Redragon', 'Otros'];
 const CAPTURE_CARD_BRANDS = ['Corsair', 'Streamplify', 'Otros'];
 const CABLE_HUB_BRANDS = ['Cabletime', 'Ugreen', 'Otros'];
@@ -102,7 +178,13 @@ const VIDEO_RESOLUTION_OPTIONS = ['HD', 'FHD', '4K'];
 const WEBCAM_FPS_OPTIONS = ['30', '60'];
 const CAPTURE_CARD_FPS_OPTIONS = ['30', '60', '120'];
 const CABLE_HUB_TYPES = ['Cable', 'Hub'];
-const CABLE_TYPES = ['HDMI a HDMI', 'DisplayPort a DisplayPort', 'Tipo C a HDMI', 'Tipo C a DisplayPort', 'Tipo C a Tipo C'];
+const CABLE_TYPES = [
+  'HDMI a HDMI',
+  'DisplayPort a DisplayPort',
+  'Tipo C a HDMI',
+  'Tipo C a DisplayPort',
+  'Tipo C a Tipo C',
+];
 const CABLE_LENGTHS = ['1', '2', '3'];
 const HUB_INPUT_TYPES = ['USB-C', 'USB-A'];
 const POLLING_RATES = ['1000', '2000', '4000', '8000'];
@@ -322,19 +404,26 @@ function boolToString(value: unknown) {
 }
 
 function normalizeCoolerType(value: unknown) {
-  const text = String(value || '').trim().toLowerCase();
+  const text = String(value || '')
+    .trim()
+    .toLowerCase();
   if (text === 'aio' || text.includes('liqu') || text.includes('liqu')) return 'Liquida';
   return 'Torre';
 }
 
 function normalizeLaptopRam(value: unknown) {
-  const text = String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+  const text = String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '');
   const match = text.match(/(\d+)/);
   return match ? `${match[1]}GB` : '';
 }
 
 function normalizeLaptopScreen(value: unknown) {
-  return String(value || '').replace(/"/g, '').trim();
+  return String(value || '')
+    .replace(/"/g, '')
+    .trim();
 }
 
 function normalizeLaptopRefresh(value: unknown) {
@@ -343,17 +432,37 @@ function normalizeLaptopRefresh(value: unknown) {
 }
 
 function normalizeMonitorResolution(value: unknown) {
-  const text = String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const text = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
   if (!text) return '';
-  if (text.includes('1920x1080') || text.includes('1080p') || text.includes('full hd') || text === 'fhd') return 'FHD (1920x1080)';
-  if (text.includes('2560x1440') || text.includes('1440p') || text === '2k' || text === 'qhd') return 'QHD (2560x1440)';
-  if (text.includes('3440x1440') || text.includes('uwqhd') || text.includes('ultrawide qhd') || text.includes('ultra wide qhd')) return 'Ultra Wide QHD (3440x1440)';
-  if (text.includes('3840x2160') || text.includes('2160p') || text === '4k' || text === 'uhd') return '4K UHD (3840x2160)';
+  if (
+    text.includes('1920x1080') ||
+    text.includes('1080p') ||
+    text.includes('full hd') ||
+    text === 'fhd'
+  )
+    return 'FHD (1920x1080)';
+  if (text.includes('2560x1440') || text.includes('1440p') || text === '2k' || text === 'qhd')
+    return 'QHD (2560x1440)';
+  if (
+    text.includes('3440x1440') ||
+    text.includes('uwqhd') ||
+    text.includes('ultrawide qhd') ||
+    text.includes('ultra wide qhd')
+  )
+    return 'Ultra Wide QHD (3440x1440)';
+  if (text.includes('3840x2160') || text.includes('2160p') || text === '4k' || text === 'uhd')
+    return '4K UHD (3840x2160)';
   return value ? 'Otro' : '';
 }
 
 function normalizeKeyboardFormFactor(value: unknown) {
-  const text = String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+  const text = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '');
   if (!text) return '';
   if (['full', 'fullsize', '100%', 'completo'].includes(text)) return 'Completo';
   if (text === '80' || text === '80%') return '80%';
@@ -370,7 +479,11 @@ function includeCurrentOption(options: string[], value: string) {
 
 function arrayFromSpecs(value: unknown, fallback: string[] = []) {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
-  if (typeof value === 'string') return value.split(',').map((item) => item.trim()).filter(Boolean);
+  if (typeof value === 'string')
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
   return fallback;
 }
 
@@ -433,16 +546,20 @@ export default function EditProductPage() {
           tdp: String(cpu.tdp ?? ''),
           integratedGraphics: boolToString(cpu.integratedGraphics),
           includesCooler: boolToString(cpu.includesCooler),
-          formFactor: product.category === 'CASE'
-            ? caseSpecs.formFactor ?? 'ATX'
-            : product.category === 'PSU'
-              ? psu.formFactor ?? 'ATX'
-              : motherboard.formFactor ?? 'ATX',
+          formFactor:
+            product.category === 'CASE'
+              ? (caseSpecs.formFactor ?? 'ATX')
+              : product.category === 'PSU'
+                ? (psu.formFactor ?? 'ATX')
+                : (motherboard.formFactor ?? 'ATX'),
           maxGpuLength: String(caseSpecs.maxGpuLength ?? ''),
           includesPsu: boolToString(caseSpecs.includesPsu),
           includedFans: String(caseSpecs.includedFans ?? '0'),
           radiatorSupportMm: String(caseSpecs.radiatorSupportMm ?? '0'),
-          memoryType: product.category === 'RAM' ? ramSpecs.memoryType ?? 'DDR5' : motherboard.memoryType ?? 'DDR5',
+          memoryType:
+            product.category === 'RAM'
+              ? (ramSpecs.memoryType ?? 'DDR5')
+              : (motherboard.memoryType ?? 'DDR5'),
           memorySlots: String(motherboard.memorySlots ?? '4'),
           m2Slots: String(motherboard.m2Slots ?? '2'),
           supportedM2FormFactors: arrayFromSpecs(motherboard.supportedM2FormFactors, ['2280']),
@@ -452,17 +569,33 @@ export default function EditProductPage() {
           gpuPowerWatts: String(gpu.gpuPowerWatts ?? gpu.tdp ?? ''),
           recommendedPsuWatts: String(gpu.recommendedPsuWatts ?? ''),
           fans: String(gpu.fans ?? '2'),
-          wattage: String(product.category === 'SPEAKER' ? speaker.wattage ?? '' : psu.wattage ?? ''),
+          wattage: String(
+            product.category === 'SPEAKER' ? (speaker.wattage ?? '') : (psu.wattage ?? ''),
+          ),
           certification: psu.certification ?? '80+ Bronze',
           modular: psu.modular ?? 'No Modular',
-          type: product.category === 'COOLER' ? normalizeCoolerType(cooler.type) : storage.type ?? 'SSD 2.5',
-          compatibleSockets: arrayFromSpecs(cooler.compatibleSockets ?? cooler.socketSupport, ['AM4', 'AM5']),
+          type:
+            product.category === 'COOLER'
+              ? normalizeCoolerType(cooler.type)
+              : (storage.type ?? 'SSD 2.5'),
+          compatibleSockets: arrayFromSpecs(cooler.compatibleSockets ?? cooler.socketSupport, [
+            'AM4',
+            'AM5',
+          ]),
           tdpCapacity: String(cooler.tdpCapacity ?? ''),
           coolerHeight: String(cooler.coolerHeight ?? ''),
           radiatorSize: String(cooler.radiatorSize ?? '240'),
-          hasRGB: boolToString(product.category === 'RAM' ? ramSpecs.hasRGB : product.category === 'HEADSET' ? headset.hasRGB : cooler.hasRGB),
+          hasRGB: boolToString(
+            product.category === 'RAM'
+              ? ramSpecs.hasRGB
+              : product.category === 'HEADSET'
+                ? headset.hasRGB
+                : cooler.hasRGB,
+          ),
           hasScreen: boolToString(cooler.hasScreen),
-          capacity: String(product.category === 'RAM' ? ramSpecs.capacity ?? '16' : storage.capacity ?? ''),
+          capacity: String(
+            product.category === 'RAM' ? (ramSpecs.capacity ?? '16') : (storage.capacity ?? ''),
+          ),
           speed: String(ramSpecs.speed ?? ''),
           modules: String(ramSpecs.modules ?? '1'),
           interface: storage.interface ?? 'PCIe 4.0',
@@ -470,14 +603,28 @@ export default function EditProductPage() {
           writeSpeed: String(storage.writeSpeed ?? ''),
           m2FormFactor: storage.m2FormFactor ?? '2280',
           processor: laptop.processor ?? desktop.processor ?? '',
-          ram: product.category === 'LAPTOP' ? normalizeLaptopRam(laptop.ram) || '8GB' : desktop.ram ?? '',
-          storage: product.category === 'LAPTOP' ? normalizeLaptopStorage(laptop.storage) || '512GB SSD' : desktop.storage ?? '',
-          screenSize: product.category === 'LAPTOP' ? normalizeLaptopScreen(laptop.screenSize ?? '15.6') || '15.6' : monitor.screenSize ?? '15.6',
-          refreshRate: product.category === 'LAPTOP' ? normalizeLaptopRefresh(laptop.refreshRate ?? '60') || '60' : normalizeLaptopRefresh(monitor.refreshRate ?? '60') || '60',
+          ram:
+            product.category === 'LAPTOP'
+              ? normalizeLaptopRam(laptop.ram) || '8GB'
+              : (desktop.ram ?? ''),
+          storage:
+            product.category === 'LAPTOP'
+              ? normalizeLaptopStorage(laptop.storage) || '512GB SSD'
+              : (desktop.storage ?? ''),
+          screenSize:
+            product.category === 'LAPTOP'
+              ? normalizeLaptopScreen(laptop.screenSize ?? '15.6') || '15.6'
+              : (monitor.screenSize ?? '15.6'),
+          refreshRate:
+            product.category === 'LAPTOP'
+              ? normalizeLaptopRefresh(laptop.refreshRate ?? '60') || '60'
+              : normalizeLaptopRefresh(monitor.refreshRate ?? '60') || '60',
           panelType: laptop.panelType ?? monitor.panelType ?? 'IPS',
-          resolution: product.category === 'MONITOR'
-            ? normalizeMonitorResolution(monitor.resolution ?? 'FHD (1920x1080)') || 'FHD (1920x1080)'
-            : webcam.resolution ?? captureCard.resolution ?? monitor.resolution ?? 'FHD',
+          resolution:
+            product.category === 'MONITOR'
+              ? normalizeMonitorResolution(monitor.resolution ?? 'FHD (1920x1080)') ||
+                'FHD (1920x1080)'
+              : (webcam.resolution ?? captureCard.resolution ?? monitor.resolution ?? 'FHD'),
           hasDedicatedGpu: boolToString(laptop.hasDedicatedGpu ?? desktop.hasDedicatedGpu),
           gpuBrand: laptop.gpuBrand ?? desktop.gpuBrand ?? '',
           gpuModel: laptop.gpuModel ?? desktop.gpuModel ?? '',
@@ -488,35 +635,51 @@ export default function EditProductPage() {
           responseTimeMs: String(monitor.responseTimeMs ?? ''),
           ports: arrayFromSpecs(monitor.ports, []),
           hasSpeakers: boolToString(monitor.hasSpeakers),
-          brand: product.category === 'MOTHERBOARD'
-            ? motherboard.brand ?? 'Otros'
-            : product.category === 'GPU'
-              ? gpu.brand ?? 'Otros'
-              : product.category === 'CASE'
-                ? caseSpecs.brand ?? ''
-                : product.category === 'COOLER'
-                  ? cooler.brand ?? ''
-                  : product.category === 'PSU'
-                    ? psu.brand ?? ''
-                    : product.category === 'LAPTOP'
-                      ? laptop.brand ?? ''
-                      : product.category === 'MONITOR'
-                        ? monitor.brand ?? ''
-                        : keyboard.brand ?? mouse.brand ?? headset.brand ?? microphone.brand ?? speaker.brand ?? webcam.brand ?? captureCard.brand ?? cableHub.brand ?? laptopCoolingBase.brand ?? backpack.brand ?? mousepad.brand ?? chair.brand ?? desk.brand ?? '',
+          brand:
+            product.category === 'MOTHERBOARD'
+              ? (motherboard.brand ?? 'Otros')
+              : product.category === 'GPU'
+                ? (gpu.brand ?? 'Otros')
+                : product.category === 'CASE'
+                  ? (caseSpecs.brand ?? '')
+                  : product.category === 'COOLER'
+                    ? (cooler.brand ?? '')
+                    : product.category === 'PSU'
+                      ? (psu.brand ?? '')
+                      : product.category === 'LAPTOP'
+                        ? (laptop.brand ?? '')
+                        : product.category === 'MONITOR'
+                          ? (monitor.brand ?? '')
+                          : (keyboard.brand ??
+                            mouse.brand ??
+                            headset.brand ??
+                            microphone.brand ??
+                            speaker.brand ??
+                            webcam.brand ??
+                            captureCard.brand ??
+                            cableHub.brand ??
+                            laptopCoolingBase.brand ??
+                            backpack.brand ??
+                            mousepad.brand ??
+                            chair.brand ??
+                            desk.brand ??
+                            ''),
           keyboardType: keyboard.keyboardType ?? 'Membrana',
           connections: arrayFromSpecs(keyboard.connections ?? mouse.connections, ['Cableado']),
           supportedConnections: arrayFromSpecs(headset.supportedConnections, ['Cable USB']),
           layoutLanguage: keyboard.layoutLanguage ?? keyboard.layout ?? 'Espanol',
           hasLighting: boolToString(keyboard.hasLighting ?? keyboard.hasRGB),
           switchType: keyboard.switchType ?? '',
-          keyboardFormFactor: normalizeKeyboardFormFactor(keyboard.keyboardFormFactor) || 'Completo',
+          keyboardFormFactor:
+            normalizeKeyboardFormFactor(keyboard.keyboardFormFactor) || 'Completo',
           weightGrams: String(mouse.weightGrams ?? ''),
           mouseType: mouse.mouseType ?? 'Oficina',
           buttonCount: String(mouse.buttonCount ?? ''),
           dpi: String(mouse.dpi ?? ''),
           pollingRateHz: String(mouse.pollingRateHz ?? '1000'),
           powerType: mouse.powerType ?? 'Ninguno',
-          connection: headset.connection ?? microphone.connection ?? speaker.connection ?? 'Cableado',
+          connection:
+            headset.connection ?? microphone.connection ?? speaker.connection ?? 'Cableado',
           driverSize: String(headset.driverSize ?? '50'),
           impedance: String(headset.impedance ?? '32'),
           micType: headset.micType ?? microphone.micType ?? 'Unidireccional',
@@ -553,18 +716,28 @@ export default function EditProductPage() {
       setFormData((prev) => ({
         ...prev,
         cpuBrand: value,
-        socket: validSockets.includes(prev.socket) ? prev.socket : validSockets[0] ?? '',
+        socket: validSockets.includes(prev.socket) ? prev.socket : (validSockets[0] ?? ''),
       }));
       return;
     }
 
     if (name === 'isOnSale') {
-      setFormData((prev) => ({ ...prev, isOnSale: value, salePrice: value === 'true' ? prev.salePrice : '' }));
+      setFormData((prev) => ({
+        ...prev,
+        isOnSale: value,
+        salePrice: value === 'true' ? prev.salePrice : '',
+      }));
       return;
     }
 
     if (name === 'mouseType' && value === 'Oficina') {
-      setFormData((prev) => ({ ...prev, mouseType: value, buttonCount: '', dpi: '', pollingRateHz: '1000' }));
+      setFormData((prev) => ({
+        ...prev,
+        mouseType: value,
+        buttonCount: '',
+        dpi: '',
+        pollingRateHz: '1000',
+      }));
       return;
     }
 
@@ -579,7 +752,8 @@ export default function EditProductPage() {
     }
 
     if (name === 'connection' && formData.category === 'HEADSET') {
-      const allowed = value === 'Cableado' ? HEADSET_WIRED_CONNECTIONS : HEADSET_WIRELESS_CONNECTIONS;
+      const allowed =
+        value === 'Cableado' ? HEADSET_WIRED_CONNECTIONS : HEADSET_WIRELESS_CONNECTIONS;
       setFormData((prev) => {
         const nextSupported = prev.supportedConnections.filter((item) => allowed.includes(item));
         return {
@@ -607,7 +781,15 @@ export default function EditProductPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const toggleArrayValue = (field: 'compatibleSockets' | 'supportedM2FormFactors' | 'ports' | 'connections' | 'supportedConnections', value: string) => {
+  const toggleArrayValue = (
+    field:
+      | 'compatibleSockets'
+      | 'supportedM2FormFactors'
+      | 'ports'
+      | 'connections'
+      | 'supportedConnections',
+    value: string,
+  ) => {
     setFormData((prev) => ({
       ...prev,
       [field]: prev[field].includes(value)
@@ -690,7 +872,10 @@ export default function EditProductPage() {
         : [];
 
       await api.patch(`/products/${id}`, {
-        ...buildProductPayload({ ...formData, stock: String(parsedStock) }, { clearSalePriceWhenOff: true }),
+        ...buildProductPayload(
+          { ...formData, stock: String(parsedStock) },
+          { clearSalePriceWhenOff: true },
+        ),
         images: [...existingImages, ...uploadedImages],
       });
       alert('Producto actualizado correctamente');
@@ -721,21 +906,59 @@ export default function EditProductPage() {
         <p className="text-gray-500">ID: {id}</p>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-6 rounded-xl border border-gray-200 bg-white p-8 shadow-lg">
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className="space-y-6 rounded-xl border border-gray-200 bg-white p-8 shadow-lg"
+      >
         <div>
-          <label className="mb-2 block text-sm font-bold text-gray-700">Nombre del Producto</label>
-          <input name="name" value={formData.name} onChange={(e) => updateField('name', e.target.value)} className="w-full rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan" />
+          <label htmlFor="edit-product-name" className="mb-2 block text-sm font-bold text-gray-700">
+            Nombre del Producto
+          </label>
+          <input
+            id="edit-product-name"
+            name="name"
+            value={formData.name}
+            onChange={(e) => updateField('name', e.target.value)}
+            className="w-full rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan"
+          />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-bold text-gray-700">Descripcion del Producto</label>
-          <textarea name="description" rows={4} value={formData.description} onChange={(e) => updateField('description', e.target.value)} className="w-full resize-none rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan" />
+          <label
+            htmlFor="edit-product-description"
+            className="mb-2 block text-sm font-bold text-gray-700"
+          >
+            Descripcion del Producto
+          </label>
+          <textarea
+            id="edit-product-description"
+            name="description"
+            rows={4}
+            value={formData.description}
+            onChange={(e) => updateField('description', e.target.value)}
+            className="w-full resize-none rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Precio (S/.)</label>
-            <input name="price" type="number" step="0.01" inputMode="decimal" value={formData.price} onChange={(e) => updateField('price', e.target.value)} className="w-full rounded-lg border border-gray-300 p-3 text-lg font-bold outline-none focus:ring-2 focus:ring-brand-cyan" />
+            <label
+              htmlFor="edit-product-price"
+              className="mb-2 block text-sm font-bold text-gray-700"
+            >
+              Precio (S/.)
+            </label>
+            <input
+              id="edit-product-price"
+              name="price"
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              value={formData.price}
+              onChange={(e) => updateField('price', e.target.value)}
+              className="w-full rounded-lg border border-gray-300 p-3 text-lg font-bold outline-none focus:ring-2 focus:ring-brand-cyan"
+            />
           </div>
 
           <ProductOfferSection
@@ -750,8 +973,22 @@ export default function EditProductPage() {
           />
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Stock</label>
-            <input name="stock" type="number" min="0" step="1" value={formData.stock} onChange={(e) => updateField('stock', e.target.value)} className="w-full rounded-lg border border-gray-300 p-3 text-lg font-bold outline-none focus:ring-2 focus:ring-brand-cyan" />
+            <label
+              htmlFor="edit-product-stock"
+              className="mb-2 block text-sm font-bold text-gray-700"
+            >
+              Stock
+            </label>
+            <input
+              id="edit-product-stock"
+              name="stock"
+              type="number"
+              min="0"
+              step="1"
+              value={formData.stock}
+              onChange={(e) => updateField('stock', e.target.value)}
+              className="w-full rounded-lg border border-gray-300 p-3 text-lg font-bold outline-none focus:ring-2 focus:ring-brand-cyan"
+            />
           </div>
         </div>
 
@@ -759,15 +996,57 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones CPU</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.cpuBrand} onChange={(value) => updateField('cpuBrand', value)} options={CPU_BRANDS} />
-              <SelectField label="Socket" value={formData.socket} onChange={(value) => updateField('socket', value)} options={CPU_SOCKETS_BY_BRAND[formData.cpuBrand] ?? []} />
-              <NumberField label="TDP base (Watts)" value={formData.baseTdpWatts} onChange={(value) => updateField('baseTdpWatts', value)} />
-              <NumberField label="TDP maximo (Watts)" value={formData.tdp} onChange={(value) => updateField('tdp', value)} />
-              <NumberField label="Nucleos" value={formData.cores} onChange={(value) => updateField('cores', value)} />
-              <NumberField label="Threads" value={formData.threads} onChange={(value) => updateField('threads', value)} />
-              <TextField label="Frecuencia (GHz)" value={formData.frequency} onChange={(value) => updateField('frequency', value)} />
-              <SelectField label="Graficos integrados" value={formData.integratedGraphics} onChange={(value) => updateField('integratedGraphics', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
-              <SelectField label="Incluye cooler" value={formData.includesCooler} onChange={(value) => updateField('includesCooler', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
+              <SelectField
+                label="Marca"
+                value={formData.cpuBrand}
+                onChange={(value) => updateField('cpuBrand', value)}
+                options={CPU_BRANDS}
+              />
+              <SelectField
+                label="Socket"
+                value={formData.socket}
+                onChange={(value) => updateField('socket', value)}
+                options={CPU_SOCKETS_BY_BRAND[formData.cpuBrand] ?? []}
+              />
+              <NumberField
+                label="TDP base (Watts)"
+                value={formData.baseTdpWatts}
+                onChange={(value) => updateField('baseTdpWatts', value)}
+              />
+              <NumberField
+                label="TDP maximo (Watts)"
+                value={formData.tdp}
+                onChange={(value) => updateField('tdp', value)}
+              />
+              <NumberField
+                label="Nucleos"
+                value={formData.cores}
+                onChange={(value) => updateField('cores', value)}
+              />
+              <NumberField
+                label="Threads"
+                value={formData.threads}
+                onChange={(value) => updateField('threads', value)}
+              />
+              <TextField
+                label="Frecuencia (GHz)"
+                value={formData.frequency}
+                onChange={(value) => updateField('frequency', value)}
+              />
+              <SelectField
+                label="Graficos integrados"
+                value={formData.integratedGraphics}
+                onChange={(value) => updateField('integratedGraphics', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <SelectField
+                label="Incluye cooler"
+                value={formData.includesCooler}
+                onChange={(value) => updateField('includesCooler', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
             </div>
           </section>
         )}
@@ -776,13 +1055,46 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Motherboard</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={MOTHERBOARD_BRANDS} />
-              <SelectField label="Socket" value={formData.socket} onChange={(value) => updateField('socket', value)} options={SOCKETS} />
-              <SelectField label="Formato" value={formData.formFactor} onChange={(value) => updateField('formFactor', value)} options={FORM_FACTORS} />
-              <SelectField label="Tipo de RAM" value={formData.memoryType} onChange={(value) => updateField('memoryType', value)} options={RAM_TYPES} />
-              <NumberField label="Slots RAM" value={formData.memorySlots} onChange={(value) => updateField('memorySlots', value)} />
-              <NumberField label="Slots M.2" value={formData.m2Slots} onChange={(value) => updateField('m2Slots', value)} />
-              <MultiCheckField label="Tamaños M.2 soportados" options={M2_FORM_FACTORS} values={formData.supportedM2FormFactors} onToggle={(value) => toggleArrayValue('supportedM2FormFactors', value)} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={MOTHERBOARD_BRANDS}
+              />
+              <SelectField
+                label="Socket"
+                value={formData.socket}
+                onChange={(value) => updateField('socket', value)}
+                options={SOCKETS}
+              />
+              <SelectField
+                label="Formato"
+                value={formData.formFactor}
+                onChange={(value) => updateField('formFactor', value)}
+                options={FORM_FACTORS}
+              />
+              <SelectField
+                label="Tipo de RAM"
+                value={formData.memoryType}
+                onChange={(value) => updateField('memoryType', value)}
+                options={RAM_TYPES}
+              />
+              <NumberField
+                label="Slots RAM"
+                value={formData.memorySlots}
+                onChange={(value) => updateField('memorySlots', value)}
+              />
+              <NumberField
+                label="Slots M.2"
+                value={formData.m2Slots}
+                onChange={(value) => updateField('m2Slots', value)}
+              />
+              <MultiCheckField
+                label="Tamaños M.2 soportados"
+                options={M2_FORM_FACTORS}
+                values={formData.supportedM2FormFactors}
+                onToggle={(value) => toggleArrayValue('supportedM2FormFactors', value)}
+              />
             </div>
           </section>
         )}
@@ -791,7 +1103,12 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones RAM</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Tipo" value={formData.memoryType} onChange={(value) => updateField('memoryType', value)} options={RAM_TYPES} />
+              <SelectField
+                label="Tipo"
+                value={formData.memoryType}
+                onChange={(value) => updateField('memoryType', value)}
+                options={RAM_TYPES}
+              />
               <SelectField
                 label="Cantidad por modulo (GB)"
                 value={formData.capacity}
@@ -804,10 +1121,24 @@ export default function EditProductPage() {
                 value={formData.modules}
                 onChange={(value) => updateField('modules', value)}
                 options={['1', '2', '4']}
-                labels={{ 1: '1 Modulo (Single)', 2: '2 Modulos (Dual Kit)', 4: '4 Modulos (Quad Kit)' }}
+                labels={{
+                  1: '1 Modulo (Single)',
+                  2: '2 Modulos (Dual Kit)',
+                  4: '4 Modulos (Quad Kit)',
+                }}
               />
-              <NumberField label="Velocidad (MHz)" value={formData.speed} onChange={(value) => updateField('speed', value)} />
-              <SelectField label="Iluminacion RGB" value={formData.hasRGB} onChange={(value) => updateField('hasRGB', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
+              <NumberField
+                label="Velocidad (MHz)"
+                value={formData.speed}
+                onChange={(value) => updateField('speed', value)}
+              />
+              <SelectField
+                label="Iluminacion RGB"
+                value={formData.hasRGB}
+                onChange={(value) => updateField('hasRGB', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
             </div>
           </section>
         )}
@@ -816,13 +1147,47 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Datos de Video</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca ensambladora" value={formData.brand} onChange={(value) => updateField('brand', value)} options={GPU_BRANDS} />
-              <SelectField label="Chipset" value={formData.chipset} onChange={(value) => updateField('chipset', value)} options={GPU_CHIPSETS} />
-              <SelectField label="VRAM (GB)" value={formData.vram} onChange={(value) => updateField('vram', value)} options={GPU_VRAM_OPTIONS} labels={Object.fromEntries(GPU_VRAM_OPTIONS.map((value) => [value, `${value} GB`]))} />
-              <NumberField label="Largo (mm)" value={formData.length} onChange={(value) => updateField('length', value)} />
-              <NumberField label="TGP / Consumo real (Watts)" value={formData.gpuPowerWatts} onChange={(value) => updateField('gpuPowerWatts', value)} helper="Usado por el armador para estimar el consumo del sistema." />
-              <NumberField label="PSU recomendada (Watts)" value={formData.recommendedPsuWatts} onChange={(value) => updateField('recommendedPsuWatts', value)} helper="Referencia del fabricante para la fuente minima sugerida." />
-              <NumberField label="Ventiladores" value={formData.fans} onChange={(value) => updateField('fans', value)} />
+              <SelectField
+                label="Marca ensambladora"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={GPU_BRANDS}
+              />
+              <SelectField
+                label="Chipset"
+                value={formData.chipset}
+                onChange={(value) => updateField('chipset', value)}
+                options={GPU_CHIPSETS}
+              />
+              <SelectField
+                label="VRAM (GB)"
+                value={formData.vram}
+                onChange={(value) => updateField('vram', value)}
+                options={GPU_VRAM_OPTIONS}
+                labels={Object.fromEntries(GPU_VRAM_OPTIONS.map((value) => [value, `${value} GB`]))}
+              />
+              <NumberField
+                label="Largo (mm)"
+                value={formData.length}
+                onChange={(value) => updateField('length', value)}
+              />
+              <NumberField
+                label="TGP / Consumo real (Watts)"
+                value={formData.gpuPowerWatts}
+                onChange={(value) => updateField('gpuPowerWatts', value)}
+                helper="Usado por el armador para estimar el consumo del sistema."
+              />
+              <NumberField
+                label="PSU recomendada (Watts)"
+                value={formData.recommendedPsuWatts}
+                onChange={(value) => updateField('recommendedPsuWatts', value)}
+                helper="Referencia del fabricante para la fuente minima sugerida."
+              />
+              <NumberField
+                label="Ventiladores"
+                value={formData.fans}
+                onChange={(value) => updateField('fans', value)}
+              />
             </div>
           </section>
         )}
@@ -831,7 +1196,12 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Fuente de Poder</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={PSU_BRANDS} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={PSU_BRANDS}
+              />
               <SelectField
                 label="Potencia"
                 value={formData.wattage}
@@ -839,9 +1209,24 @@ export default function EditProductPage() {
                 options={PSU_WATT_OPTIONS}
                 labels={Object.fromEntries(PSU_WATT_OPTIONS.map((watts) => [watts, `${watts} W`]))}
               />
-              <SelectField label="Certificacion" value={formData.certification} onChange={(value) => updateField('certification', value)} options={PSU_CERTS} />
-              <SelectField label="Modularidad" value={formData.modular} onChange={(value) => updateField('modular', value)} options={PSU_MODULAR_OPTIONS} />
-              <SelectField label="Formato" value={formData.formFactor} onChange={(value) => updateField('formFactor', value)} options={['ATX', 'SFX']} />
+              <SelectField
+                label="Certificacion"
+                value={formData.certification}
+                onChange={(value) => updateField('certification', value)}
+                options={PSU_CERTS}
+              />
+              <SelectField
+                label="Modularidad"
+                value={formData.modular}
+                onChange={(value) => updateField('modular', value)}
+                options={PSU_MODULAR_OPTIONS}
+              />
+              <SelectField
+                label="Formato"
+                value={formData.formFactor}
+                onChange={(value) => updateField('formFactor', value)}
+                options={['ATX', 'SFX']}
+              />
             </div>
           </section>
         )}
@@ -850,10 +1235,30 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones CASE</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={CASE_BRANDS} />
-              <SelectField label="Soporte placa" value={formData.formFactor} onChange={(value) => updateField('formFactor', value)} options={FORM_FACTORS} />
-              <NumberField label="Max largo GPU (mm)" value={formData.maxGpuLength} onChange={(value) => updateField('maxGpuLength', value)} />
-              <SelectField label="Incluye fuente?" value={formData.includesPsu} onChange={(value) => updateField('includesPsu', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={CASE_BRANDS}
+              />
+              <SelectField
+                label="Soporte placa"
+                value={formData.formFactor}
+                onChange={(value) => updateField('formFactor', value)}
+                options={FORM_FACTORS}
+              />
+              <NumberField
+                label="Max largo GPU (mm)"
+                value={formData.maxGpuLength}
+                onChange={(value) => updateField('maxGpuLength', value)}
+              />
+              <SelectField
+                label="Incluye fuente?"
+                value={formData.includesPsu}
+                onChange={(value) => updateField('includesPsu', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
               <SelectField
                 label="Soporte radiador liquido"
                 value={formData.radiatorSupportMm}
@@ -861,7 +1266,11 @@ export default function EditProductPage() {
                 options={CASE_RADIATOR_SUPPORT_OPTIONS}
                 labels={CASE_RADIATOR_SUPPORT_LABELS}
               />
-              <NumberField label="Ventiladores incluidos" value={formData.includedFans} onChange={(value) => updateField('includedFans', value)} />
+              <NumberField
+                label="Ventiladores incluidos"
+                value={formData.includedFans}
+                onChange={(value) => updateField('includedFans', value)}
+              />
             </div>
           </section>
         )}
@@ -870,14 +1279,65 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Cooler</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={COOLER_BRANDS} />
-              <SelectField label="Tipo" value={formData.type} onChange={(value) => updateField('type', value)} options={COOLER_TYPES} />
-              <NumberField label="TDP soportado (Watts)" value={formData.tdpCapacity} onChange={(value) => updateField('tdpCapacity', value)} />
-              {formData.type === 'Torre' && <NumberField label="Altura cooler (mm)" value={formData.coolerHeight} onChange={(value) => updateField('coolerHeight', value)} />}
-              {formData.type === 'Liquida' && <SelectField label="Radiador" value={formData.radiatorSize} onChange={(value) => updateField('radiatorSize', value)} options={COOLER_RADIATOR_OPTIONS} labels={{ 120: '120 mm', 240: '240 mm', 280: '280 mm', 360: '360 mm', 460: '460 mm' }} />}
-              <SelectField label="RGB" value={formData.hasRGB} onChange={(value) => updateField('hasRGB', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
-              <SelectField label="Pantalla LCD" value={formData.hasScreen} onChange={(value) => updateField('hasScreen', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
-              <MultiCheckField label="Sockets compatibles" options={SOCKETS} values={formData.compatibleSockets} onToggle={(value) => toggleArrayValue('compatibleSockets', value)} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={COOLER_BRANDS}
+              />
+              <SelectField
+                label="Tipo"
+                value={formData.type}
+                onChange={(value) => updateField('type', value)}
+                options={COOLER_TYPES}
+              />
+              <NumberField
+                label="TDP soportado (Watts)"
+                value={formData.tdpCapacity}
+                onChange={(value) => updateField('tdpCapacity', value)}
+              />
+              {formData.type === 'Torre' && (
+                <NumberField
+                  label="Altura cooler (mm)"
+                  value={formData.coolerHeight}
+                  onChange={(value) => updateField('coolerHeight', value)}
+                />
+              )}
+              {formData.type === 'Liquida' && (
+                <SelectField
+                  label="Radiador"
+                  value={formData.radiatorSize}
+                  onChange={(value) => updateField('radiatorSize', value)}
+                  options={COOLER_RADIATOR_OPTIONS}
+                  labels={{
+                    120: '120 mm',
+                    240: '240 mm',
+                    280: '280 mm',
+                    360: '360 mm',
+                    460: '460 mm',
+                  }}
+                />
+              )}
+              <SelectField
+                label="RGB"
+                value={formData.hasRGB}
+                onChange={(value) => updateField('hasRGB', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <SelectField
+                label="Pantalla LCD"
+                value={formData.hasScreen}
+                onChange={(value) => updateField('hasScreen', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <MultiCheckField
+                label="Sockets compatibles"
+                options={SOCKETS}
+                values={formData.compatibleSockets}
+                onToggle={(value) => toggleArrayValue('compatibleSockets', value)}
+              />
             </div>
           </section>
         )}
@@ -886,13 +1346,40 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Storage</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Tipo" value={formData.type} onChange={(value) => updateField('type', value)} options={STORAGE_TYPES} />
-              <SelectField label="Interfaz / Generacion" value={formData.interface} onChange={(value) => updateField('interface', value)} options={NVME_GENS} />
-              <NumberField label="Capacidad (GB)" value={formData.capacity} onChange={(value) => updateField('capacity', value)} />
-              <NumberField label="Lectura (MB/s)" value={formData.readSpeed} onChange={(value) => updateField('readSpeed', value)} />
-              <NumberField label="Escritura (MB/s)" value={formData.writeSpeed} onChange={(value) => updateField('writeSpeed', value)} />
+              <SelectField
+                label="Tipo"
+                value={formData.type}
+                onChange={(value) => updateField('type', value)}
+                options={STORAGE_TYPES}
+              />
+              <SelectField
+                label="Interfaz / Generacion"
+                value={formData.interface}
+                onChange={(value) => updateField('interface', value)}
+                options={NVME_GENS}
+              />
+              <NumberField
+                label="Capacidad (GB)"
+                value={formData.capacity}
+                onChange={(value) => updateField('capacity', value)}
+              />
+              <NumberField
+                label="Lectura (MB/s)"
+                value={formData.readSpeed}
+                onChange={(value) => updateField('readSpeed', value)}
+              />
+              <NumberField
+                label="Escritura (MB/s)"
+                value={formData.writeSpeed}
+                onChange={(value) => updateField('writeSpeed', value)}
+              />
               {(formData.type.includes('M.2') || formData.type.toUpperCase().includes('NVME')) && (
-                <SelectField label="Tamaño fisico M.2" value={formData.m2FormFactor} onChange={(value) => updateField('m2FormFactor', value)} options={M2_FORM_FACTORS} />
+                <SelectField
+                  label="Tamaño fisico M.2"
+                  value={formData.m2FormFactor}
+                  onChange={(value) => updateField('m2FormFactor', value)}
+                  options={M2_FORM_FACTORS}
+                />
               )}
             </div>
           </section>
@@ -903,40 +1390,123 @@ export default function EditProductPage() {
             <h2 className="mb-4 font-black text-gray-800">Especificaciones del equipo</h2>
             <div className="grid grid-cols-2 gap-4">
               {formData.category === 'LAPTOP' && (
-                <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={LAPTOP_BRANDS} />
+                <SelectField
+                  label="Marca"
+                  value={formData.brand}
+                  onChange={(value) => updateField('brand', value)}
+                  options={LAPTOP_BRANDS}
+                />
               )}
-              <TextField label="Procesador" value={formData.processor} onChange={(value) => updateField('processor', value)} />
+              <TextField
+                label="Procesador"
+                value={formData.processor}
+                onChange={(value) => updateField('processor', value)}
+              />
               {formData.category === 'LAPTOP' ? (
                 <>
-                  <SelectField label="Memoria RAM" value={formData.ram} onChange={(value) => updateField('ram', value)} options={includeCurrentOption(LAPTOP_RAM_OPTIONS, formData.ram)} labels={LAPTOP_RAM_LABELS} />
-                  <SelectField label="Almacenamiento" value={formData.storage} onChange={(value) => updateField('storage', value)} options={includeCurrentOption(LAPTOP_STORAGE_OPTIONS, formData.storage)} labels={LAPTOP_STORAGE_LABELS} />
+                  <SelectField
+                    label="Memoria RAM"
+                    value={formData.ram}
+                    onChange={(value) => updateField('ram', value)}
+                    options={includeCurrentOption(LAPTOP_RAM_OPTIONS, formData.ram)}
+                    labels={LAPTOP_RAM_LABELS}
+                  />
+                  <SelectField
+                    label="Almacenamiento"
+                    value={formData.storage}
+                    onChange={(value) => updateField('storage', value)}
+                    options={includeCurrentOption(LAPTOP_STORAGE_OPTIONS, formData.storage)}
+                    labels={LAPTOP_STORAGE_LABELS}
+                  />
                 </>
               ) : (
                 <>
-                  <TextField label="Memoria RAM" value={formData.ram} onChange={(value) => updateField('ram', value)} />
-                  <TextField label="Almacenamiento" value={formData.storage} onChange={(value) => updateField('storage', value)} />
+                  <TextField
+                    label="Memoria RAM"
+                    value={formData.ram}
+                    onChange={(value) => updateField('ram', value)}
+                  />
+                  <TextField
+                    label="Almacenamiento"
+                    value={formData.storage}
+                    onChange={(value) => updateField('storage', value)}
+                  />
                 </>
               )}
-              <SelectField label="Grafica dedicada" value={formData.hasDedicatedGpu} onChange={(value) => updateField('hasDedicatedGpu', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
+              <SelectField
+                label="Grafica dedicada"
+                value={formData.hasDedicatedGpu}
+                onChange={(value) => updateField('hasDedicatedGpu', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
               {formData.hasDedicatedGpu === 'true' && (
                 <>
-                  <TextField label="Marca GPU" value={formData.gpuBrand} onChange={(value) => updateField('gpuBrand', value)} />
-                  <TextField label="Modelo GPU" value={formData.gpuModel} onChange={(value) => updateField('gpuModel', value)} />
+                  <TextField
+                    label="Marca GPU"
+                    value={formData.gpuBrand}
+                    onChange={(value) => updateField('gpuBrand', value)}
+                  />
+                  <TextField
+                    label="Modelo GPU"
+                    value={formData.gpuModel}
+                    onChange={(value) => updateField('gpuModel', value)}
+                  />
                 </>
               )}
               {formData.category === 'LAPTOP' && (
                 <>
-                  <SelectField label="Tamano pantalla" value={formData.screenSize} onChange={(value) => updateField('screenSize', value)} options={includeCurrentOption(LAPTOP_SCREEN_OPTIONS, formData.screenSize)} labels={Object.fromEntries(LAPTOP_SCREEN_OPTIONS.map((value) => [value, `${value}"`]))} />
-                  <SelectField label="Tasa de refresco (Hz)" value={formData.refreshRate} onChange={(value) => updateField('refreshRate', value)} options={includeCurrentOption(LAPTOP_REFRESH_OPTIONS, formData.refreshRate)} labels={Object.fromEntries(LAPTOP_REFRESH_OPTIONS.map((value) => [value, `${value} Hz`]))} />
-                  <SelectField label="Panel" value={formData.panelType} onChange={(value) => updateField('panelType', value)} options={PANEL_TYPES} />
-                  <SelectField label="Windows de serie" value={formData.includesWindows} onChange={(value) => updateField('includesWindows', value)} options={['true', 'false']} labels={{ true: 'Si', false: 'No' }} />
+                  <SelectField
+                    label="Tamano pantalla"
+                    value={formData.screenSize}
+                    onChange={(value) => updateField('screenSize', value)}
+                    options={includeCurrentOption(LAPTOP_SCREEN_OPTIONS, formData.screenSize)}
+                    labels={Object.fromEntries(
+                      LAPTOP_SCREEN_OPTIONS.map((value) => [value, `${value}"`]),
+                    )}
+                  />
+                  <SelectField
+                    label="Tasa de refresco (Hz)"
+                    value={formData.refreshRate}
+                    onChange={(value) => updateField('refreshRate', value)}
+                    options={includeCurrentOption(LAPTOP_REFRESH_OPTIONS, formData.refreshRate)}
+                    labels={Object.fromEntries(
+                      LAPTOP_REFRESH_OPTIONS.map((value) => [value, `${value} Hz`]),
+                    )}
+                  />
+                  <SelectField
+                    label="Panel"
+                    value={formData.panelType}
+                    onChange={(value) => updateField('panelType', value)}
+                    options={PANEL_TYPES}
+                  />
+                  <SelectField
+                    label="Windows de serie"
+                    value={formData.includesWindows}
+                    onChange={(value) => updateField('includesWindows', value)}
+                    options={['true', 'false']}
+                    labels={{ true: 'Si', false: 'No' }}
+                  />
                 </>
               )}
               {formData.category === 'PC_DESKTOP' && (
                 <>
-                  <SelectField label="Cooler incluido" value={formData.coolerType} onChange={(value) => updateField('coolerType', value)} options={DESKTOP_COOLER_TYPES} />
-                  <NumberField label="Fuente de poder (Watts)" value={formData.psuWatts} onChange={(value) => updateField('psuWatts', value)} />
-                  <TextField label="Modelo del case" value={formData.caseModel} onChange={(value) => updateField('caseModel', value)} />
+                  <SelectField
+                    label="Cooler incluido"
+                    value={formData.coolerType}
+                    onChange={(value) => updateField('coolerType', value)}
+                    options={DESKTOP_COOLER_TYPES}
+                  />
+                  <NumberField
+                    label="Fuente de poder (Watts)"
+                    value={formData.psuWatts}
+                    onChange={(value) => updateField('psuWatts', value)}
+                  />
+                  <TextField
+                    label="Modelo del case"
+                    value={formData.caseModel}
+                    onChange={(value) => updateField('caseModel', value)}
+                  />
                 </>
               )}
             </div>
@@ -947,14 +1517,56 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Monitor</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={MONITOR_BRANDS} />
-              <TextField label="Tamaño" value={formData.screenSize} onChange={(value) => updateField('screenSize', value)} />
-              <SelectField label="Resolución" value={formData.resolution} onChange={(value) => updateField('resolution', value)} options={includeCurrentOption(MONITOR_RESOLUTION_OPTIONS, formData.resolution)} />
-              <SelectField label="Panel" value={formData.panelType} onChange={(value) => updateField('panelType', value)} options={PANEL_TYPES} />
-              <SelectField label="Hz" value={formData.refreshRate} onChange={(value) => updateField('refreshRate', value)} options={includeCurrentOption(MONITOR_REFRESH_OPTIONS, formData.refreshRate)} labels={Object.fromEntries(MONITOR_REFRESH_OPTIONS.map((value) => [value, `${value} Hz`]))} />
-              <NumberField label="Tiempo de respuesta (ms)" value={formData.responseTimeMs} onChange={(value) => updateField('responseTimeMs', value)} />
-              <SelectField label="Parlantes integrados" value={formData.hasSpeakers} onChange={(value) => updateField('hasSpeakers', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
-              <MultiCheckField label="Puertos disponibles" options={MONITOR_PORTS} values={formData.ports} onToggle={(value) => toggleArrayValue('ports', value)} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={MONITOR_BRANDS}
+              />
+              <TextField
+                label="Tamaño"
+                value={formData.screenSize}
+                onChange={(value) => updateField('screenSize', value)}
+              />
+              <SelectField
+                label="Resolución"
+                value={formData.resolution}
+                onChange={(value) => updateField('resolution', value)}
+                options={includeCurrentOption(MONITOR_RESOLUTION_OPTIONS, formData.resolution)}
+              />
+              <SelectField
+                label="Panel"
+                value={formData.panelType}
+                onChange={(value) => updateField('panelType', value)}
+                options={PANEL_TYPES}
+              />
+              <SelectField
+                label="Hz"
+                value={formData.refreshRate}
+                onChange={(value) => updateField('refreshRate', value)}
+                options={includeCurrentOption(MONITOR_REFRESH_OPTIONS, formData.refreshRate)}
+                labels={Object.fromEntries(
+                  MONITOR_REFRESH_OPTIONS.map((value) => [value, `${value} Hz`]),
+                )}
+              />
+              <NumberField
+                label="Tiempo de respuesta (ms)"
+                value={formData.responseTimeMs}
+                onChange={(value) => updateField('responseTimeMs', value)}
+              />
+              <SelectField
+                label="Parlantes integrados"
+                value={formData.hasSpeakers}
+                onChange={(value) => updateField('hasSpeakers', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <MultiCheckField
+                label="Puertos disponibles"
+                options={MONITOR_PORTS}
+                values={formData.ports}
+                onToggle={(value) => toggleArrayValue('ports', value)}
+              />
             </div>
           </section>
         )}
@@ -962,13 +1574,52 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Teclado</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={KEYBOARD_BRANDS} />
-              <SelectField label="Tipo de teclado" value={formData.keyboardType} onChange={(value) => updateField('keyboardType', value)} options={KEYBOARD_TYPES} />
-              <MultiCheckField label="Conectividad" options={PERIPHERAL_CONNECTIONS} values={formData.connections} onToggle={(value) => toggleArrayValue('connections', value)} />
-              <SelectField label="Idioma / Layout" value={formData.layoutLanguage} onChange={(value) => updateField('layoutLanguage', value)} options={LAYOUT_LANGUAGES} />
-              <SelectField label="Formato de teclado" value={formData.keyboardFormFactor} onChange={(value) => updateField('keyboardFormFactor', value)} options={includeCurrentOption(KEYBOARD_FORM_FACTORS, formData.keyboardFormFactor)} />
-              {formData.keyboardType === 'Semi-mecanico' && <SelectField label="RGB" value={formData.hasLighting} onChange={(value) => updateField('hasLighting', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />}
-              {(formData.keyboardType === 'Mecanico' || formData.keyboardType === 'Magnetico') && <TextField label="Tipo de switch" value={formData.switchType} onChange={(value) => updateField('switchType', value)} />}
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={KEYBOARD_BRANDS}
+              />
+              <SelectField
+                label="Tipo de teclado"
+                value={formData.keyboardType}
+                onChange={(value) => updateField('keyboardType', value)}
+                options={KEYBOARD_TYPES}
+              />
+              <MultiCheckField
+                label="Conectividad"
+                options={PERIPHERAL_CONNECTIONS}
+                values={formData.connections}
+                onToggle={(value) => toggleArrayValue('connections', value)}
+              />
+              <SelectField
+                label="Idioma / Layout"
+                value={formData.layoutLanguage}
+                onChange={(value) => updateField('layoutLanguage', value)}
+                options={LAYOUT_LANGUAGES}
+              />
+              <SelectField
+                label="Formato de teclado"
+                value={formData.keyboardFormFactor}
+                onChange={(value) => updateField('keyboardFormFactor', value)}
+                options={includeCurrentOption(KEYBOARD_FORM_FACTORS, formData.keyboardFormFactor)}
+              />
+              {formData.keyboardType === 'Semi-mecanico' && (
+                <SelectField
+                  label="RGB"
+                  value={formData.hasLighting}
+                  onChange={(value) => updateField('hasLighting', value)}
+                  options={['false', 'true']}
+                  labels={{ false: 'No', true: 'Si' }}
+                />
+              )}
+              {(formData.keyboardType === 'Mecanico' || formData.keyboardType === 'Magnetico') && (
+                <TextField
+                  label="Tipo de switch"
+                  value={formData.switchType}
+                  onChange={(value) => updateField('switchType', value)}
+                />
+              )}
             </div>
           </section>
         )}
@@ -976,18 +1627,56 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Mouse</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(MOUSE_BRANDS, formData.brand)} />
-              <SelectField label="Tipo de mouse" value={formData.mouseType} onChange={(value) => updateField('mouseType', value)} options={MOUSE_TYPES} />
-              <MultiCheckField label="Tipo de conexion" options={PERIPHERAL_CONNECTIONS} values={formData.connections} onToggle={(value) => toggleArrayValue('connections', value)} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(MOUSE_BRANDS, formData.brand)}
+              />
+              <SelectField
+                label="Tipo de mouse"
+                value={formData.mouseType}
+                onChange={(value) => updateField('mouseType', value)}
+                options={MOUSE_TYPES}
+              />
+              <MultiCheckField
+                label="Tipo de conexion"
+                options={PERIPHERAL_CONNECTIONS}
+                values={formData.connections}
+                onToggle={(value) => toggleArrayValue('connections', value)}
+              />
               {formData.mouseType === 'Gamer' && (
                 <>
-                  <NumberField label="Cantidad de botones" value={formData.buttonCount} onChange={(value) => updateField('buttonCount', value)} />
-                  <NumberField label="DPI maximo" value={formData.dpi} onChange={(value) => updateField('dpi', value)} />
-                  <SelectField label="Polling Rate" value={formData.pollingRateHz} onChange={(value) => updateField('pollingRateHz', value)} options={POLLING_RATES} labels={{ 1000: '1000 Hz', 2000: '2000 Hz', 4000: '4000 Hz', 8000: '8000 Hz' }} />
+                  <NumberField
+                    label="Cantidad de botones"
+                    value={formData.buttonCount}
+                    onChange={(value) => updateField('buttonCount', value)}
+                  />
+                  <NumberField
+                    label="DPI maximo"
+                    value={formData.dpi}
+                    onChange={(value) => updateField('dpi', value)}
+                  />
+                  <SelectField
+                    label="Polling Rate"
+                    value={formData.pollingRateHz}
+                    onChange={(value) => updateField('pollingRateHz', value)}
+                    options={POLLING_RATES}
+                    labels={{ 1000: '1000 Hz', 2000: '2000 Hz', 4000: '4000 Hz', 8000: '8000 Hz' }}
+                  />
                 </>
               )}
-              <SelectField label="Usa bateria o pila?" value={formData.powerType} onChange={(value) => updateField('powerType', value)} options={MOUSE_POWER_TYPES} />
-              <NumberField label="Peso (g)" value={formData.weightGrams} onChange={(value) => updateField('weightGrams', value)} />
+              <SelectField
+                label="Usa bateria o pila?"
+                value={formData.powerType}
+                onChange={(value) => updateField('powerType', value)}
+                options={MOUSE_POWER_TYPES}
+              />
+              <NumberField
+                label="Peso (g)"
+                value={formData.weightGrams}
+                onChange={(value) => updateField('weightGrams', value)}
+              />
             </div>
           </section>
         )}
@@ -996,10 +1685,29 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Mousepad</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(MOUSEPAD_BRANDS, formData.brand)} />
-              <NumberField label="Ancho (mm)" value={formData.widthCm} onChange={(value) => updateField('widthCm', value)} />
-              <NumberField label="Largo (mm)" value={formData.lengthCm} onChange={(value) => updateField('lengthCm', value)} />
-              <SelectField label="Tiene LEDs" value={formData.hasLed} onChange={(value) => updateField('hasLed', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(MOUSEPAD_BRANDS, formData.brand)}
+              />
+              <NumberField
+                label="Ancho (mm)"
+                value={formData.widthCm}
+                onChange={(value) => updateField('widthCm', value)}
+              />
+              <NumberField
+                label="Largo (mm)"
+                value={formData.lengthCm}
+                onChange={(value) => updateField('lengthCm', value)}
+              />
+              <SelectField
+                label="Tiene LEDs"
+                value={formData.hasLed}
+                onChange={(value) => updateField('hasLed', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
             </div>
           </section>
         )}
@@ -1008,9 +1716,25 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Webcam</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(WEBCAM_BRANDS, formData.brand)} />
-              <SelectField label="Resolucion" value={formData.resolution} onChange={(value) => updateField('resolution', value)} options={includeCurrentOption(VIDEO_RESOLUTION_OPTIONS, formData.resolution)} />
-              <SelectField label="FPS" value={formData.fps} onChange={(value) => updateField('fps', value)} options={includeCurrentOption(WEBCAM_FPS_OPTIONS, formData.fps)} labels={{ 30: '30 FPS', 60: '60 FPS' }} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(WEBCAM_BRANDS, formData.brand)}
+              />
+              <SelectField
+                label="Resolucion"
+                value={formData.resolution}
+                onChange={(value) => updateField('resolution', value)}
+                options={includeCurrentOption(VIDEO_RESOLUTION_OPTIONS, formData.resolution)}
+              />
+              <SelectField
+                label="FPS"
+                value={formData.fps}
+                onChange={(value) => updateField('fps', value)}
+                options={includeCurrentOption(WEBCAM_FPS_OPTIONS, formData.fps)}
+                labels={{ 30: '30 FPS', 60: '60 FPS' }}
+              />
             </div>
           </section>
         )}
@@ -1019,9 +1743,25 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Capturadora</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(CAPTURE_CARD_BRANDS, formData.brand)} />
-              <SelectField label="Resolucion" value={formData.resolution} onChange={(value) => updateField('resolution', value)} options={includeCurrentOption(VIDEO_RESOLUTION_OPTIONS, formData.resolution)} />
-              <SelectField label="FPS" value={formData.fps} onChange={(value) => updateField('fps', value)} options={includeCurrentOption(CAPTURE_CARD_FPS_OPTIONS, formData.fps)} labels={{ 30: '30 FPS', 60: '60 FPS', 120: '120 FPS' }} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(CAPTURE_CARD_BRANDS, formData.brand)}
+              />
+              <SelectField
+                label="Resolucion"
+                value={formData.resolution}
+                onChange={(value) => updateField('resolution', value)}
+                options={includeCurrentOption(VIDEO_RESOLUTION_OPTIONS, formData.resolution)}
+              />
+              <SelectField
+                label="FPS"
+                value={formData.fps}
+                onChange={(value) => updateField('fps', value)}
+                options={includeCurrentOption(CAPTURE_CARD_FPS_OPTIONS, formData.fps)}
+                labels={{ 30: '30 FPS', 60: '60 FPS', 120: '120 FPS' }}
+              />
             </div>
           </section>
         )}
@@ -1030,19 +1770,57 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Cables y Hub</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(CABLE_HUB_BRANDS, formData.brand)} />
-              <SelectField label="Tipo" value={formData.cableHubType} onChange={(value) => updateField('cableHubType', value)} options={includeCurrentOption(CABLE_HUB_TYPES, formData.cableHubType)} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(CABLE_HUB_BRANDS, formData.brand)}
+              />
+              <SelectField
+                label="Tipo"
+                value={formData.cableHubType}
+                onChange={(value) => updateField('cableHubType', value)}
+                options={includeCurrentOption(CABLE_HUB_TYPES, formData.cableHubType)}
+              />
               {formData.cableHubType === 'Cable' && (
                 <>
-                  <SelectField label="Tipo de cable" value={formData.cableType} onChange={(value) => updateField('cableType', value)} options={includeCurrentOption(CABLE_TYPES, formData.cableType)} />
-                  <SelectField label="Largo en metros" value={formData.cableLengthMeters} onChange={(value) => updateField('cableLengthMeters', value)} options={includeCurrentOption(CABLE_LENGTHS, formData.cableLengthMeters)} labels={{ 1: '1 m', 2: '2 m', 3: '3 m' }} />
+                  <SelectField
+                    label="Tipo de cable"
+                    value={formData.cableType}
+                    onChange={(value) => updateField('cableType', value)}
+                    options={includeCurrentOption(CABLE_TYPES, formData.cableType)}
+                  />
+                  <SelectField
+                    label="Largo en metros"
+                    value={formData.cableLengthMeters}
+                    onChange={(value) => updateField('cableLengthMeters', value)}
+                    options={includeCurrentOption(CABLE_LENGTHS, formData.cableLengthMeters)}
+                    labels={{ 1: '1 m', 2: '2 m', 3: '3 m' }}
+                  />
                 </>
               )}
               {formData.cableHubType === 'Hub' && (
                 <>
-                  <SelectField label="Tipo de entrada" value={formData.hubInputType} onChange={(value) => updateField('hubInputType', value)} options={includeCurrentOption(HUB_INPUT_TYPES, formData.hubInputType)} />
-                  <SelectField label="Salida HDMI" value={formData.hasHdmiOutput} onChange={(value) => updateField('hasHdmiOutput', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
-                  <SelectField label="Salida RJ45" value={formData.hasRj45Output} onChange={(value) => updateField('hasRj45Output', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
+                  <SelectField
+                    label="Tipo de entrada"
+                    value={formData.hubInputType}
+                    onChange={(value) => updateField('hubInputType', value)}
+                    options={includeCurrentOption(HUB_INPUT_TYPES, formData.hubInputType)}
+                  />
+                  <SelectField
+                    label="Salida HDMI"
+                    value={formData.hasHdmiOutput}
+                    onChange={(value) => updateField('hasHdmiOutput', value)}
+                    options={['false', 'true']}
+                    labels={{ false: 'No', true: 'Si' }}
+                  />
+                  <SelectField
+                    label="Salida RJ45"
+                    value={formData.hasRj45Output}
+                    onChange={(value) => updateField('hasRj45Output', value)}
+                    options={['false', 'true']}
+                    labels={{ false: 'No', true: 'Si' }}
+                  />
                 </>
               )}
             </div>
@@ -1053,9 +1831,24 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Base refrigeradora</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(LAPTOP_COOLING_BASE_BRANDS, formData.brand)} />
-              <SelectField label="Cantidad de ventiladores" value={formData.fanCount} onChange={(value) => updateField('fanCount', value)} options={includeCurrentOption(LAPTOP_COOLING_BASE_FAN_COUNTS, formData.fanCount)} />
-              <SelectField label="Conectividad" value={formData.connectivity} onChange={(value) => updateField('connectivity', value)} options={includeCurrentOption(LAPTOP_ACCESSORY_CONNECTIVITY, formData.connectivity)} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(LAPTOP_COOLING_BASE_BRANDS, formData.brand)}
+              />
+              <SelectField
+                label="Cantidad de ventiladores"
+                value={formData.fanCount}
+                onChange={(value) => updateField('fanCount', value)}
+                options={includeCurrentOption(LAPTOP_COOLING_BASE_FAN_COUNTS, formData.fanCount)}
+              />
+              <SelectField
+                label="Conectividad"
+                value={formData.connectivity}
+                onChange={(value) => updateField('connectivity', value)}
+                options={includeCurrentOption(LAPTOP_ACCESSORY_CONNECTIVITY, formData.connectivity)}
+              />
             </div>
           </section>
         )}
@@ -1064,8 +1857,17 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Mochila</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(BACKPACK_BRANDS, formData.brand)} />
-              <TextField label="Color" value={formData.color} onChange={(value) => updateField('color', value)} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(BACKPACK_BRANDS, formData.brand)}
+              />
+              <TextField
+                label="Color"
+                value={formData.color}
+                onChange={(value) => updateField('color', value)}
+              />
             </div>
           </section>
         )}
@@ -1074,24 +1876,72 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Audifonos</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(HEADSET_BRANDS, formData.brand)} />
-              <SelectField label="Conexion" value={formData.connection} onChange={(value) => updateField('connection', value)} options={includeCurrentOption(HEADSET_CONNECTION_TYPES, formData.connection)} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(HEADSET_BRANDS, formData.brand)}
+              />
+              <SelectField
+                label="Conexion"
+                value={formData.connection}
+                onChange={(value) => updateField('connection', value)}
+                options={includeCurrentOption(HEADSET_CONNECTION_TYPES, formData.connection)}
+              />
               <div className="col-span-2">
-                <label className="mb-2 block text-sm font-bold text-gray-700">Conectividad soportada</label>
+                <span className="mb-2 block text-sm font-bold text-gray-700">
+                  Conectividad soportada
+                </span>
                 <div className="grid grid-cols-2 gap-2">
-                  {(formData.connection === 'Cableado' ? HEADSET_WIRED_CONNECTIONS : HEADSET_WIRELESS_CONNECTIONS).map((option) => (
-                    <label key={option} className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold">
-                      <input type="checkbox" checked={formData.supportedConnections.includes(option)} onChange={() => toggleArrayValue('supportedConnections', option)} />
-                      {option}
+                  {(formData.connection === 'Cableado'
+                    ? HEADSET_WIRED_CONNECTIONS
+                    : HEADSET_WIRELESS_CONNECTIONS
+                  ).map((option) => (
+                    <label
+                      key={option}
+                      htmlFor={`edit-product-supported-connections-${option}`}
+                      className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
+                    >
+                      <input
+                        id={`edit-product-supported-connections-${option}`}
+                        type="checkbox"
+                        checked={formData.supportedConnections.includes(option)}
+                        onChange={() => toggleArrayValue('supportedConnections', option)}
+                      />
+                      <span>{option}</span>
                     </label>
                   ))}
                 </div>
               </div>
-              <NumberField label="Drivers (mm)" value={formData.driverSize} onChange={(value) => updateField('driverSize', value)} />
-              <NumberField label="Impedancia (Ohms)" value={formData.impedance} onChange={(value) => updateField('impedance', value)} />
-              <TextField label="Microfono" value={formData.micType} onChange={(value) => updateField('micType', value)} />
-              <SelectField label="Cancelacion de ruido" value={formData.noiseCancel} onChange={(value) => updateField('noiseCancel', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
-              <SelectField label="RGB" value={formData.hasRGB} onChange={(value) => updateField('hasRGB', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
+              <NumberField
+                label="Drivers (mm)"
+                value={formData.driverSize}
+                onChange={(value) => updateField('driverSize', value)}
+              />
+              <NumberField
+                label="Impedancia (Ohms)"
+                value={formData.impedance}
+                onChange={(value) => updateField('impedance', value)}
+              />
+              <TextField
+                label="Microfono"
+                value={formData.micType}
+                onChange={(value) => updateField('micType', value)}
+              />
+              <SelectField
+                label="Cancelacion de ruido"
+                value={formData.noiseCancel}
+                onChange={(value) => updateField('noiseCancel', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <SelectField
+                label="RGB"
+                value={formData.hasRGB}
+                onChange={(value) => updateField('hasRGB', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
             </div>
           </section>
         )}
@@ -1100,10 +1950,29 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Microfono</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(MICROPHONE_BRANDS, formData.brand)} />
-              <TextField label="Conexion" value={formData.connection} onChange={(value) => updateField('connection', value)} />
-              <TextField label="Microfono" value={formData.micType} onChange={(value) => updateField('micType', value)} />
-              <SelectField label="RGB" value={formData.hasRGB} onChange={(value) => updateField('hasRGB', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(MICROPHONE_BRANDS, formData.brand)}
+              />
+              <TextField
+                label="Conexion"
+                value={formData.connection}
+                onChange={(value) => updateField('connection', value)}
+              />
+              <TextField
+                label="Microfono"
+                value={formData.micType}
+                onChange={(value) => updateField('micType', value)}
+              />
+              <SelectField
+                label="RGB"
+                value={formData.hasRGB}
+                onChange={(value) => updateField('hasRGB', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
             </div>
           </section>
         )}
@@ -1112,10 +1981,29 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Parlantes</h2>
             <div className="grid grid-cols-2 gap-4">
-              <SelectField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} options={includeCurrentOption(SPEAKER_BRANDS, formData.brand)} />
-              <TextField label="Conexion" value={formData.connection} onChange={(value) => updateField('connection', value)} />
-              <NumberField label="Potencia (W)" value={formData.wattage} onChange={(value) => updateField('wattage', value)} />
-              <SelectField label="RGB" value={formData.hasRGB} onChange={(value) => updateField('hasRGB', value)} options={['false', 'true']} labels={{ false: 'No', true: 'Si' }} />
+              <SelectField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={includeCurrentOption(SPEAKER_BRANDS, formData.brand)}
+              />
+              <TextField
+                label="Conexion"
+                value={formData.connection}
+                onChange={(value) => updateField('connection', value)}
+              />
+              <NumberField
+                label="Potencia (W)"
+                value={formData.wattage}
+                onChange={(value) => updateField('wattage', value)}
+              />
+              <SelectField
+                label="RGB"
+                value={formData.hasRGB}
+                onChange={(value) => updateField('hasRGB', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
             </div>
           </section>
         )}
@@ -1124,10 +2012,27 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Silla Gaming</h2>
             <div className="grid grid-cols-2 gap-4">
-              <TextField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} />
-              <TextField label="Color" value={formData.color} onChange={(value) => updateField('color', value)} />
-              <SelectField label="Material" value={formData.material} onChange={(value) => updateField('material', value)} options={CHAIR_MATERIALS} />
-              <NumberField label="Peso maximo soportado (kg)" value={formData.maxWeightKg} onChange={(value) => updateField('maxWeightKg', value)} />
+              <TextField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+              />
+              <TextField
+                label="Color"
+                value={formData.color}
+                onChange={(value) => updateField('color', value)}
+              />
+              <SelectField
+                label="Material"
+                value={formData.material}
+                onChange={(value) => updateField('material', value)}
+                options={CHAIR_MATERIALS}
+              />
+              <NumberField
+                label="Peso maximo soportado (kg)"
+                value={formData.maxWeightKg}
+                onChange={(value) => updateField('maxWeightKg', value)}
+              />
             </div>
           </section>
         )}
@@ -1136,16 +2041,32 @@ export default function EditProductPage() {
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
             <h2 className="mb-4 font-black text-gray-800">Especificaciones Mesa Gamer</h2>
             <div className="grid grid-cols-2 gap-4">
-              <TextField label="Marca" value={formData.brand} onChange={(value) => updateField('brand', value)} />
-              <TextField label="Color" value={formData.color} onChange={(value) => updateField('color', value)} />
-              <TextField label="Superficie" value={formData.surface} onChange={(value) => updateField('surface', value)} />
-              <NumberField label="Peso (kg)" value={formData.weightKg} onChange={(value) => updateField('weightKg', value)} />
+              <TextField
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+              />
+              <TextField
+                label="Color"
+                value={formData.color}
+                onChange={(value) => updateField('color', value)}
+              />
+              <TextField
+                label="Superficie"
+                value={formData.surface}
+                onChange={(value) => updateField('surface', value)}
+              />
+              <NumberField
+                label="Peso (kg)"
+                value={formData.weightKg}
+                onChange={(value) => updateField('weightKg', value)}
+              />
             </div>
           </section>
         )}
 
         <div>
-          <label className="mb-2 block text-sm font-bold text-gray-700">Imagenes del producto</label>
+          <span className="mb-2 block text-sm font-bold text-gray-700">Imagenes del producto</span>
           <ImageUploader
             mode="product"
             files={imageFiles}
@@ -1157,7 +2078,11 @@ export default function EditProductPage() {
           />
         </div>
 
-        <button type="submit" disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-cyan py-4 text-lg font-bold text-white shadow-lg transition hover:bg-brand-dark disabled:cursor-wait disabled:opacity-60">
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-cyan py-4 text-lg font-bold text-white shadow-lg transition hover:bg-brand-dark disabled:cursor-wait disabled:opacity-60"
+        >
           <FiSave /> {saving ? 'Guardando...' : 'Guardar Cambios'}
         </button>
       </form>
@@ -1165,20 +2090,72 @@ export default function EditProductPage() {
   );
 }
 
-function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function fieldId(label: string) {
+  const normalized = Array.from(label.toLowerCase())
+    .map((char) => {
+      const code = char.codePointAt(0);
+      const isLetter = code !== undefined && code >= 97 && code <= 122;
+      const isDigit = code !== undefined && code >= 48 && code <= 57;
+      return isLetter || isDigit ? char : '-';
+    })
+    .join('')
+    .split('-')
+    .filter(Boolean)
+    .join('-');
+
+  return `edit-product-${normalized}`;
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const id = fieldId(label);
   return (
     <div>
-      <label className="mb-2 block text-sm font-bold text-gray-700">{label}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan" />
+      <label htmlFor={id} className="mb-2 block text-sm font-bold text-gray-700">
+        {label}
+      </label>
+      <input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan"
+      />
     </div>
   );
 }
 
-function NumberField({ label, value, onChange, helper }: { label: string; value: string; onChange: (value: string) => void; helper?: string }) {
+function NumberField({
+  label,
+  value,
+  onChange,
+  helper,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  helper?: string;
+}) {
+  const id = fieldId(label);
   return (
     <div>
-      <label className="mb-2 block text-sm font-bold text-gray-700">{label}</label>
-      <input type="number" min="0" value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan" />
+      <label htmlFor={id} className="mb-2 block text-sm font-bold text-gray-700">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        min="0"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan"
+      />
       {helper && <span className="mt-1 block text-xs text-gray-500">{helper}</span>}
     </div>
   );
@@ -1197,12 +2174,22 @@ function SelectField({
   options: string[];
   labels?: Record<string, string>;
 }) {
+  const id = fieldId(label);
   return (
     <div>
-      <label className="mb-2 block text-sm font-bold text-gray-700">{label}</label>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan">
+      <label htmlFor={id} className="mb-2 block text-sm font-bold text-gray-700">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan"
+      >
         {options.map((option) => (
-          <option key={option} value={option}>{labels[option] ?? option}</option>
+          <option key={option} value={option}>
+            {labels[option] ?? option}
+          </option>
         ))}
       </select>
     </div>
@@ -1222,16 +2209,24 @@ function MultiCheckField({
 }) {
   return (
     <div className="col-span-2">
-      <label className="mb-2 block text-sm font-bold text-gray-700">{label}</label>
+      <span className="mb-2 block text-sm font-bold text-gray-700">{label}</span>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         {options.map((option) => (
-          <label key={option} className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold">
-            <input type="checkbox" checked={values.includes(option)} onChange={() => onToggle(option)} />
-            {option}
+          <label
+            key={option}
+            htmlFor={`${fieldId(label)}-${option}`}
+            className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
+          >
+            <input
+              id={`${fieldId(label)}-${option}`}
+              type="checkbox"
+              checked={values.includes(option)}
+              onChange={() => onToggle(option)}
+            />
+            <span>{option}</span>
           </label>
         ))}
       </div>
     </div>
   );
 }
-

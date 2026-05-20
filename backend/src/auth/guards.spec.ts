@@ -25,7 +25,11 @@ describe('Auth guards', () => {
 
   it('AUTH-07 token invalido devuelve UnauthorizedException', async () => {
     const reflector = { getAllAndOverride: jest.fn(() => false) };
-    const jwtService = { verifyAsync: jest.fn(async () => { throw new Error('bad token'); }) };
+    const jwtService = {
+      verifyAsync: jest.fn(async () => {
+        throw new Error('bad token');
+      }),
+    };
     const guard = new JwtAuthGuard(reflector as any, jwtService as any);
 
     await expect(

@@ -14,7 +14,9 @@ describeWithTestDb('Pagos manuales HTTP E2E real', () => {
   });
 
   async function createManualPayment() {
-    const product = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.noSale } });
+    const product = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.noSale },
+    });
     const order = await request(ctx.app.getHttpServer())
       .post('/orders')
       .set('Authorization', `Bearer ${ctx.tokens.customer}`)
@@ -24,7 +26,11 @@ describeWithTestDb('Pagos manuales HTTP E2E real', () => {
     const payment = await request(ctx.app.getHttpServer())
       .post('/payments/manual')
       .set('Authorization', `Bearer ${ctx.tokens.customer}`)
-      .send({ orderId: order.body.id, method: 'YAPE', operationCode: 'QA987654' })
+      .send({
+        orderId: order.body.id,
+        method: 'YAPE',
+        operationCode: 'QA987654',
+      })
       .expect(201);
 
     return { product, order: order.body, payment: payment.body };
@@ -32,7 +38,9 @@ describeWithTestDb('Pagos manuales HTTP E2E real', () => {
 
   it('PAY-E2E-01/02 cliente crea pago manual y queda PENDING_REVIEW', async () => {
     const { product, payment } = await createManualPayment();
-    const unchanged = await ctx.prisma.product.findUniqueOrThrow({ where: { id: product.id } });
+    const unchanged = await ctx.prisma.product.findUniqueOrThrow({
+      where: { id: product.id },
+    });
 
     expect(payment.status).toBe('PENDING_REVIEW');
     expect(unchanged.stock).toBe(product.stock);
@@ -55,7 +63,9 @@ describeWithTestDb('Pagos manuales HTTP E2E real', () => {
       .set('Authorization', `Bearer ${ctx.tokens.admin}`)
       .expect(200);
 
-    const updated = await ctx.prisma.product.findUniqueOrThrow({ where: { id: product.id } });
+    const updated = await ctx.prisma.product.findUniqueOrThrow({
+      where: { id: product.id },
+    });
     expect(res.body.status).toBe('APPROVED');
     expect(res.body.order.status).toBe('PAID');
     expect(updated.stock).toBe(product.stock - 1);
@@ -69,7 +79,9 @@ describeWithTestDb('Pagos manuales HTTP E2E real', () => {
       .set('Authorization', `Bearer ${ctx.tokens.admin}`)
       .expect(200);
 
-    const updated = await ctx.prisma.product.findUniqueOrThrow({ where: { id: product.id } });
+    const updated = await ctx.prisma.product.findUniqueOrThrow({
+      where: { id: product.id },
+    });
     expect(res.body.status).toBe('REJECTED');
     expect(updated.stock).toBe(product.stock);
   });

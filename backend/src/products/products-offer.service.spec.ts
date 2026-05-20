@@ -66,7 +66,7 @@ describe('ProductsService ofertas API/service', () => {
         tdp: 105,
         integratedGraphics: true,
         includesCooler: false,
-      } as any,
+      },
       'admin-1',
     );
 
@@ -84,7 +84,7 @@ describe('ProductsService ofertas API/service', () => {
     const current = { ...baseProduct, isOnSale: false, salePrice: null };
     const { service, prisma } = createService(current);
 
-    await service.update('product-1', { stock: 8, price: 1300 } as any, 'admin-1');
+    await service.update('product-1', { stock: 8, price: 1300 }, 'admin-1');
 
     expect(prisma.product.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -97,7 +97,7 @@ describe('ProductsService ofertas API/service', () => {
     const current = { ...baseProduct, isOnSale: false, salePrice: null };
     const { service, prisma } = createService(current);
 
-    await service.update('product-1', { isOnSale: true, salePrice: 999 } as any, 'admin-1');
+    await service.update('product-1', { isOnSale: true, salePrice: 999 }, 'admin-1');
 
     expect(prisma.product.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -117,7 +117,7 @@ describe('ProductsService ofertas API/service', () => {
   it('PROD-06 desactiva oferta guardando isOnSale=false y salePrice=null', async () => {
     const { service, prisma } = createService();
 
-    await service.update('product-1', { isOnSale: false } as any, 'admin-1');
+    await service.update('product-1', { isOnSale: false }, 'admin-1');
 
     expect(prisma.product.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -131,7 +131,15 @@ describe('ProductsService ofertas API/service', () => {
     const { service } = createService(current);
 
     await expect(
-      service.update('product-1', { description: 'Descripcion actualizada para QA sin oferta' } as any, 'admin-1'),
-    ).resolves.toEqual(expect.objectContaining({ description: 'Descripcion actualizada para QA sin oferta' }));
+      service.update(
+        'product-1',
+        { description: 'Descripcion actualizada para QA sin oferta' } as any,
+        'admin-1',
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        description: 'Descripcion actualizada para QA sin oferta',
+      }),
+    );
   });
 });

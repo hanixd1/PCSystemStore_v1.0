@@ -8,8 +8,7 @@ import { RolesGuard } from './roles.guard';
   imports: [
     JwtModule.registerAsync({
       useFactory: () => ({
-        secret:
-          process.env.JWT_SECRET?.trim() || 'development-jwt-secret-change-me',
+        secret: process.env.JWT_SECRET?.trim() || 'development-jwt-secret-change-me',
         signOptions: {
           expiresIn: (process.env.JWT_EXPIRES_IN?.trim() || '1d') as any,
         },

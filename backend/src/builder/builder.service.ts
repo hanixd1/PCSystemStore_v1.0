@@ -130,9 +130,7 @@ export class BuilderService {
   }
 
   async validateBuild(items: BuildItemDto[]) {
-    const productIds = [
-      ...new Set(items.map((item) => item.productId.trim()).filter(Boolean)),
-    ];
+    const productIds = [...new Set(items.map((item) => item.productId.trim()).filter(Boolean))];
     const products = await this.findBuildProducts(productIds);
     const foundIds = new Set(products.map((product) => product.id));
     const errors: BuildValidationIssue[] = [];
@@ -258,7 +256,8 @@ export class BuilderService {
     ) {
       errors.push({
         code: 'RAM_MOTHERBOARD_MEMORY_TYPE_MISMATCH',
-        message: 'La memoria RAM seleccionada no coincide con el tipo soportado por la placa madre.',
+        message:
+          'La memoria RAM seleccionada no coincide con el tipo soportado por la placa madre.',
         products: [ram.id, motherboard.id],
       });
     }
@@ -394,7 +393,8 @@ export class BuilderService {
     if (caseFormFactor !== motherboardFormFactor) {
       errors.push({
         code: 'CASE_MOTHERBOARD_FORM_FACTOR_MISMATCH',
-        message: 'El gabinete seleccionado no declara soporte para el factor de forma de la placa madre.',
+        message:
+          'El gabinete seleccionado no declara soporte para el factor de forma de la placa madre.',
         products: [pcCase.id, motherboard.id],
       });
     }
@@ -425,7 +425,8 @@ export class BuilderService {
     if (gpuLength > caseMaxGpuLength) {
       errors.push({
         code: 'GPU_CASE_LENGTH_EXCEEDED',
-        message: 'La tarjeta grafica seleccionada excede el largo maximo soportado por el gabinete.',
+        message:
+          'La tarjeta grafica seleccionada excede el largo maximo soportado por el gabinete.',
         products: [gpu.id, pcCase.id],
       });
     }
@@ -479,7 +480,9 @@ export class BuilderService {
   }
 
   private normalizeText(value: unknown) {
-    return String(value ?? '').trim().toUpperCase();
+    return String(value ?? '')
+      .trim()
+      .toUpperCase();
   }
 
   private toNumber(value: unknown) {

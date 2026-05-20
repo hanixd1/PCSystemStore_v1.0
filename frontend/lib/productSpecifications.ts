@@ -300,7 +300,9 @@ function skipSpaces(text: string, startIndex: number) {
 }
 
 function formatCapacityOccurrences(value: SpecValue, allowedUnits: string[]) {
-  const raw = String(value ?? '').slice(0, MAX_SPEC_VALUE_LENGTH).trim();
+  const raw = String(value ?? '')
+    .slice(0, MAX_SPEC_VALUE_LENGTH)
+    .trim();
   if (!raw) return '';
 
   let output = '';
@@ -352,7 +354,9 @@ function formatLaptopValue(key: string, value: SpecValue, unit?: string) {
   }
 
   if (key === 'screenSize') {
-    const screenSize = String(value || '').replace(/"/g, '').trim();
+    const screenSize = String(value || '')
+      .replace(/"/g, '')
+      .trim();
     return screenSize ? `${screenSize}"` : '';
   }
 
@@ -393,7 +397,8 @@ export function buildSpecificationRows(product: Record<string, any>): Specificat
   const mappedRows = fieldMap
     .filter(([, key]) => {
       if (product.category === 'KEYBOARD') {
-        if (key === 'hasLighting') return specs.hasLighting !== null && specs.hasLighting !== undefined;
+        if (key === 'hasLighting')
+          return specs.hasLighting !== null && specs.hasLighting !== undefined;
         if (key === 'switchType') {
           return specs.keyboardType === 'Mecanico' || specs.keyboardType === 'Magnetico';
         }
@@ -401,19 +406,24 @@ export function buildSpecificationRows(product: Record<string, any>): Specificat
       }
 
       if (product.category === 'MOUSE') {
-        if (['buttonCount', 'dpi', 'pollingRateHz'].includes(key)) return specs.mouseType === 'Gamer';
+        if (['buttonCount', 'dpi', 'pollingRateHz'].includes(key))
+          return specs.mouseType === 'Gamer';
       }
 
       return true;
     })
     .map(([label, key, unit]) => {
-      const value = product.category === 'GPU' && key === 'gpuPowerWatts'
-        ? specs.gpuPowerWatts ?? specs.tdp
-        : specs[key];
+      const value =
+        product.category === 'GPU' && key === 'gpuPowerWatts'
+          ? (specs.gpuPowerWatts ?? specs.tdp)
+          : specs[key];
 
       return {
         label,
-        value: product.category === 'LAPTOP' ? formatLaptopValue(key, value, unit) : formatValue(value, unit),
+        value:
+          product.category === 'LAPTOP'
+            ? formatLaptopValue(key, value, unit)
+            : formatValue(value, unit),
       };
     })
     .filter((row) => hasValue(row.value));

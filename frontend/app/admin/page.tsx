@@ -21,7 +21,7 @@ export default function AdminDashboard() {
       const res = await api.get('/products');
       setProducts(res.data);
     } catch (error) {
-      console.error("Error cargando productos", error);
+      console.error('Error cargando productos', error);
     } finally {
       setLoading(false);
     }
@@ -31,7 +31,7 @@ export default function AdminDashboard() {
     if (!confirm('¿Estás seguro de eliminar este producto?')) return;
     try {
       await api.delete(`/products/${id}`);
-      setProducts(products.filter(p => p.id !== id)); // Actualizar tabla visualmente
+      setProducts(products.filter((p) => p.id !== id)); // Actualizar tabla visualmente
       alert('Producto eliminado');
     } catch (error: unknown) {
       alert(getApiErrorMessage(error, 'Error al eliminar'));
@@ -39,9 +39,10 @@ export default function AdminDashboard() {
   };
 
   // Filtrado simple por nombre
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
@@ -52,8 +53,8 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-black text-gray-800">Inventario</h1>
           <p className="text-gray-500">Gestión total de {products.length} productos.</p>
         </div>
-        <Link 
-          href="/admin/add-product" 
+        <Link
+          href="/admin/add-product"
           className="bg-black text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-800 transition flex items-center gap-2"
         >
           <FiPlus /> Nuevo Producto
@@ -63,9 +64,9 @@ export default function AdminDashboard() {
       {/* BARRA DE BÚSQUEDA */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex items-center gap-3">
         <FiSearch className="text-gray-400 text-xl" />
-        <input 
-          type="text" 
-          placeholder="Buscar por nombre o SKU..." 
+        <input
+          type="text"
+          placeholder="Buscar por nombre o SKU..."
           className="w-full outline-none text-gray-700 font-medium"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -87,9 +88,17 @@ export default function AdminDashboard() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={5} className="p-8 text-center">Cargando inventario...</td></tr>
+                <tr>
+                  <td colSpan={5} className="p-8 text-center">
+                    Cargando inventario...
+                  </td>
+                </tr>
               ) : filteredProducts.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-gray-400">No se encontraron productos.</td></tr>
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-gray-400">
+                    No se encontraron productos.
+                  </td>
+                </tr>
               ) : (
                 filteredProducts.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50 transition group">
@@ -122,30 +131,38 @@ export default function AdminDashboard() {
                     <td className="p-4 font-bold text-gray-900">
                       {product.isOnSale && Number(product.salePrice) > 0 ? (
                         <div>
-                          <span className="text-red-600">S/. {Number(product.salePrice).toFixed(2)}</span>
-                          <span className="ml-2 text-xs text-gray-400 line-through">S/. {Number(product.price).toFixed(2)}</span>
-                          <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">Oferta</span>
+                          <span className="text-red-600">
+                            S/. {Number(product.salePrice).toFixed(2)}
+                          </span>
+                          <span className="ml-2 text-xs text-gray-400 line-through">
+                            S/. {Number(product.price).toFixed(2)}
+                          </span>
+                          <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">
+                            Oferta
+                          </span>
                         </div>
                       ) : (
                         <>S/. {Number(product.price).toFixed(2)}</>
                       )}
                     </td>
                     <td className="p-4">
-                      <div className={`flex items-center gap-2 font-bold ${product.stock < 5 ? 'text-red-500' : 'text-green-600'}`}>
+                      <div
+                        className={`flex items-center gap-2 font-bold ${product.stock < 5 ? 'text-red-500' : 'text-green-600'}`}
+                      >
                         {product.stock < 5 && <FiAlertCircle />}
                         {product.stock} u.
                       </div>
                     </td>
                     <td className="p-4">
                       <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Link 
+                        <Link
                           href={`/admin/edit-product/${product.id}`}
                           className="p-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition"
                           title="Editar"
                         >
                           <FiEdit />
                         </Link>
-                        <button 
+                        <button
                           onClick={() => handleDelete(product.id)}
                           className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
                           title="Eliminar"

@@ -13,12 +13,16 @@ export class BrandingService {
   ) {}
 
   private isValidVisualUrl(value?: string) {
-    if (!value) return true;
+    if (!value) {
+      return true;
+    }
     return value.startsWith('/uploads/') || /^https?:\/\/[^\s<>"']+$/i.test(value);
   }
 
   private isValidLink(value?: string) {
-    if (!value) return true;
+    if (!value) {
+      return true;
+    }
     return value.startsWith('/') || /^https?:\/\/[^\s<>"']+$/i.test(value);
   }
 
@@ -29,7 +33,11 @@ export class BrandingService {
   }
 
   private validateBanner(data: CreateBannerDto | UpdateBannerDto) {
-    if ('imageUrl' in data && data.imageUrl !== undefined && !this.isValidVisualUrl(data.imageUrl)) {
+    if (
+      'imageUrl' in data &&
+      data.imageUrl !== undefined &&
+      !this.isValidVisualUrl(data.imageUrl)
+    ) {
       throw new BadRequestException('La URL de imagen desktop debe ser una URL http/https valida');
     }
 
@@ -149,12 +157,18 @@ export class BrandingService {
         ...(data.title !== undefined ? { title: data.title } : {}),
         ...(data.subtitle !== undefined ? { subtitle: data.subtitle || null } : {}),
         ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
-        ...(data.mobileImageUrl !== undefined ? { mobileImageUrl: data.mobileImageUrl || null } : {}),
+        ...(data.mobileImageUrl !== undefined
+          ? { mobileImageUrl: data.mobileImageUrl || null }
+          : {}),
         ...(data.linkUrl !== undefined ? { linkUrl: data.linkUrl || null } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
-        ...(data.startsAt !== undefined ? { startsAt: data.startsAt ? new Date(data.startsAt) : null } : {}),
-        ...(data.endsAt !== undefined ? { endsAt: data.endsAt ? new Date(data.endsAt) : null } : {}),
+        ...(data.startsAt !== undefined
+          ? { startsAt: data.startsAt ? new Date(data.startsAt) : null }
+          : {}),
+        ...(data.endsAt !== undefined
+          ? { endsAt: data.endsAt ? new Date(data.endsAt) : null }
+          : {}),
       },
     });
 

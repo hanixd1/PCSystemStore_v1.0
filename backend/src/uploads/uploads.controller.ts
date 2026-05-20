@@ -19,9 +19,7 @@ export class UploadsController {
   @UseFilters(
     new MulterUploadExceptionFilter('La imagen supera el tamano maximo permitido de 3 MB.'),
   )
-  @UseInterceptors(
-    FileInterceptor('image', ADMIN_IMAGE_UPLOAD_OPTIONS),
-  )
+  @UseInterceptors(FileInterceptor('image', ADMIN_IMAGE_UPLOAD_OPTIONS))
   async uploadImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('Debes enviar una imagen');

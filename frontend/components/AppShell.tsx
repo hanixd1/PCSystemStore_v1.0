@@ -6,11 +6,7 @@ import CartSidebar from '@/components/CartSidebar';
 import ClientChatbot from '@/components/ClientChatbot';
 import CartHydrator from '@/components/CartHydrator';
 
-export default function AppShell({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/admin');
 

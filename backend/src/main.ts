@@ -64,9 +64,7 @@ async function bootstrap() {
   }
 
   if (isProduction) {
-    const insecureOrigins = allowedOrigins.filter((origin) =>
-      origin.startsWith('http://'),
-    );
+    const insecureOrigins = allowedOrigins.filter((origin) => origin.startsWith('http://'));
 
     if (insecureOrigins.length > 0) {
       throw new Error('HTTP origins are not allowed in production CORS configuration.');

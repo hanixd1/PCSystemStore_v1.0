@@ -54,10 +54,7 @@ export default function AccountAddressesPage() {
   const [error, setError] = useState('');
 
   const departamentos = useMemo(() => getDepartamentos(), []);
-  const provincias = useMemo(
-    () => getProvinciasByDepartamento(form.department),
-    [form.department],
-  );
+  const provincias = useMemo(() => getProvinciasByDepartamento(form.department), [form.department]);
   const ciudades = useMemo(
     () => getCiudadesByDepartamentoProvincia(form.department, form.province),
     [form.department, form.province],
@@ -200,10 +197,19 @@ export default function AccountAddressesPage() {
         Guarda tus direcciones de entrega para futuras compras.
       </p>
 
-      {message ? <p className="mt-5 rounded-xl bg-green-50 p-3 text-sm font-bold text-green-700">{message}</p> : null}
-      {error ? <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
+      {message ? (
+        <p className="mt-5 rounded-xl bg-green-50 p-3 text-sm font-bold text-green-700">
+          {message}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>
+      ) : null}
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+      <form
+        onSubmit={handleSubmit}
+        className="mt-8 space-y-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+      >
         <div className="grid gap-6 md:grid-cols-3">
           <SelectField
             label="Departamento"
@@ -219,7 +225,9 @@ export default function AccountAddressesPage() {
             value={form.province}
             onChange={handleProvinceChange}
             options={provincias}
-            placeholder={form.department ? 'Seleccionar provincia' : 'Selecciona primero un departamento'}
+            placeholder={
+              form.department ? 'Seleccionar provincia' : 'Selecciona primero un departamento'
+            }
             disabled={!form.department}
           />
           <SelectField
@@ -288,21 +296,32 @@ export default function AccountAddressesPage() {
         ) : addresses.length === 0 ? (
           <div className="mt-5 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
             <FiMapPin className="mx-auto text-4xl text-brand-cyan" />
-            <p className="mt-3 text-sm font-bold text-gray-700">Aun no tienes direcciones registradas.</p>
+            <p className="mt-3 text-sm font-bold text-gray-700">
+              Aun no tienes direcciones registradas.
+            </p>
           </div>
         ) : (
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             {addresses.map((address) => (
-              <article key={address.id} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <article
+                key={address.id}
+                className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-lg font-black text-gray-900">{address.label || 'Direccion'}</h3>
+                    <h3 className="text-lg font-black text-gray-900">
+                      {address.label || 'Direccion'}
+                    </h3>
                     <p className="mt-2 text-sm font-bold text-gray-700">{address.addressLine}</p>
                     <p className="mt-1 text-sm text-gray-500">
                       {address.district}, {address.province}, {address.department}
                     </p>
-                    {address.reference ? <p className="mt-2 text-sm text-gray-500">Ref: {address.reference}</p> : null}
-                    {address.phone ? <p className="mt-1 text-sm text-gray-500">Tel: {address.phone}</p> : null}
+                    {address.reference ? (
+                      <p className="mt-2 text-sm text-gray-500">Ref: {address.reference}</p>
+                    ) : null}
+                    {address.phone ? (
+                      <p className="mt-1 text-sm text-gray-500">Tel: {address.phone}</p>
+                    ) : null}
                   </div>
                   <button
                     type="button"

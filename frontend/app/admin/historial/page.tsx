@@ -34,11 +34,14 @@ const tabs: Array<{ key: AuditScope; label: string; icon: React.ReactNode }> = [
 
 function getBadge(action: string) {
   if (action.includes('LOGIN')) return 'bg-blue-50 text-blue-700 border-blue-100';
-  if (action.includes('STOCK') || action.includes('SALE')) return 'bg-amber-50 text-amber-700 border-amber-100';
+  if (action.includes('STOCK') || action.includes('SALE'))
+    return 'bg-amber-50 text-amber-700 border-amber-100';
   if (action.includes('PRICE')) return 'bg-emerald-50 text-emerald-700 border-emerald-100';
   if (action.includes('IMAGE')) return 'bg-cyan-50 text-cyan-700 border-cyan-100';
-  if (action.includes('DELETE') || action.includes('REJECT')) return 'bg-red-50 text-red-700 border-red-100';
-  if (action.includes('CREATE') || action.includes('APPROVED')) return 'bg-green-50 text-green-700 border-green-100';
+  if (action.includes('DELETE') || action.includes('REJECT'))
+    return 'bg-red-50 text-red-700 border-red-100';
+  if (action.includes('CREATE') || action.includes('APPROVED'))
+    return 'bg-green-50 text-green-700 border-green-100';
   return 'bg-gray-50 text-gray-700 border-gray-100';
 }
 
@@ -94,9 +97,7 @@ export default function HistorialPage() {
 
   const actionOptions = useMemo(() => {
     const source = activeTab === 'security' ? securityLogs : productLogs;
-    return Array.from(new Set(source.map((log) => log.action))).sort((a, b) =>
-      a.localeCompare(b),
-    );
+    return Array.from(new Set(source.map((log) => log.action))).sort((a, b) => a.localeCompare(b));
   }, [activeTab, productLogs, securityLogs]);
 
   return (
@@ -138,7 +139,9 @@ export default function HistorialPage() {
           </div>
 
           <label className="min-w-[240px]">
-            <span className="mb-2 block text-xs font-black uppercase text-gray-500">Tipo de acción</span>
+            <span className="mb-2 block text-xs font-black uppercase text-gray-500">
+              Tipo de acción
+            </span>
             <select
               value={actionFilter}
               onChange={(event) => setActionFilter(event.target.value)}
@@ -184,7 +187,10 @@ function SecurityTable({ logs }: { logs: AuditLog[] }) {
       </div>
       <div className="divide-y divide-gray-100">
         {logs.map((log) => (
-          <div key={log.id} className="grid gap-3 px-4 py-4 text-sm lg:grid-cols-[1fr_1fr_0.8fr_1fr_2fr]">
+          <div
+            key={log.id}
+            className="grid gap-3 px-4 py-4 text-sm lg:grid-cols-[1fr_1fr_0.8fr_1fr_2fr]"
+          >
             <DateCell value={log.createdAt} />
             <ActorCell log={log} />
             <span className="font-bold text-gray-500">{log.user?.role || '-'}</span>
@@ -215,14 +221,23 @@ function ProductsTable({ logs }: { logs: AuditLog[] }) {
         </div>
         <div className="divide-y divide-gray-100">
           {logs.map((log) => (
-            <div key={log.id} className="grid grid-cols-[1fr_1fr_1fr_1.2fr_0.9fr_1fr_1fr_0.8fr_0.8fr_2fr] gap-3 px-4 py-4 text-sm">
+            <div
+              key={log.id}
+              className="grid grid-cols-[1fr_1fr_1fr_1.2fr_0.9fr_1fr_1fr_0.8fr_0.8fr_2fr] gap-3 px-4 py-4 text-sm"
+            >
               <DateCell value={log.createdAt} />
               <ActorCell log={log} />
               <ActionBadge action={log.action} />
-              <span className="font-bold text-gray-800">{log.entityName || log.entityType || '-'}</span>
+              <span className="font-bold text-gray-800">
+                {log.entityName || log.entityType || '-'}
+              </span>
               <span className="text-gray-500">{log.fieldName || '-'}</span>
-              <span className="truncate text-gray-500" title={log.oldValue || ''}>{log.oldValue || '-'}</span>
-              <span className="truncate text-gray-500" title={log.newValue || ''}>{log.newValue || '-'}</span>
+              <span className="truncate text-gray-500" title={log.oldValue || ''}>
+                {log.oldValue || '-'}
+              </span>
+              <span className="truncate text-gray-500" title={log.newValue || ''}>
+                {log.newValue || '-'}
+              </span>
               <span className="font-bold text-gray-600">{log.stockBefore ?? '-'}</span>
               <span className="font-bold text-gray-600">{log.stockAfter ?? '-'}</span>
               <p className="text-gray-600">{log.details}</p>
@@ -254,7 +269,9 @@ function ActorCell({ log }: { log: AuditLog }) {
 
 function ActionBadge({ action }: { action: string }) {
   return (
-    <span className={`w-max rounded-full border px-3 py-1 text-[11px] font-black uppercase ${getBadge(action)}`}>
+    <span
+      className={`w-max rounded-full border px-3 py-1 text-[11px] font-black uppercase ${getBadge(action)}`}
+    >
       {getActionLabel(action)}
     </span>
   );

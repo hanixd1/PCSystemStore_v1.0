@@ -31,17 +31,19 @@ function toKeyboardLayout({ value }: { value: unknown }) {
     return undefined;
   }
 
-  if (normalized === 'EspaÃ±ol' || normalized === 'Espa?ol' || normalized.toLowerCase() === 'espanol') {
+  if (
+    normalized === 'EspaÃ±ol' ||
+    normalized === 'Espa?ol' ||
+    normalized.toLowerCase() === 'espanol'
+  ) {
     return 'Español';
   }
 
   return normalized;
 }
 
-const NAME_REGEX =
-  /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,+\-/%\s]{10,120}$/;
-const DESCRIPTION_REGEX =
-  /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,;:+\-/%\s]{20,1200}$/;
+const NAME_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,+\-/%\s]{10,120}$/;
+const DESCRIPTION_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,;:+\-/%\s]{20,1200}$/;
 
 export const PRODUCT_CATEGORIES = [
   'CPU',
@@ -415,7 +417,13 @@ export class CreateProductDto {
   @Transform(toTrimmedString)
   @IsOptional()
   @IsString()
-  @IsIn(['HDMI a HDMI', 'DisplayPort a DisplayPort', 'Tipo C a HDMI', 'Tipo C a DisplayPort', 'Tipo C a Tipo C'])
+  @IsIn([
+    'HDMI a HDMI',
+    'DisplayPort a DisplayPort',
+    'Tipo C a HDMI',
+    'Tipo C a DisplayPort',
+    'Tipo C a Tipo C',
+  ])
   cableType?: string;
 
   @ValidateIf((product) => product.category === 'CABLE_HUB')
@@ -448,7 +456,9 @@ export class CreateProductDto {
   @Transform(toOptionalStringArray)
   @IsOptional()
   @IsArray()
-  @IsIn(['Cable USB', 'Jack 3.5 mm', 'USB Dongle 2.4 GHz', 'Bluetooth'], { each: true })
+  @IsIn(['Cable USB', 'Jack 3.5 mm', 'USB Dongle 2.4 GHz', 'Bluetooth'], {
+    each: true,
+  })
   supportedConnections?: string[];
 
   @ValidateIf((product) => product.category === 'MONITOR')

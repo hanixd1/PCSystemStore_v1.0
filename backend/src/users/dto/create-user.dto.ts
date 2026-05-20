@@ -1,12 +1,5 @@
 import { Transform } from 'class-transformer';
-import {
-  IsEmail,
-  IsIn,
-  IsOptional,
-  IsString,
-  Length,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, Length, MinLength } from 'class-validator';
 import { USER_ROLES } from '../../auth/auth.constants';
 import { toTrimmedString } from '../../common/dto/transformers';
 

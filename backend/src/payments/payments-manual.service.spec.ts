@@ -27,7 +27,11 @@ describe('PaymentsService pagos manuales', () => {
         update: jest.fn(async ({ data }) => ({ ...baseOrder, ...data })),
       },
       product: {
-        findUnique: jest.fn(async () => ({ id: 'product-1', name: 'Producto QA', stock: 5 })),
+        findUnique: jest.fn(async () => ({
+          id: 'product-1',
+          name: 'Producto QA',
+          stock: 5,
+        })),
         updateMany: jest.fn(async () => ({ count: 1 })),
       },
       payment: {
@@ -48,7 +52,11 @@ describe('PaymentsService pagos manuales', () => {
         findUnique: jest.fn(async () => baseOrder),
       },
       payment: {
-        create: jest.fn(async ({ data }) => ({ id: 'payment-1', ...data, order: baseOrder })),
+        create: jest.fn(async ({ data }) => ({
+          id: 'payment-1',
+          ...data,
+          order: baseOrder,
+        })),
         findMany: jest.fn(async () => []),
         findUnique: jest.fn(async () => ({
           id: 'payment-1',
@@ -62,7 +70,11 @@ describe('PaymentsService pagos manuales', () => {
     };
 
     return {
-      service: new PaymentsService(prisma, new SimulatedPaymentProvider(), new ManualPaymentProvider()),
+      service: new PaymentsService(
+        prisma,
+        new SimulatedPaymentProvider(),
+        new ManualPaymentProvider(),
+      ),
       prisma,
       tx,
     };
@@ -72,7 +84,11 @@ describe('PaymentsService pagos manuales', () => {
     const { service, prisma } = createService();
 
     const payment = await service.createManual(
-      { orderId: 'order-1', method: PaymentMethod.YAPE, operationCode: '123456' },
+      {
+        orderId: 'order-1',
+        method: PaymentMethod.YAPE,
+        operationCode: '123456',
+      },
       'customer-1',
     );
 
@@ -92,7 +108,11 @@ describe('PaymentsService pagos manuales', () => {
     const { service, tx } = createService();
 
     await service.createManual(
-      { orderId: 'order-1', method: PaymentMethod.PLIN, operationCode: '654321' },
+      {
+        orderId: 'order-1',
+        method: PaymentMethod.PLIN,
+        operationCode: '654321',
+      },
       'customer-1',
     );
 
@@ -141,11 +161,18 @@ describe('PaymentsService pagos manuales', () => {
 
   it('cliente no puede pagar orden de otro usuario', async () => {
     const { service, prisma } = createService();
-    prisma.order.findUnique.mockResolvedValueOnce({ ...baseOrder, userId: 'other-user' });
+    prisma.order.findUnique.mockResolvedValueOnce({
+      ...baseOrder,
+      userId: 'other-user',
+    });
 
     await expect(
       service.createManual(
-        { orderId: 'order-1', method: PaymentMethod.YAPE, operationCode: '123456' },
+        {
+          orderId: 'order-1',
+          method: PaymentMethod.YAPE,
+          operationCode: '123456',
+        },
         'customer-1',
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -157,7 +184,11 @@ describe('PaymentsService pagos manuales', () => {
 
     await expect(
       service.createManual(
-        { orderId: 'order-1', method: PaymentMethod.YAPE, operationCode: '123456' },
+        {
+          orderId: 'order-1',
+          method: PaymentMethod.YAPE,
+          operationCode: '123456',
+        },
         'customer-1',
       ),
     ).rejects.toThrow('Yape/Plin no disponible para pedidos mayores a S/. 500.');

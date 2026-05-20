@@ -139,12 +139,12 @@ export default function AdminBannersPage() {
     try {
       const imageUrl = bannerFiles[0] ? await uploadImage(bannerFiles[0]) : existingImageUrl;
       const payload = {
-      title: bannerForm.title || 'Banner home',
-      subtitle: bannerForm.subtitle,
-      imageUrl,
-      linkUrl: bannerForm.linkUrl,
-      sortOrder: Number(bannerForm.sortOrder) || 0,
-      isActive: bannerForm.isActive,
+        title: bannerForm.title || 'Banner home',
+        subtitle: bannerForm.subtitle,
+        imageUrl,
+        linkUrl: bannerForm.linkUrl,
+        sortOrder: Number(bannerForm.sortOrder) || 0,
+        isActive: bannerForm.isActive,
       };
 
       if (editingId) {
@@ -239,15 +239,21 @@ export default function AdminBannersPage() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-sm font-bold uppercase tracking-widest text-brand-cyan">Gestion avanzada</p>
+        <p className="text-sm font-bold uppercase tracking-widest text-brand-cyan">
+          Gestion avanzada
+        </p>
         <h1 className="mt-2 text-3xl font-black text-gray-900">Banners y marca</h1>
         <p className="mt-2 text-sm font-medium text-gray-500">
           Gestiona el logo visible en la tienda y los banners principales del home.
         </p>
       </div>
 
-      {message ? <p className="rounded-xl bg-green-50 p-4 text-sm font-bold text-green-700">{message}</p> : null}
-      {error ? <p className="rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700">{error}</p> : null}
+      {message ? (
+        <p className="rounded-xl bg-green-50 p-4 text-sm font-bold text-green-700">{message}</p>
+      ) : null}
+      {error ? (
+        <p className="rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700">{error}</p>
+      ) : null}
 
       <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
@@ -268,12 +274,16 @@ export default function AdminBannersPage() {
               onChange={(value) => setBranding((current) => ({ ...current, logoAlt: value }))}
             />
             <div className="md:col-span-2">
-              <span className="mb-2 block text-xs font-black uppercase text-gray-900">Subir logo de tienda</span>
+              <span className="mb-2 block text-xs font-black uppercase text-gray-900">
+                Subir logo de tienda
+              </span>
               <ImageUploader
                 mode="logo"
                 files={logoFiles}
                 onFilesChange={setLogoFiles}
-                existingImages={branding.logoUrl && logoFiles.length === 0 ? [branding.logoUrl] : []}
+                existingImages={
+                  branding.logoUrl && logoFiles.length === 0 ? [branding.logoUrl] : []
+                }
                 maxFiles={1}
                 helperText="Recomendacion: sube un logo en formato PNG o WEBP, idealmente con fondo transparente. Tamano sugerido: 400 x 200 px."
               />
@@ -292,11 +302,19 @@ export default function AdminBannersPage() {
             <p className="mb-3 text-xs font-black uppercase text-gray-500">Vista previa</p>
             <div className="flex h-20 items-center justify-center rounded bg-white px-4 shadow-sm">
               {logoFiles[0] ? (
-                <span className="text-xs font-bold text-gray-500">Preview disponible en el selector</span>
+                <span className="text-xs font-bold text-gray-500">
+                  Preview disponible en el selector
+                </span>
               ) : branding.logoUrl ? (
-                <img src={branding.logoUrl} alt={branding.logoAlt || branding.storeName} className="max-h-14 max-w-full object-contain" />
+                <img
+                  src={branding.logoUrl}
+                  alt={branding.logoAlt || branding.storeName}
+                  className="max-h-14 max-w-full object-contain"
+                />
               ) : (
-                <span className="text-sm font-black text-gray-500">{branding.storeName || 'PCSystemStore'}</span>
+                <span className="text-sm font-black text-gray-500">
+                  {branding.storeName || 'PCSystemStore'}
+                </span>
               )}
             </div>
           </div>
@@ -304,23 +322,41 @@ export default function AdminBannersPage() {
       </section>
 
       <section className="grid gap-8 xl:grid-cols-[420px_1fr]">
-        <form onSubmit={handleBannerSubmit} className="h-max rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <form
+          onSubmit={handleBannerSubmit}
+          className="h-max rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+        >
           <div className="mb-6 flex items-center justify-between gap-4">
             <h2 className="text-xl font-black text-gray-900">
               {editingId ? 'Editar banner' : 'Crear banner'}
             </h2>
             {editingId ? (
-              <button type="button" onClick={cancelEditing} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100">
+              <button
+                type="button"
+                onClick={cancelEditing}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+              >
                 <FiX />
               </button>
             ) : null}
           </div>
 
           <div className="space-y-4">
-            <Field label="Titulo" required value={bannerForm.title} onChange={(value) => setBannerForm((current) => ({ ...current, title: value }))} />
-            <Field label="Subtitulo" value={bannerForm.subtitle} onChange={(value) => setBannerForm((current) => ({ ...current, subtitle: value }))} />
+            <Field
+              label="Titulo"
+              required
+              value={bannerForm.title}
+              onChange={(value) => setBannerForm((current) => ({ ...current, title: value }))}
+            />
+            <Field
+              label="Subtitulo"
+              value={bannerForm.subtitle}
+              onChange={(value) => setBannerForm((current) => ({ ...current, subtitle: value }))}
+            />
             <div>
-              <span className="mb-2 block text-xs font-black uppercase text-gray-900">Subir imagen de banner</span>
+              <span className="mb-2 block text-xs font-black uppercase text-gray-900">
+                Subir imagen de banner
+              </span>
               <ImageUploader
                 mode="banner"
                 files={bannerFiles}
@@ -331,17 +367,30 @@ export default function AdminBannersPage() {
                 helperText="Recomendacion: sube una imagen horizontal de 1920 x 500 px para el banner principal. El sistema la adaptara automaticamente en dispositivos moviles. Evita colocar texto importante muy cerca de los bordes."
               />
             </div>
-            <Field label="Link destino" value={bannerForm.linkUrl} placeholder="/categoria/graficas o https://..." onChange={(value) => setBannerForm((current) => ({ ...current, linkUrl: value }))} />
+            <Field
+              label="Link destino"
+              value={bannerForm.linkUrl}
+              placeholder="/categoria/graficas o https://..."
+              onChange={(value) => setBannerForm((current) => ({ ...current, linkUrl: value }))}
+            />
 
             <div className="grid gap-4">
-              <Field label="Orden" type="number" min="0" value={bannerForm.sortOrder} onChange={(value) => setBannerForm((current) => ({ ...current, sortOrder: value }))} />
+              <Field
+                label="Orden"
+                type="number"
+                min="0"
+                value={bannerForm.sortOrder}
+                onChange={(value) => setBannerForm((current) => ({ ...current, sortOrder: value }))}
+              />
             </div>
 
             <label className="flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700">
               <input
                 type="checkbox"
                 checked={bannerForm.isActive}
-                onChange={(event) => setBannerForm((current) => ({ ...current, isActive: event.target.checked }))}
+                onChange={(event) =>
+                  setBannerForm((current) => ({ ...current, isActive: event.target.checked }))
+                }
                 className="h-4 w-4 accent-brand-cyan"
               />
               Banner activo
@@ -367,25 +416,59 @@ export default function AdminBannersPage() {
           ) : (
             <div className="mt-6 space-y-4">
               {banners.map((banner) => (
-                <article key={banner.id} className="grid gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm lg:grid-cols-[180px_1fr_auto]">
+                <article
+                  key={banner.id}
+                  className="grid gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm lg:grid-cols-[180px_1fr_auto]"
+                >
                   <div className="h-28 overflow-hidden rounded-xl bg-gray-100">
-                    <img src={banner.imageUrl} alt={banner.title} className="h-full w-full object-cover" />
+                    <img
+                      src={banner.imageUrl}
+                      alt={banner.title}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-black text-gray-900">{banner.title}</h3>
-                      <span className={banner.isActive ? 'rounded-full bg-green-50 px-2 py-1 text-xs font-black text-green-700' : 'rounded-full bg-gray-100 px-2 py-1 text-xs font-black text-gray-500'}>
+                      <span
+                        className={
+                          banner.isActive
+                            ? 'rounded-full bg-green-50 px-2 py-1 text-xs font-black text-green-700'
+                            : 'rounded-full bg-gray-100 px-2 py-1 text-xs font-black text-gray-500'
+                        }
+                      >
                         {banner.isActive ? 'Activo' : 'Inactivo'}
                       </span>
                     </div>
-                    {banner.subtitle ? <p className="mt-1 text-sm font-medium text-gray-500">{banner.subtitle}</p> : null}
-                    <p className="mt-2 text-xs font-bold text-gray-400">Orden: {banner.sortOrder}</p>
-                    {banner.linkUrl ? <p className="mt-1 text-xs font-bold text-brand-cyan">Link: {banner.linkUrl}</p> : null}
+                    {banner.subtitle ? (
+                      <p className="mt-1 text-sm font-medium text-gray-500">{banner.subtitle}</p>
+                    ) : null}
+                    <p className="mt-2 text-xs font-bold text-gray-400">
+                      Orden: {banner.sortOrder}
+                    </p>
+                    {banner.linkUrl ? (
+                      <p className="mt-1 text-xs font-bold text-brand-cyan">
+                        Link: {banner.linkUrl}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2 lg:flex-col">
-                    <ActionButton label="Editar" onClick={() => startEditing(banner)} icon={<FiEdit2 />} />
-                    <ActionButton label={banner.isActive ? 'Desactivar' : 'Activar'} onClick={() => void toggleBanner(banner.id)} icon={banner.isActive ? <FiEyeOff /> : <FiEye />} />
-                    <ActionButton danger label="Eliminar" onClick={() => void deleteBanner(banner.id)} icon={<FiTrash2 />} />
+                    <ActionButton
+                      label="Editar"
+                      onClick={() => startEditing(banner)}
+                      icon={<FiEdit2 />}
+                    />
+                    <ActionButton
+                      label={banner.isActive ? 'Desactivar' : 'Activar'}
+                      onClick={() => void toggleBanner(banner.id)}
+                      icon={banner.isActive ? <FiEyeOff /> : <FiEye />}
+                    />
+                    <ActionButton
+                      danger
+                      label="Eliminar"
+                      onClick={() => void deleteBanner(banner.id)}
+                      icon={<FiTrash2 />}
+                    />
                   </div>
                 </article>
               ))}

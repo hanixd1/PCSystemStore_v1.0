@@ -12,7 +12,9 @@ export class AiPythonRunnerService {
 
   private getPythonCandidates(): PythonCandidate[] {
     const configuredPython = process.env.PYTHON_BIN?.trim();
-    const candidates = configuredPython ? [{ command: configuredPython, args: [] as string[] }] : [];
+    const candidates = configuredPython
+      ? [{ command: configuredPython, args: [] as string[] }]
+      : [];
 
     if (process.platform === 'win32') {
       candidates.push({ command: 'python', args: [] });
@@ -25,7 +27,9 @@ export class AiPythonRunnerService {
     const seen = new Set<string>();
     return candidates.filter((candidate) => {
       const key = `${candidate.command} ${candidate.args.join(' ')}`.trim();
-      if (seen.has(key)) return false;
+      if (seen.has(key)) {
+        return false;
+      }
       seen.add(key);
       return true;
     });
@@ -53,7 +57,9 @@ export class AiPythonRunnerService {
       child.on('error', reject);
       child.on('close', (code) => {
         if (code !== 0) {
-          reject(new Error(errorOutput || output || `El proceso de Python termino con codigo ${code}.`));
+          reject(
+            new Error(errorOutput || output || `El proceso de Python termino con codigo ${code}.`),
+          );
           return;
         }
 

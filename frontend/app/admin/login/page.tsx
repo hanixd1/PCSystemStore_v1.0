@@ -49,10 +49,16 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Correo electronico</label>
+            <label
+              htmlFor="admin-login-email"
+              className="mb-2 block text-sm font-bold text-gray-700"
+            >
+              Correo electronico
+            </label>
             <div className="relative">
               <FiUser className="absolute left-3 top-3 text-lg text-gray-400" />
               <input
+                id="admin-login-email"
                 type="email"
                 className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 outline-none focus:ring-2 focus:ring-brand-cyan"
                 placeholder="ingresar correo"
@@ -64,10 +70,16 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Contrasena</label>
+            <label
+              htmlFor="admin-login-password"
+              className="mb-2 block text-sm font-bold text-gray-700"
+            >
+              Contrasena
+            </label>
             <div className="relative">
               <FiLock className="absolute left-3 top-3 text-lg text-gray-400" />
               <input
+                id="admin-login-password"
                 type="password"
                 className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 outline-none focus:ring-2 focus:ring-brand-cyan"
                 placeholder="ingresar contrasena"

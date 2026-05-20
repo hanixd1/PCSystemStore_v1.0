@@ -33,7 +33,9 @@ describeWithTestDb('Seguridad API HTTP E2E real', () => {
   });
 
   it('SEC-E2E-03 XSS en descripcion se rechaza por validacion actual', async () => {
-    const product = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.noSale } });
+    const product = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.noSale },
+    });
 
     await request(ctx.app.getHttpServer())
       .patch(`/products/${product.id}`)

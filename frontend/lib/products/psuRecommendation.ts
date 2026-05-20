@@ -24,6 +24,14 @@ export function calculateRecommendedPsuWatts(build: Record<string, any>) {
 
   // gpuPowerWatts is the real GPU draw used in system consumption.
   // recommendedPsuWatts is a manufacturer floor and never replaces the real calculation.
-  const calculatedWithHeadroom = (cpuTdp + gpuPowerWatts + motherboardWatts + ramWatts + storageWatts + coolerWatts + caseFansWatts) * 1.25;
+  const calculatedWithHeadroom =
+    (cpuTdp +
+      gpuPowerWatts +
+      motherboardWatts +
+      ramWatts +
+      storageWatts +
+      coolerWatts +
+      caseFansWatts) *
+    1.25;
   return roundUpCommercialPsu(Math.max(calculatedWithHeadroom, gpuRecommendedPsuWatts));
 }

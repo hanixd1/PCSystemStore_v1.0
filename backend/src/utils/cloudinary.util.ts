@@ -20,13 +20,7 @@ function hasCloudinaryConfig() {
 }
 
 async function saveFileLocally(file: Express.Multer.File) {
-  const uploadsDir = path.resolve(
-    process.cwd(),
-    '..',
-    'frontend',
-    'public',
-    'uploads',
-  );
+  const uploadsDir = path.resolve(process.cwd(), '..', 'frontend', 'public', 'uploads');
   await fs.mkdir(uploadsDir, { recursive: true });
 
   const extension = path.extname(file.originalname) || '.jpg';
@@ -38,9 +32,7 @@ async function saveFileLocally(file: Express.Multer.File) {
   return `/uploads/${fileName}`;
 }
 
-export const uploadToCloudinary = async (
-  file: Express.Multer.File,
-): Promise<string> => {
+export const uploadToCloudinary = async (file: Express.Multer.File): Promise<string> => {
   if (!hasCloudinaryConfig()) {
     return saveFileLocally(file);
   }
@@ -50,9 +42,12 @@ export const uploadToCloudinary = async (
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder: 'pc-system-store' },
         (error, result: UploadApiResponse | undefined) => {
-          if (error) return reject(error);
-          if (!result)
+          if (error) {
+            return reject(error);
+          }
+          if (!result) {
             return reject(new Error('Error desconocido al subir a Cloudinary'));
+          }
 
           resolve(result.secure_url);
         },

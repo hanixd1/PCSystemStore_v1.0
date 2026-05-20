@@ -14,7 +14,9 @@ describeWithTestDb('Builder HTTP E2E real', () => {
   });
 
   it('BUILD-E2E-01 CPU AM5 devuelve motherboards AM5 compatibles', async () => {
-    const cpu = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.cpuAmd } });
+    const cpu = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.cpuAmd },
+    });
     const res = await request(ctx.app.getHttpServer())
       .get(`/builder/motherboards?cpuId=${cpu.id}`)
       .expect(200);
@@ -23,7 +25,9 @@ describeWithTestDb('Builder HTTP E2E real', () => {
   });
 
   it('BUILD-E2E-02 CPU Intel LGA1700 no devuelve motherboards AM5', async () => {
-    const cpu = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.cpuIntel } });
+    const cpu = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.cpuIntel },
+    });
     const res = await request(ctx.app.getHttpServer())
       .get(`/builder/motherboards?cpuId=${cpu.id}`)
       .expect(200);
@@ -32,7 +36,9 @@ describeWithTestDb('Builder HTTP E2E real', () => {
   });
 
   it('BUILD-E2E-03 RAM DDR4 no es compatible con motherboard DDR5', async () => {
-    const board = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.boardAm5 } });
+    const board = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.boardAm5 },
+    });
     const res = await request(ctx.app.getHttpServer())
       .get(`/builder/rams?motherboardId=${board.id}`)
       .expect(200);

@@ -35,10 +35,7 @@ export default function CheckoutPage() {
   const orderIdempotencyKeyRef = useRef<string | null>(null);
   const paymentIdempotencyKeyRef = useRef<string | null>(null);
 
-  const total = useMemo(
-    () => items.reduce((sum, item) => sum + item.price * item.qty, 0),
-    [items],
-  );
+  const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.qty, 0), [items]);
   const cartSignature = useMemo(
     () =>
       items
@@ -111,18 +108,22 @@ export default function CheckoutPage() {
 
     const hasBuilderItems = items.some((item) => item.source === 'builder');
 
-    const orderRes = await api.post('/orders', {
-      method,
-      source: hasBuilderItems ? 'builder' : undefined,
-      items: items.map((item) => ({
-        productId: String(item.id),
-        quantity: item.qty,
-      })),
-    }, {
-      headers: {
-        [IDEMPOTENCY_HEADER]: getOrderIdempotencyKey(),
+    const orderRes = await api.post(
+      '/orders',
+      {
+        method,
+        source: hasBuilderItems ? 'builder' : undefined,
+        items: items.map((item) => ({
+          productId: String(item.id),
+          quantity: item.qty,
+        })),
       },
-    });
+      {
+        headers: {
+          [IDEMPOTENCY_HEADER]: getOrderIdempotencyKey(),
+        },
+      },
+    );
 
     setCreatedOrderId(orderRes.data.id);
     return orderRes.data;
@@ -145,19 +146,22 @@ export default function CheckoutPage() {
     try {
       const order = await createOrder();
       const cardForSimulation = testCard.replace(/\s+/g, '');
-      const finalResult =
-        cardForSimulation === '4000000000000002' ? 'REJECTED' : simulateResult;
+      const finalResult = cardForSimulation === '4000000000000002' ? 'REJECTED' : simulateResult;
 
-      await api.post('/payments/simulate', {
-        orderId: order.id,
-        method,
-        simulateResult: finalResult,
-        installments: isCredit ? installments : undefined,
-      }, {
-        headers: {
-          [IDEMPOTENCY_HEADER]: getPaymentIdempotencyKey(),
+      await api.post(
+        '/payments/simulate',
+        {
+          orderId: order.id,
+          method,
+          simulateResult: finalResult,
+          installments: isCredit ? installments : undefined,
         },
-      });
+        {
+          headers: {
+            [IDEMPOTENCY_HEADER]: getPaymentIdempotencyKey(),
+          },
+        },
+      );
 
       if (finalResult === 'APPROVED') {
         clearCart();
@@ -197,15 +201,19 @@ export default function CheckoutPage() {
 
     try {
       const order = await createOrder();
-      await api.post('/payments/manual', {
-        orderId: order.id,
-        method,
-        operationCode: operationCode.trim(),
-      }, {
-        headers: {
-          [IDEMPOTENCY_HEADER]: getPaymentIdempotencyKey(),
+      await api.post(
+        '/payments/manual',
+        {
+          orderId: order.id,
+          method,
+          operationCode: operationCode.trim(),
         },
-      });
+        {
+          headers: {
+            [IDEMPOTENCY_HEADER]: getPaymentIdempotencyKey(),
+          },
+        },
+      );
 
       clearCart();
       clearIdempotencyKeys();
@@ -231,7 +239,10 @@ export default function CheckoutPage() {
         <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center shadow-sm">
           <h1 className="text-3xl font-black text-gray-900">Checkout</h1>
           <p className="mt-3 text-gray-500">Tu carrito esta vacio.</p>
-          <Link href="/" className="mt-6 inline-block rounded-xl bg-brand-cyan px-6 py-3 font-bold text-gray-900">
+          <Link
+            href="/"
+            className="mt-6 inline-block rounded-xl bg-brand-cyan px-6 py-3 font-bold text-gray-900"
+          >
             Volver a la tienda
           </Link>
         </div>
@@ -295,7 +306,8 @@ export default function CheckoutPage() {
                 className="w-full rounded-xl border border-gray-200 px-4 py-3 font-medium outline-none focus:border-brand-cyan"
               />
               <p className="text-xs font-medium text-gray-500">
-                Usa 4111111111111111 para aprobado o 4000000000000002 para rechazado. No se guarda el numero.
+                Usa 4111111111111111 para aprobado o 4000000000000002 para rechazado. No se guarda
+                el numero.
               </p>
 
               {isCredit ? (
@@ -332,7 +344,8 @@ export default function CheckoutPage() {
           ) : (
             <form onSubmit={handleManualPayment} className="space-y-4">
               <div className="rounded-xl bg-cyan-50 p-4 text-sm font-medium text-gray-700">
-                Realiza el pago por {methodLabels[method]} y registra tu codigo de operacion para validacion administrativa.
+                Realiza el pago por {methodLabels[method]} y registra tu codigo de operacion para
+                validacion administrativa.
               </div>
               <input
                 value={operationCode}
@@ -374,7 +387,10 @@ export default function CheckoutPage() {
           <h2 className="mb-5 text-xl font-black text-gray-900">Resumen</h2>
           <div className="space-y-4">
             {items.map((item) => (
-              <div key={item.id} className="flex justify-between gap-4 border-b border-gray-100 pb-3 text-sm">
+              <div
+                key={item.id}
+                className="flex justify-between gap-4 border-b border-gray-100 pb-3 text-sm"
+              >
                 <div>
                   <p className="font-bold text-gray-800">{item.name}</p>
                   <p className="text-gray-500">Cantidad: {item.qty}</p>

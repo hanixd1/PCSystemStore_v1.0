@@ -125,13 +125,28 @@ export default function AccountOrdersPage() {
             {filteredOrders.map((order) => {
               const payment = order.payments?.[0];
               return (
-                <div key={order.id} className="grid gap-2 px-5 py-4 text-sm md:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_0.8fr]">
-                  <span className="font-bold text-gray-900">#{order.id.slice(0, 8).toUpperCase()}</span>
-                  <span className="text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</span>
-                  <span className="font-bold text-brand-cyan">{statusLabels[order.status] || order.status}</span>
-                  <span className="font-black text-gray-900">S/. {Number(order.total).toFixed(2)}</span>
-                  <span className="text-gray-600">{payment ? methodLabels[payment.method] || payment.method : 'Pendiente'}</span>
-                  <button className="text-left font-bold text-brand-cyan hover:underline">Ver detalle</button>
+                <div
+                  key={order.id}
+                  className="grid gap-2 px-5 py-4 text-sm md:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_0.8fr]"
+                >
+                  <span className="font-bold text-gray-900">
+                    #{order.id.slice(0, 8).toUpperCase()}
+                  </span>
+                  <span className="text-gray-600">
+                    {new Date(order.createdAt).toLocaleDateString()}
+                  </span>
+                  <span className="font-bold text-brand-cyan">
+                    {statusLabels[order.status] || order.status}
+                  </span>
+                  <span className="font-black text-gray-900">
+                    S/. {Number(order.total).toFixed(2)}
+                  </span>
+                  <span className="text-gray-600">
+                    {payment ? methodLabels[payment.method] || payment.method : 'Pendiente'}
+                  </span>
+                  <button className="text-left font-bold text-brand-cyan hover:underline">
+                    Ver detalle
+                  </button>
                 </div>
               );
             })}

@@ -21,7 +21,8 @@ export default function EstadisticaPage() {
         <div className="border-2 border-dashed border-gray-200 rounded-2xl p-12 text-center bg-gray-50">
           <p className="text-lg font-black text-gray-700 mb-2">Graficos no ma</p>
           <p className="text-sm text-gray-500">
-            Este espacio quedara listo para mostrar ventas, rotacion de productos y alertas de stock.
+            Este espacio quedara listo para mostrar ventas, rotacion de productos y alertas de
+            stock.
           </p>
         </div>
       </div>

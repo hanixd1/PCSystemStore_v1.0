@@ -20,8 +20,7 @@ describe('Security (e2e)', () => {
 
   const validProduct = {
     name: 'Procesador Ryzen 7 7700X',
-    description:
-      'Procesador de alto rendimiento con 8 nucleos y excelente capacidad multitarea.',
+    description: 'Procesador de alto rendimiento con 8 nucleos y excelente capacidad multitarea.',
     price: 1499.9,
     stock: 8,
     category: 'CPU',
@@ -118,10 +117,7 @@ describe('Security (e2e)', () => {
   });
 
   it('POST /products sin token devuelve 401', () => {
-    return request(app.getHttpServer())
-      .post('/products')
-      .send(validProduct)
-      .expect(401);
+    return request(app.getHttpServer()).post('/products').send(validProduct).expect(401);
   });
 
   it('GET /users con token de cliente devuelve 403', async () => {

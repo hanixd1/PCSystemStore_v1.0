@@ -29,9 +29,7 @@ export default function CustomerForgotPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-center text-3xl font-black text-gray-900">
-          Recuperar contraseña
-        </h1>
+        <h1 className="mb-2 text-center text-3xl font-black text-gray-900">Recuperar contraseña</h1>
         <p className="mb-6 text-center text-sm text-gray-500">
           Ingresa el correo asociado a tu cuenta para recibir las instrucciones de recuperación.
         </p>
@@ -42,9 +40,7 @@ export default function CustomerForgotPasswordPage() {
           </p>
         )}
         {error && (
-          <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">
-            {error}
-          </p>
+          <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">

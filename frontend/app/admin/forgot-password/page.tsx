@@ -30,7 +30,9 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-900 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8 text-center">
         <h2 className="mb-4 text-2xl font-bold">ADMIN PANEL</h2>
-        <p className="mb-6 text-gray-500">Ingresa tu correo administrativo para recibir instrucciones.</p>
+        <p className="mb-6 text-gray-500">
+          Ingresa tu correo administrativo para recibir instrucciones.
+        </p>
 
         {message && <p className="mb-4 font-bold text-green-600">{message}</p>}
         {error && <p className="mb-4 font-bold text-red-600">{error}</p>}

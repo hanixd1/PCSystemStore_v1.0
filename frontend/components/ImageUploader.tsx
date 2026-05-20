@@ -15,13 +15,16 @@ type ImageUploaderProps = {
   helperText: string;
 };
 
-const MODE_CONFIG: Record<UploaderMode, {
-  width: number;
-  height: number;
-  ratio: number;
-  maxSizeMb: number;
-  hardRatioRange?: [number, number];
-}> = {
+const MODE_CONFIG: Record<
+  UploaderMode,
+  {
+    width: number;
+    height: number;
+    ratio: number;
+    maxSizeMb: number;
+    hardRatioRange?: [number, number];
+  }
+> = {
   logo: { width: 400, height: 200, ratio: 2, maxSizeMb: 2 },
   banner: { width: 1920, height: 500, ratio: 3.84, maxSizeMb: 5, hardRatioRange: [3.5, 4.2] },
   product: { width: 550, height: 550, ratio: 1, maxSizeMb: 5 },
@@ -67,7 +70,9 @@ function buildWarnings(mode: UploaderMode, width: number, height: number) {
     }
 
     if (width !== config.width || height !== config.height) {
-      warnings.push('La imagen no tiene el tamano recomendado de 1920 x 500 px; podria recortarse o verse mal en algunas pantallas.');
+      warnings.push(
+        'La imagen no tiene el tamano recomendado de 1920 x 500 px; podria recortarse o verse mal en algunas pantallas.',
+      );
     }
   }
 
@@ -105,7 +110,8 @@ export default function ImageUploader({
   const [error, setError] = useState('');
 
   const config = MODE_CONFIG[mode];
-  const totalImages = maxFiles === 1 && files.length > 0 ? files.length : existingImages.length + files.length;
+  const totalImages =
+    maxFiles === 1 && files.length > 0 ? files.length : existingImages.length + files.length;
 
   useEffect(() => {
     let cancelled = false;
@@ -223,9 +229,11 @@ export default function ImageUploader({
         {totalImages}/{maxFiles} {maxFiles === 1 ? 'imagen' : 'imagenes'}
       </p>
 
-      {error ? <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p> : null}
+      {error ? (
+        <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>
+      ) : null}
 
-      {(existingImages.length > 0 || previews.length > 0) ? (
+      {existingImages.length > 0 || previews.length > 0 ? (
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {existingImages.map((image, index) => (
             <ImagePreview
@@ -270,7 +278,12 @@ function ImagePreview({
         {failed ? (
           <FiImage className="text-4xl text-gray-300" />
         ) : (
-          <img src={src} alt={label} onError={() => setFailed(true)} className="h-full w-full object-contain" />
+          <img
+            src={src}
+            alt={label}
+            onError={() => setFailed(true)}
+            className="h-full w-full object-contain"
+          />
         )}
       </div>
       <p className="mt-2 truncate text-[11px] font-bold text-gray-600">{label}</p>

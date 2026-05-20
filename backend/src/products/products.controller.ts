@@ -34,9 +34,7 @@ export class ProductsController {
   @UseFilters(
     new MulterUploadExceptionFilter('La imagen supera el tamano maximo permitido de 2 MB.'),
   )
-  @UseInterceptors(
-    FilesInterceptor('images', 5, PRODUCT_IMAGE_UPLOAD_OPTIONS),
-  )
+  @UseInterceptors(FilesInterceptor('images', 5, PRODUCT_IMAGE_UPLOAD_OPTIONS))
   async create(
     @Body() body: CreateProductDto,
     @UploadedFiles() files: Array<Express.Multer.File>,

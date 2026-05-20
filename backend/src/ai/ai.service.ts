@@ -310,9 +310,7 @@ export class AiService {
       .replace(/[\u0300-\u036f]/g, '');
   }
 
-  private normalizePrice(
-    value: Prisma.Decimal | number | string | null | undefined,
-  ): number {
+  private normalizePrice(value: Prisma.Decimal | number | string | null | undefined): number {
     if (value === null || value === undefined) {
       return 0;
     }
@@ -346,13 +344,9 @@ export class AiService {
       images: Array.isArray(product.images) ? product.images : [],
       category: product.category ? String(product.category) : 'GENERAL',
       createdAt:
-        product.createdAt instanceof Date
-          ? product.createdAt.toISOString()
-          : product.createdAt,
+        product.createdAt instanceof Date ? product.createdAt.toISOString() : product.createdAt,
       updatedAt:
-        product.updatedAt instanceof Date
-          ? product.updatedAt.toISOString()
-          : product.updatedAt,
+        product.updatedAt instanceof Date ? product.updatedAt.toISOString() : product.updatedAt,
     };
   }
 
@@ -373,8 +367,7 @@ export class AiService {
       category: product.category ? String(product.category) : 'GENERAL',
       price: this.normalizePrice(product.price),
       stock: Number(product.stock ?? 0),
-      imageUrl:
-        typeof images[0] === 'string' && images[0].trim() ? images[0] : null,
+      imageUrl: typeof images[0] === 'string' && images[0].trim() ? images[0] : null,
       productUrl: this.getProductUrl(product),
     };
   }
@@ -510,23 +503,16 @@ export class AiService {
         prediction.recommendedReorder > 0
           ? Math.max(
               1,
-              Math.round(
-                (product?.stock ?? 0) /
-                  Math.max(1, prediction.recommendedReorder),
-              ),
+              Math.round((product?.stock ?? 0) / Math.max(1, prediction.recommendedReorder)),
             )
           : undefined,
     };
   }
 
-  private async requestStockPredictions(
-    products: AiProductInput[],
-  ): Promise<AiPrediction[]> {
+  private async requestStockPredictions(products: AiProductInput[]): Promise<AiPrediction[]> {
     const aiServiceUrl = this.getAiServiceUrl();
     if (!aiServiceUrl) {
-      this.logger.warn(
-        'AI_SERVICE_URL no configurado. Se omiten predicciones IA.',
-      );
+      this.logger.warn('AI_SERVICE_URL no configurado. Se omiten predicciones IA.');
       return [];
     }
 
@@ -557,9 +543,7 @@ export class AiService {
       const payload = (await response.json()) as {
         predictions?: AiServicePrediction[];
       };
-      const productById = new Map(
-        products.map((product) => [product.id, product]),
-      );
+      const productById = new Map(products.map((product) => [product.id, product]));
       return Array.isArray(payload.predictions)
         ? payload.predictions.map((prediction) =>
             this.mapAiServicePrediction(prediction, productById),
@@ -578,14 +562,8 @@ export class AiService {
       .slice(0, 8);
   }
 
-  private getConversationText(
-    history: ChatMessageInput[],
-    userMessage: string,
-  ): string {
-    const fullConversation = [
-      ...history,
-      { role: 'user' as const, content: userMessage },
-    ]
+  private getConversationText(history: ChatMessageInput[], userMessage: string): string {
+    const fullConversation = [...history, { role: 'user' as const, content: userMessage }]
       .filter((message) => message.role === 'user')
       .map((message) => message.content)
       .join(' ');
@@ -773,35 +751,12 @@ export class AiService {
 
   private inferUseCase(text: string): BuildUseCase | null {
     const checks: Array<[BuildUseCase, string[]]> = [
-      [
-        'gaming',
-        [
-          'gaming',
-          'gamer',
-          'jugar',
-          'juegos',
-          'warzone',
-          'fortnite',
-          'valorant',
-          'fps',
-        ],
-      ],
+      ['gaming', ['gaming', 'gamer', 'jugar', 'juegos', 'warzone', 'fortnite', 'valorant', 'fps']],
       ['office', ['oficina', 'trabajo', 'excel', 'word', 'administrativo']],
-      [
-        'study',
-        ['estudio', 'universidad', 'clases', 'zoom', 'tareas', 'estudiar'],
-      ],
+      ['study', ['estudio', 'universidad', 'clases', 'zoom', 'tareas', 'estudiar']],
       [
         'editing',
-        [
-          'edicion',
-          'editar',
-          'premiere',
-          'photoshop',
-          'render',
-          'arquitectura',
-          'diseno',
-        ],
+        ['edicion', 'editar', 'premiere', 'photoshop', 'render', 'arquitectura', 'diseno'],
       ],
     ];
 
@@ -831,11 +786,7 @@ export class AiService {
   }
 
   private inferDedicatedGpu(text: string): SlotBoolean {
-    if (
-      text.includes('sin tarjeta') ||
-      text.includes('sin grafica') ||
-      text.includes('sin gpu')
-    ) {
+    if (text.includes('sin tarjeta') || text.includes('sin grafica') || text.includes('sin gpu')) {
       return false;
     }
 
@@ -872,10 +823,7 @@ export class AiService {
     userMessage: string,
   ): ConversationSlots {
     const conversationText = this.getConversationText(history, userMessage);
-    const allMessages = [
-      ...history,
-      { role: 'user' as const, content: userMessage },
-    ]
+    const allMessages = [...history, { role: 'user' as const, content: userMessage }]
       .map((message) => this.normalizeText(message.content))
       .join(' ');
 
@@ -894,12 +842,7 @@ export class AiService {
         ? false
         : this.inferPeripheralSlot(
             allMessages,
-            [
-              'con monitor',
-              'incluye monitor',
-              'quiero monitor',
-              'tambien monitor',
-            ],
+            ['con monitor', 'incluye monitor', 'quiero monitor', 'tambien monitor'],
             ['sin monitor', 'ya tengo monitor'],
           );
 
@@ -941,11 +884,7 @@ export class AiService {
   ): ChatIntent {
     const text = this.getConversationText(history, userMessage);
 
-    if (
-      text.includes('compatib') ||
-      text.includes('sirve con') ||
-      text.includes('va con')
-    ) {
+    if (text.includes('compatib') || text.includes('sirve con') || text.includes('va con')) {
       return 'compatibility';
     }
 
@@ -961,9 +900,7 @@ export class AiService {
     }
 
     const productKeywords = CATEGORY_HINTS.some((hint) =>
-      hint.keywords.some((keyword) =>
-        text.includes(this.normalizeText(keyword)),
-      ),
+      hint.keywords.some((keyword) => text.includes(this.normalizeText(keyword))),
     );
 
     if (productKeywords) {
@@ -995,10 +932,7 @@ export class AiService {
     return missing;
   }
 
-  private buildQuestionForMissingField(
-    slots: ConversationSlots,
-    missingField: string,
-  ): string {
+  private buildQuestionForMissingField(slots: ConversationSlots, missingField: string): string {
     const knownBits: string[] = [];
 
     if (slots.budget) {
@@ -1010,9 +944,7 @@ export class AiService {
     }
 
     const intro =
-      knownBits.length > 0
-        ? `Perfecto, ya tome nota de tu ${knownBits.join(' y ')}. `
-        : '';
+      knownBits.length > 0 ? `Perfecto, ya tome nota de tu ${knownBits.join(' y ')}. ` : '';
 
     if (missingField === 'useCase') {
       return `${intro}Ahora dime para que la quieres principalmente: gaming, oficina, estudio o edicion.`;
@@ -1037,11 +969,7 @@ export class AiService {
     const platformPreference = slots.platformPreference ?? 'ANY';
 
     const monitorReserve =
-      includeMonitor === true
-        ? useCase === 'gaming' || useCase === 'editing'
-          ? 650
-          : 480
-        : 0;
+      includeMonitor === true ? (useCase === 'gaming' || useCase === 'editing' ? 650 : 480) : 0;
     const keyboardReserve = includeKeyboard ? 90 : 0;
     const mouseReserve = includeMouse ? 80 : 0;
 
@@ -1147,10 +1075,7 @@ export class AiService {
       score += 150;
     }
 
-    if (
-      profile.platformPreference === 'AMD' &&
-      this.normalizeText(product.name).includes('amd')
-    ) {
+    if (profile.platformPreference === 'AMD' && this.normalizeText(product.name).includes('amd')) {
       score += 80;
     }
 
@@ -1164,23 +1089,16 @@ export class AiService {
     return score;
   }
 
-  private selectBestCpu(
-    products: any[],
-    profile: ReturnType<typeof this.getBuildProfile>,
-  ) {
+  private selectBestCpu(products: any[], profile: ReturnType<typeof this.getBuildProfile>) {
     const target = profile.towerBudget * profile.weights.CPU;
     const filtered = products.filter((product) => {
       const normalizedName = this.normalizeText(product.name);
       if (profile.platformPreference === 'AMD') {
-        return (
-          normalizedName.includes('amd') || normalizedName.includes('ryzen')
-        );
+        return normalizedName.includes('amd') || normalizedName.includes('ryzen');
       }
 
       if (profile.platformPreference === 'Intel') {
-        return (
-          normalizedName.includes('intel') || normalizedName.includes('core')
-        );
+        return normalizedName.includes('intel') || normalizedName.includes('core');
       }
 
       return true;
@@ -1190,12 +1108,10 @@ export class AiService {
       ? filtered.filter((product) => product.cpuSpecs?.integratedGraphics)
       : filtered;
 
-    const pool =
-      withGraphicsConstraint.length > 0 ? withGraphicsConstraint : filtered;
+    const pool = withGraphicsConstraint.length > 0 ? withGraphicsConstraint : filtered;
     return (
       [...pool].sort(
-        (a, b) =>
-          this.scoreCpu(b, target, profile) - this.scoreCpu(a, target, profile),
+        (a, b) => this.scoreCpu(b, target, profile) - this.scoreCpu(a, target, profile),
       )[0] ?? null
     );
   }
@@ -1219,17 +1135,11 @@ export class AiService {
         const scoreA =
           150 -
           Math.abs(target - this.normalizePrice(a.price)) +
-          (profile.towerBudget >= 3500 &&
-          a.motherboardSpecs?.memoryType === 'DDR5'
-            ? 60
-            : 0);
+          (profile.towerBudget >= 3500 && a.motherboardSpecs?.memoryType === 'DDR5' ? 60 : 0);
         const scoreB =
           150 -
           Math.abs(target - this.normalizePrice(b.price)) +
-          (profile.towerBudget >= 3500 &&
-          b.motherboardSpecs?.memoryType === 'DDR5'
-            ? 60
-            : 0);
+          (profile.towerBudget >= 3500 && b.motherboardSpecs?.memoryType === 'DDR5' ? 60 : 0);
         return scoreB - scoreA;
       })[0] ?? null
     );
@@ -1242,8 +1152,7 @@ export class AiService {
   ) {
     const target = profile.towerBudget * profile.weights.RAM;
     const memoryType = motherboard?.motherboardSpecs?.memoryType;
-    const targetCapacity =
-      profile.useCase === 'editing' || profile.towerBudget >= 4200 ? 32 : 16;
+    const targetCapacity = profile.useCase === 'editing' || profile.towerBudget >= 4200 ? 32 : 16;
 
     const compatible = products.filter(
       (product) => !memoryType || product.ramSpecs?.memoryType === memoryType,
@@ -1266,28 +1175,15 @@ export class AiService {
     );
   }
 
-  private selectBestStorage(
-    products: any[],
-    profile: ReturnType<typeof this.getBuildProfile>,
-  ) {
+  private selectBestStorage(products: any[], profile: ReturnType<typeof this.getBuildProfile>) {
     const target = profile.towerBudget * profile.weights.STORAGE;
     const targetCapacity =
-      profile.useCase === 'gaming' || profile.useCase === 'editing'
-        ? 1000
-        : 500;
+      profile.useCase === 'gaming' || profile.useCase === 'editing' ? 1000 : 500;
 
     return (
       [...products].sort((a, b) => {
-        const typeBonusA = this.normalizeText(
-          a.storageSpecs?.type ?? '',
-        ).includes('nvme')
-          ? 80
-          : 0;
-        const typeBonusB = this.normalizeText(
-          b.storageSpecs?.type ?? '',
-        ).includes('nvme')
-          ? 80
-          : 0;
+        const typeBonusA = this.normalizeText(a.storageSpecs?.type ?? '').includes('nvme') ? 80 : 0;
+        const typeBonusB = this.normalizeText(b.storageSpecs?.type ?? '').includes('nvme') ? 80 : 0;
         const scoreA =
           150 -
           Math.abs(target - this.normalizePrice(a.price)) +
@@ -1305,10 +1201,7 @@ export class AiService {
     );
   }
 
-  private selectBestGpu(
-    products: any[],
-    profile: ReturnType<typeof this.getBuildProfile>,
-  ) {
+  private selectBestGpu(products: any[], profile: ReturnType<typeof this.getBuildProfile>) {
     if (!profile.needsDedicatedGpu) {
       return null;
     }
@@ -1336,10 +1229,7 @@ export class AiService {
     requiredWattage: number,
     profile: ReturnType<typeof this.getBuildProfile>,
   ) {
-    const target = Math.max(
-      profile.towerBudget * profile.weights.PSU,
-      requiredWattage * 0.45,
-    );
+    const target = Math.max(profile.towerBudget * profile.weights.PSU, requiredWattage * 0.45);
     const compatible = products.filter(
       (product) => (product.psuSpecs?.wattage ?? 0) >= requiredWattage,
     );
@@ -1347,14 +1237,10 @@ export class AiService {
 
     return (
       [...pool].sort((a, b) => {
-        const certBonusA = this.normalizeText(
-          a.psuSpecs?.certification ?? '',
-        ).includes('gold')
+        const certBonusA = this.normalizeText(a.psuSpecs?.certification ?? '').includes('gold')
           ? 50
           : 0;
-        const certBonusB = this.normalizeText(
-          b.psuSpecs?.certification ?? '',
-        ).includes('gold')
+        const certBonusB = this.normalizeText(b.psuSpecs?.certification ?? '').includes('gold')
           ? 50
           : 0;
         const scoreA =
@@ -1373,31 +1259,20 @@ export class AiService {
   }
 
   private roundUpCommercialPsu(watts: number) {
-    const commercialWatts = [
-      450, 500, 550, 600, 650, 700, 750, 850, 1000, 1200, 1500,
-    ];
-    return (
-      commercialWatts.find((value) => value >= watts) ??
-      Math.ceil(watts / 100) * 100
-    );
+    const commercialWatts = [450, 500, 550, 600, 650, 700, 750, 850, 1000, 1200, 1500];
+    return commercialWatts.find((value) => value >= watts) ?? Math.ceil(watts / 100) * 100;
   }
 
   private calculateRequiredPsuWattage(cpu: any, gpu: any) {
     const cpuTdp = Number(cpu?.cpuSpecs?.tdp ?? 65);
-    const gpuPowerWatts = Number(
-      gpu?.gpuSpecs?.gpuPowerWatts ?? gpu?.gpuSpecs?.tdp ?? 0,
-    );
-    const gpuRecommendedPsuWatts = Number(
-      gpu?.gpuSpecs?.recommendedPsuWatts ?? 0,
-    );
+    const gpuPowerWatts = Number(gpu?.gpuSpecs?.gpuPowerWatts ?? gpu?.gpuSpecs?.tdp ?? 0);
+    const gpuRecommendedPsuWatts = Number(gpu?.gpuSpecs?.recommendedPsuWatts ?? 0);
 
     // gpuPowerWatts estimates real system draw; recommendedPsuWatts is a manufacturer floor.
     const calculatedWithHeadroom = (cpuTdp + gpuPowerWatts + 180) * 1.25;
     return Math.max(
       450,
-      this.roundUpCommercialPsu(
-        Math.max(calculatedWithHeadroom, gpuRecommendedPsuWatts),
-      ),
+      this.roundUpCommercialPsu(Math.max(calculatedWithHeadroom, gpuRecommendedPsuWatts)),
     );
   }
 
@@ -1409,8 +1284,7 @@ export class AiService {
   ) {
     const target = profile.towerBudget * profile.weights.CASE;
     const requiredGpuLength = gpu?.gpuSpecs?.length ?? 0;
-    const requiredFormFactor =
-      motherboard?.motherboardSpecs?.formFactor ?? null;
+    const requiredFormFactor = motherboard?.motherboardSpecs?.formFactor ?? null;
 
     const compatible = products.filter((product) => {
       const supportsFormFactor =
@@ -1419,8 +1293,7 @@ export class AiService {
           this.normalizeText(requiredFormFactor),
         );
       const supportsGpu =
-        requiredGpuLength === 0 ||
-        (product.caseSpecs?.maxGpuLength ?? 0) >= requiredGpuLength;
+        requiredGpuLength === 0 || (product.caseSpecs?.maxGpuLength ?? 0) >= requiredGpuLength;
 
       return supportsFormFactor && supportsGpu;
     });
@@ -1441,10 +1314,7 @@ export class AiService {
     );
   }
 
-  private selectBestMonitor(
-    products: any[],
-    profile: ReturnType<typeof this.getBuildProfile>,
-  ) {
+  private selectBestMonitor(products: any[], profile: ReturnType<typeof this.getBuildProfile>) {
     if (!profile.includeMonitor) {
       return null;
     }
@@ -1459,17 +1329,11 @@ export class AiService {
         const refreshA = a.monitorSpecs?.refreshRate ?? 60;
         const refreshB = b.monitorSpecs?.refreshRate ?? 60;
         const gamingBonusA =
-          profile.useCase === 'gaming'
-            ? Math.min(refreshA, 180)
-            : Math.min(refreshA, 100);
+          profile.useCase === 'gaming' ? Math.min(refreshA, 180) : Math.min(refreshA, 100);
         const gamingBonusB =
-          profile.useCase === 'gaming'
-            ? Math.min(refreshB, 180)
-            : Math.min(refreshB, 100);
-        const scoreA =
-          140 - Math.abs(target - this.normalizePrice(a.price)) + gamingBonusA;
-        const scoreB =
-          140 - Math.abs(target - this.normalizePrice(b.price)) + gamingBonusB;
+          profile.useCase === 'gaming' ? Math.min(refreshB, 180) : Math.min(refreshB, 100);
+        const scoreA = 140 - Math.abs(target - this.normalizePrice(a.price)) + gamingBonusA;
+        const scoreB = 140 - Math.abs(target - this.normalizePrice(b.price)) + gamingBonusB;
         return scoreB - scoreA;
       })[0] ?? null
     );
@@ -1478,10 +1342,8 @@ export class AiService {
   private selectAffordablePeripheral(products: any[], weightBudget: number) {
     return (
       [...products].sort((a, b) => {
-        const scoreA =
-          100 - Math.abs(weightBudget - this.normalizePrice(a.price));
-        const scoreB =
-          100 - Math.abs(weightBudget - this.normalizePrice(b.price));
+        const scoreA = 100 - Math.abs(weightBudget - this.normalizePrice(a.price));
+        const scoreB = 100 - Math.abs(weightBudget - this.normalizePrice(b.price));
         return scoreB - scoreA;
       })[0] ?? null
     );
@@ -1531,34 +1393,20 @@ export class AiService {
       'MOUSE',
     ];
     const products = await this.getStockedProducts(categories);
-    const byCategory = categories.reduce<Record<string, any[]>>(
-      (acc, category) => {
-        acc[category] = products.filter(
-          (product) => product.category === category,
-        );
-        return acc;
-      },
-      {},
-    );
+    const byCategory = categories.reduce<Record<string, any[]>>((acc, category) => {
+      acc[category] = products.filter((product) => product.category === category);
+      return acc;
+    }, {});
 
     const cpu = this.selectBestCpu(byCategory.CPU, profile);
-    const motherboard = this.selectBestMotherboard(
-      byCategory.MOTHERBOARD,
-      cpu,
-      profile,
-    );
+    const motherboard = this.selectBestMotherboard(byCategory.MOTHERBOARD, cpu, profile);
     const ram = this.selectBestRam(byCategory.RAM, motherboard, profile);
     const storage = this.selectBestStorage(byCategory.STORAGE, profile);
     const gpu = this.selectBestGpu(byCategory.GPU, profile);
 
     const requiredWattage = this.calculateRequiredPsuWattage(cpu, gpu);
     const psu = this.selectBestPsu(byCategory.PSU, requiredWattage, profile);
-    const caseProduct = this.selectBestCase(
-      byCategory.CASE,
-      motherboard,
-      gpu,
-      profile,
-    );
+    const caseProduct = this.selectBestCase(byCategory.CASE, motherboard, gpu, profile);
     const monitor = this.selectBestMonitor(byCategory.MONITOR, profile);
     const keyboard = profile.includeKeyboard
       ? this.selectAffordablePeripheral(byCategory.KEYBOARD, 90)
@@ -1632,18 +1480,13 @@ export class AiService {
         reason: 'acompaña el setup sin comerse mucho presupuesto',
       },
     ].filter(
-      (item) =>
-        item.product ||
-        ['GPU', 'MONITOR', 'KEYBOARD', 'MOUSE'].includes(item.category),
+      (item) => item.product || ['GPU', 'MONITOR', 'KEYBOARD', 'MOUSE'].includes(item.category),
     );
 
-    const missingCategories = selections
-      .filter((item) => !item.product)
-      .map((item) => item.label);
+    const missingCategories = selections.filter((item) => !item.product).map((item) => item.label);
 
     const total = selections.reduce(
-      (acc, item) =>
-        acc + (item.product ? this.normalizePrice(item.product.price) : 0),
+      (acc, item) => acc + (item.product ? this.normalizePrice(item.product.price) : 0),
       0,
     );
 
@@ -1661,9 +1504,7 @@ export class AiService {
     }
 
     if (profile.platformPreference === 'ANY') {
-      notes.push(
-        'Si prefieres AMD o Intel te la puedo reajustar sin problema.',
-      );
+      notes.push('Si prefieres AMD o Intel te la puedo reajustar sin problema.');
     }
 
     return {
@@ -1675,10 +1516,7 @@ export class AiService {
     };
   }
 
-  private async createBuildReply(
-    slots: ConversationSlots,
-    recommendation: BuildRecommendation,
-  ) {
+  private async createBuildReply(slots: ConversationSlots, recommendation: BuildRecommendation) {
     const selectedProducts = recommendation.components
       .map((component) => component.product)
       .filter(Boolean);
@@ -1687,9 +1525,7 @@ export class AiService {
     const urgencyLines = this.summarizeUrgency(predictionMap, selectedProducts);
     const availableLines = recommendation.components
       .filter((component) => component.product)
-      .map((component) =>
-        this.buildComponentLine(component.product, component.category),
-      );
+      .map((component) => this.buildComponentLine(component.product, component.category));
 
     const opening = `Ya con lo que me dijiste, te armaria una propuesta para ${USE_CASE_LABELS[slots.useCase ?? 'gaming']} con presupuesto de S/. ${slots.budget}.`;
     const totalsLine = `El total estimado me queda en S/. ${recommendation.total.toFixed(2)}.`;
@@ -1735,9 +1571,7 @@ export class AiService {
 
     const normalized = this.normalizeText(userMessage);
     const inferredCategory = CATEGORY_HINTS.find((hint) =>
-      hint.keywords.some((keyword) =>
-        normalized.includes(this.normalizeText(keyword)),
-      ),
+      hint.keywords.some((keyword) => normalized.includes(this.normalizeText(keyword))),
     );
 
     if (!inferredCategory) {
@@ -1765,13 +1599,10 @@ export class AiService {
 
     const predictionMap = new Map(predictions.map((item) => [item.id, item]));
     const mainProduct = matchedProducts[0];
-    const mainPrediction =
-      predictionMap.get(mainProduct.id) ?? FALLBACK_PREDICTION;
+    const mainPrediction = predictionMap.get(mainProduct.id) ?? FALLBACK_PREDICTION;
     const alternativeProducts = matchedProducts
       .slice(1, 3)
-      .map(
-        (product) => `${product.name} (S/. ${this.formatPrice(product.price)})`,
-      )
+      .map((product) => `${product.name} (S/. ${this.formatPrice(product.price)})`)
       .join(', ');
 
     const normalizedMessage = this.normalizeText(userMessage);
@@ -1824,9 +1655,7 @@ export class AiService {
               orderBy: [{ stock: 'asc' }, { updatedAt: 'desc' }],
             });
 
-      const normalizedProducts = sourceProducts.map((product) =>
-        this.normalizeProduct(product),
-      );
+      const normalizedProducts = sourceProducts.map((product) => this.normalizeProduct(product));
 
       if (normalizedProducts.length === 0) {
         return [];
@@ -1834,11 +1663,8 @@ export class AiService {
 
       return await this.requestStockPredictions(normalizedProducts);
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `AI service no disponible. Se aplica degradacion segura: ${errorMessage}`,
-      );
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`AI service no disponible. Se aplica degradacion segura: ${errorMessage}`);
 
       return [];
     }
@@ -1901,11 +1727,7 @@ export class AiService {
 
     if (intent === 'product_search' || matchedProducts.length > 0) {
       return {
-        ...this.buildProductSearchReply(
-          cleanMessage,
-          matchedProducts,
-          predictions,
-        ),
+        ...this.buildProductSearchReply(cleanMessage, matchedProducts, predictions),
         detectedIntent: matchedProducts.length > 0 ? 'product_search' : intent,
       };
     }
@@ -1943,10 +1765,7 @@ export class AiService {
     }
 
     try {
-      const response = await this.requestCommercialChat(
-        cleanMessage,
-        conversationState,
-      );
+      const response = await this.requestCommercialChat(cleanMessage, conversationState);
 
       if (response.status === 'degraded') {
         return await this.processCustomerChatFallback(cleanMessage, history);
@@ -1960,9 +1779,7 @@ export class AiService {
         return await this.processCustomerChatFallback(cleanMessage, history);
       } catch (fallbackError: unknown) {
         const fallbackMessage =
-          fallbackError instanceof Error
-            ? fallbackError.message
-            : String(fallbackError);
+          fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
         this.logger.warn(`[AI] Fallback local no disponible: ${fallbackMessage}`);
         return {
           reply: AI_UNAVAILABLE_REPLY,

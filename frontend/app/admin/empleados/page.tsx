@@ -111,7 +111,9 @@ export default function EmpleadosPage() {
           <div className="p-10 text-center font-bold">Cargando...</div>
         ) : users.length === 0 ? (
           <div className="p-10 text-center">
-            <p className="mb-4 text-lg font-bold text-gray-700">No hay empleados registrados todavia.</p>
+            <p className="mb-4 text-lg font-bold text-gray-700">
+              No hay empleados registrados todavia.
+            </p>
             <button
               onClick={openCreateModal}
               className="rounded-xl bg-brand-cyan px-5 py-3 font-bold text-gray-900 transition hover:bg-cyan-400"
@@ -169,7 +171,9 @@ export default function EmpleadosPage() {
                               ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
                               : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700'
                         }`}
-                        title={isMe ? 'No puedes bloquearte a ti mismo' : 'Clic para cambiar estado'}
+                        title={
+                          isMe ? 'No puedes bloquearte a ti mismo' : 'Clic para cambiar estado'
+                        }
                       >
                         {user.status === 'ACTIVE' ? <FiShield /> : <FiShieldOff />}
                         {user.status === 'ACTIVE' ? 'Activo' : 'Bloqueado'}
@@ -206,8 +210,14 @@ export default function EmpleadosPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase text-gray-500">Nombre</label>
+                <label
+                  htmlFor="employee-name"
+                  className="block text-xs font-bold uppercase text-gray-500"
+                >
+                  Nombre
+                </label>
                 <input
+                  id="employee-name"
                   required
                   type="text"
                   className="w-full rounded-xl border-2 p-3 outline-none focus:border-brand-cyan"
@@ -216,8 +226,14 @@ export default function EmpleadosPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase text-gray-500">Correo</label>
+                <label
+                  htmlFor="employee-email"
+                  className="block text-xs font-bold uppercase text-gray-500"
+                >
+                  Correo
+                </label>
                 <input
+                  id="employee-email"
                   required={!isEditing}
                   disabled={isEditing}
                   type="email"
@@ -229,10 +245,14 @@ export default function EmpleadosPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase text-gray-500">
+                <label
+                  htmlFor="employee-password"
+                  className="block text-xs font-bold uppercase text-gray-500"
+                >
                   Contrasena {isEditing && '(Dejalo en blanco para no cambiarla)'}
                 </label>
                 <input
+                  id="employee-password"
                   required={!isEditing}
                   type="text"
                   className="w-full rounded-xl border-2 p-3 outline-none focus:border-brand-cyan"
@@ -241,8 +261,14 @@ export default function EmpleadosPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase text-gray-500">Rol</label>
+                <label
+                  htmlFor="employee-role"
+                  className="block text-xs font-bold uppercase text-gray-500"
+                >
+                  Rol
+                </label>
                 <select
+                  id="employee-role"
                   className="w-full rounded-xl border-2 bg-white p-3 font-bold outline-none focus:border-brand-cyan"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}

@@ -66,6 +66,8 @@ export async function createQaApp(): Promise<E2eContext> {
 }
 
 export async function closeQaApp(context?: E2eContext) {
-  if (!context) return;
+  if (!context) {
+    return;
+  }
   await context.app.close();
 }

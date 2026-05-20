@@ -3,18 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { 
-  FiShoppingCart, 
-  FiChevronRight 
-} from 'react-icons/fi';
-import {
-  MdLaptopMac,
-  MdComputer,
-  MdMonitor,
-  MdMouse,
-  MdBuild,
-  MdLocalOffer
-} from 'react-icons/md';
+import { FiShoppingCart, FiChevronRight } from 'react-icons/fi';
+import { MdLaptopMac, MdComputer, MdMonitor, MdMouse, MdBuild, MdLocalOffer } from 'react-icons/md';
 
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
@@ -23,7 +13,15 @@ import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/prici
 const HeroCarousel = dynamic(() => import('@/components/HeroCarousel'));
 
 // --- COMPONENTE DE SECCIÓN DE PRODUCTOS (Reutilizable) ---
-const ProductSection = ({ title, products, link }: { title: string, products: any[], link?: string }) => {
+const ProductSection = ({
+  title,
+  products,
+  link,
+}: {
+  title: string;
+  products: any[];
+  link?: string;
+}) => {
   const { addItem } = useCartStore();
 
   if (!products || products.length === 0) return null;
@@ -34,21 +32,29 @@ const ProductSection = ({ title, products, link }: { title: string, products: an
         <h2 className="text-2xl font-bold text-gray-800 border-l-4 border-brand-cyan pl-3">
           {title}
         </h2>
-        <Link href={link || '/catalogo'} className="text-brand-cyan font-bold text-sm hover:underline flex items-center">
+        <Link
+          href={link || '/catalogo'}
+          className="text-brand-cyan font-bold text-sm hover:underline flex items-center"
+        >
           Ver más <FiChevronRight />
         </Link>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {products.map((product) => (
-          <div key={product.id} className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col overflow-hidden group">
-            
+          <div
+            key={product.id}
+            className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col overflow-hidden group"
+          >
             {/* IMAGEN: Aquí se corrigió para que use solo product.id */}
-            <Link href={`/product/${product.id}`} className="block relative h-64 p-6 bg-gray-50 flex items-center justify-center">
+            <Link
+              href={`/product/${product.id}`}
+              className="block relative h-64 p-6 bg-gray-50 flex items-center justify-center"
+            >
               {product.images && product.images.length > 0 ? (
-                <img 
-                  src={product.images[0]} 
-                  alt={product.name} 
+                <img
+                  src={product.images[0]}
+                  alt={product.name}
                   loading="lazy"
                   decoding="async"
                   className="max-h-full max-w-full object-contain group-hover:scale-110 transition duration-500"
@@ -56,12 +62,12 @@ const ProductSection = ({ title, products, link }: { title: string, products: an
               ) : (
                 <div className="text-gray-300 font-bold text-4xl">No Img</div>
               )}
-              
+
               {product.stock <= 0 && (
                 <div className="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-sm z-10">
-                   <span className="font-black text-gray-400 uppercase tracking-widest text-sm border-2 border-gray-400 px-4 py-2 rounded">
-                     Agotado
-                   </span>
+                  <span className="font-black text-gray-400 uppercase tracking-widest text-sm border-2 border-gray-400 px-4 py-2 rounded">
+                    Agotado
+                  </span>
                 </div>
               )}
             </Link>
@@ -71,7 +77,7 @@ const ProductSection = ({ title, products, link }: { title: string, products: an
               <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider mb-2">
                 {product.category}
               </span>
-              
+
               {/* TÍTULO: Aquí se corrigió para que use solo product.id */}
               <Link href={`/product/${product.id}`}>
                 <h3 className="font-bold text-gray-800 leading-tight mb-4 hover:text-brand-cyan transition line-clamp-2 min-h-[2.5rem]">
@@ -91,12 +97,14 @@ const ProductSection = ({ title, products, link }: { title: string, products: an
                       </span>
                     </div>
                   ) : null}
-                   <p className="text-2xl font-black text-gray-900">S/. {getEffectivePrice(product).toFixed(2)}</p>
+                  <p className="text-2xl font-black text-gray-900">
+                    S/. {getEffectivePrice(product).toFixed(2)}
+                  </p>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     addItem(product);
-                    alert("Añadido al carrito");
+                    alert('Añadido al carrito');
                   }}
                   disabled={product.stock <= 0}
                   className="bg-gray-900 text-white p-3 rounded-lg hover:bg-brand-cyan hover:text-black transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group-active:scale-95"
@@ -133,7 +141,7 @@ export default function Home() {
         const res = await api.get('/products');
         setProducts(res.data);
       } catch (error) {
-        console.error("Error cargando productos de la API:", error);
+        console.error('Error cargando productos de la API:', error);
       } finally {
         setLoading(false);
       }
@@ -141,16 +149,27 @@ export default function Home() {
     fetchProducts();
   }, []);
 
-  const cpuProducts = products.filter(p => p.category === 'CPU').slice(0, 4);
-  const moboProducts = products.filter(p => p.category === 'MOTHERBOARD').slice(0, 4);
-  const gpuProducts = products.filter(p => p.category === 'GPU').slice(0, 4);
+  const cpuProducts = products.filter((p) => p.category === 'CPU').slice(0, 4);
+  const moboProducts = products.filter((p) => p.category === 'MOTHERBOARD').slice(0, 4);
+  const gpuProducts = products.filter((p) => p.category === 'GPU').slice(0, 4);
   const periProducts = products
-    .filter(p => ['MOUSE', 'KEYBOARD', 'HEADSET', 'MONITOR', 'MOUSEPAD', 'WEBCAM', 'CAPTURE_CARD', 'CABLE_HUB', 'PERIPHERAL'].includes(p.category))
+    .filter((p) =>
+      [
+        'MOUSE',
+        'KEYBOARD',
+        'HEADSET',
+        'MONITOR',
+        'MOUSEPAD',
+        'WEBCAM',
+        'CAPTURE_CARD',
+        'CABLE_HUB',
+        'PERIPHERAL',
+      ].includes(p.category),
+    )
     .slice(0, 4);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      
       <HeroCarousel />
 
       {/* --- CATEGORÍAS RÁPIDAS CLICKEABLES --- */}
@@ -189,17 +208,34 @@ export default function Home() {
           </div>
         ) : products.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl shadow">
-                    <p className="text-xl font-bold text-gray-400">No hay productos disponibles por el momento.</p>
-            <Link href="/admin/add-product" className="text-cyan-600 font-bold hover:underline mt-2 inline-block">
+            <p className="text-xl font-bold text-gray-400">
+              No hay productos disponibles por el momento.
+            </p>
+            <Link
+              href="/admin/add-product"
+              className="text-cyan-600 font-bold hover:underline mt-2 inline-block"
+            >
               Ir a agregar productos
             </Link>
           </div>
         ) : (
           <>
             <ProductSection title="Procesadores" products={cpuProducts} link="/categoria/cpu" />
-            <ProductSection title="Placas Base Recomendadas" products={moboProducts} link="/categoria/mobo" />
-            <ProductSection title="Tarjetas Gráficas" products={gpuProducts} link="/categoria/graficas" />
-            <ProductSection title="Periféricos" products={periProducts} link="/categoria/perifericos" />
+            <ProductSection
+              title="Placas Base Recomendadas"
+              products={moboProducts}
+              link="/categoria/mobo"
+            />
+            <ProductSection
+              title="Tarjetas Gráficas"
+              products={gpuProducts}
+              link="/categoria/graficas"
+            />
+            <ProductSection
+              title="Periféricos"
+              products={periProducts}
+              link="/categoria/perifericos"
+            />
           </>
         )}
       </div>

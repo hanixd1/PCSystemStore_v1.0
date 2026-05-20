@@ -56,9 +56,7 @@ export default function AccountDataPage() {
         if (!mounted) return;
 
         const [firstName, ...restNames] = String(res.data.name || '').split(' ');
-        const birthDate = res.data.birthDate
-          ? String(res.data.birthDate).slice(0, 10)
-          : '';
+        const birthDate = res.data.birthDate ? String(res.data.birthDate).slice(0, 10) : '';
 
         setForm((current) => ({
           ...current,
@@ -138,7 +136,11 @@ export default function AccountDataPage() {
     setMessage('');
     setError('');
 
-    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+    if (
+      !passwordForm.currentPassword ||
+      !passwordForm.newPassword ||
+      !passwordForm.confirmPassword
+    ) {
       setError('Completa todos los campos de contrasena.');
       return;
     }
@@ -182,15 +184,45 @@ export default function AccountDataPage() {
         </TabButton>
       </div>
 
-      {message ? <p className="mt-5 rounded-xl bg-green-50 p-3 text-sm font-bold text-green-700">{message}</p> : null}
-      {error ? <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
+      {message ? (
+        <p className="mt-5 rounded-xl bg-green-50 p-3 text-sm font-bold text-green-700">
+          {message}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>
+      ) : null}
 
       {activeTab === 'password' ? (
         <form onSubmit={handlePasswordSubmit} className="mt-8 max-w-3xl space-y-6">
-          <Field label="Contrasena actual" required type="password" value={passwordForm.currentPassword} onChange={(value) => setPasswordForm((current) => ({ ...current, currentPassword: value }))} />
+          <Field
+            label="Contrasena actual"
+            required
+            type="password"
+            value={passwordForm.currentPassword}
+            onChange={(value) =>
+              setPasswordForm((current) => ({ ...current, currentPassword: value }))
+            }
+          />
           <div className="grid gap-6 md:grid-cols-2">
-            <Field label="Nueva contrasena" required type="password" value={passwordForm.newPassword} onChange={(value) => setPasswordForm((current) => ({ ...current, newPassword: value }))} />
-            <Field label="Confirmar contrasena nueva" required type="password" value={passwordForm.confirmPassword} onChange={(value) => setPasswordForm((current) => ({ ...current, confirmPassword: value }))} />
+            <Field
+              label="Nueva contrasena"
+              required
+              type="password"
+              value={passwordForm.newPassword}
+              onChange={(value) =>
+                setPasswordForm((current) => ({ ...current, newPassword: value }))
+              }
+            />
+            <Field
+              label="Confirmar contrasena nueva"
+              required
+              type="password"
+              value={passwordForm.confirmPassword}
+              onChange={(value) =>
+                setPasswordForm((current) => ({ ...current, confirmPassword: value }))
+              }
+            />
           </div>
           <SaveButton isSaving={isSaving} />
         </form>
@@ -199,12 +231,45 @@ export default function AccountDataPage() {
           <section>
             <h2 className="mb-6 text-xl font-black text-gray-900">Informacion Personal</h2>
             <div className="grid gap-6 md:grid-cols-3">
-              <Field label="Nombre" required value={form.name} onChange={(value) => updateField('name', value)} />
-              <Field label="Apellidos" required value={form.lastName} onChange={(value) => updateField('lastName', value)} />
-              <Field label="Fecha de nacimiento" type="date" value={form.birthDate} onChange={(value) => updateField('birthDate', value)} />
-              <SelectField label="Tipo de documento" required disabled={hasLockedDocument} value={form.documentType} options={['DNI', 'Carnet de extranjeria', 'Pasaporte']} onChange={(value) => updateField('documentType', value)} />
-              <Field label="Numero de documento" required disabled={hasLockedDocument} value={form.documentNumber} onChange={(value) => updateField('documentNumber', value)} />
-              <SelectField label="Sexo" value={form.gender} options={['Masculino', 'Femenino', 'Prefiero no decirlo']} onChange={(value) => updateField('gender', value)} />
+              <Field
+                label="Nombre"
+                required
+                value={form.name}
+                onChange={(value) => updateField('name', value)}
+              />
+              <Field
+                label="Apellidos"
+                required
+                value={form.lastName}
+                onChange={(value) => updateField('lastName', value)}
+              />
+              <Field
+                label="Fecha de nacimiento"
+                type="date"
+                value={form.birthDate}
+                onChange={(value) => updateField('birthDate', value)}
+              />
+              <SelectField
+                label="Tipo de documento"
+                required
+                disabled={hasLockedDocument}
+                value={form.documentType}
+                options={['DNI', 'Carnet de extranjeria', 'Pasaporte']}
+                onChange={(value) => updateField('documentType', value)}
+              />
+              <Field
+                label="Numero de documento"
+                required
+                disabled={hasLockedDocument}
+                value={form.documentNumber}
+                onChange={(value) => updateField('documentNumber', value)}
+              />
+              <SelectField
+                label="Sexo"
+                value={form.gender}
+                options={['Masculino', 'Femenino', 'Prefiero no decirlo']}
+                onChange={(value) => updateField('gender', value)}
+              />
             </div>
             {hasLockedDocument ? (
               <p className="mt-3 text-xs font-bold text-gray-500">
@@ -216,9 +281,25 @@ export default function AccountDataPage() {
           <section className="border-t border-gray-200 pt-8">
             <h2 className="mb-6 text-xl font-black text-gray-900">Informacion de cuenta</h2>
             <div className="grid gap-6 md:grid-cols-3">
-              <Field label="Numero de celular" value={form.mobilePhone} onChange={(value) => updateField('mobilePhone', value)} />
-              <Field label="Correo electronico" required type="email" value={form.email} onChange={(value) => updateField('email', value)} />
-              <Field label="Confirmar correo electronico" required type="email" value={form.confirmEmail} onChange={(value) => updateField('confirmEmail', value)} />
+              <Field
+                label="Numero de celular"
+                value={form.mobilePhone}
+                onChange={(value) => updateField('mobilePhone', value)}
+              />
+              <Field
+                label="Correo electronico"
+                required
+                type="email"
+                value={form.email}
+                onChange={(value) => updateField('email', value)}
+              />
+              <Field
+                label="Confirmar correo electronico"
+                required
+                type="email"
+                value={form.confirmEmail}
+                onChange={(value) => updateField('confirmEmail', value)}
+              />
             </div>
           </section>
 
@@ -229,14 +310,24 @@ export default function AccountDataPage() {
   );
 }
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
         'border-b-4 pb-3 text-sm transition',
-        active ? 'border-brand-cyan font-black text-gray-900' : 'border-transparent font-medium text-gray-500 hover:text-brand-cyan',
+        active
+          ? 'border-brand-cyan font-black text-gray-900'
+          : 'border-transparent font-medium text-gray-500 hover:text-brand-cyan',
       ].join(' ')}
     >
       {children}
@@ -255,7 +346,21 @@ function SaveButton({ isSaving }: { isSaving: boolean }) {
   );
 }
 
-function Field({ label, value, onChange, type = 'text', required = false, disabled = false }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; disabled?: boolean }) {
+function Field({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  required = false,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
+  disabled?: boolean;
+}) {
   return (
     <label className="block">
       <span className="text-xs font-black uppercase text-gray-900">
@@ -272,7 +377,21 @@ function Field({ label, value, onChange, type = 'text', required = false, disabl
   );
 }
 
-function SelectField({ label, value, options, onChange, required = false, disabled = false }: { label: string; value: string; options: string[]; onChange: (value: string) => void; required?: boolean; disabled?: boolean }) {
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  required = false,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  required?: boolean;
+  disabled?: boolean;
+}) {
   return (
     <label className="block">
       <span className="text-xs font-black uppercase text-gray-900">

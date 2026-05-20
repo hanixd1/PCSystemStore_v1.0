@@ -115,11 +115,7 @@ function BannerContent({ banner }: { banner: Banner }) {
     <div className="relative flex h-[300px] w-full items-center justify-center overflow-hidden md:h-[500px]">
       {banner.imageUrl ? (
         <picture className="absolute inset-0">
-          <img
-            src={banner.imageUrl}
-            alt={banner.title}
-            className="h-full w-full object-cover"
-          />
+          <img src={banner.imageUrl} alt={banner.title} className="h-full w-full object-cover" />
         </picture>
       ) : (
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-600 via-gray-900 to-cyan-500" />

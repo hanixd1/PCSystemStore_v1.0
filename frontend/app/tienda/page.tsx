@@ -3,12 +3,12 @@ import { FiClock, FiMapPin, FiPhone, FiShield } from 'react-icons/fi';
 export default function TiendaPage() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
-      
       {/* Cabecera Simple */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-black text-gray-900 mb-4">Nuestra Tienda en Huancayo</h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Ven a conocer el showroom de hardware más completo de la ciudad. Asesoramiento personalizado y los mejores equipos en exhibición.
+          Ven a conocer el showroom de hardware más completo de la ciudad. Asesoramiento
+          personalizado y los mejores equipos en exhibición.
         </p>
       </div>
 
@@ -29,7 +29,9 @@ export default function TiendaPage() {
             <FiMapPin />
           </div>
           <h3 className="font-bold text-lg mb-2">Ubicación</h3>
-          <p className="text-gray-600">Av. Giráldez 274, Centro de Huancayo. <br/> (Frente a la tienda La Curacao)</p>
+          <p className="text-gray-600">
+            Av. Giráldez 274, Centro de Huancayo. <br /> (Frente a la tienda La Curacao)
+          </p>
         </div>
 
         {/* Horarios */}
@@ -38,9 +40,7 @@ export default function TiendaPage() {
             <FiClock />
           </div>
           <h3 className="font-bold text-lg mb-2">Horarios de Atención</h3>
-          <p className="text-gray-600">
-            Lunes a Sábado: 10am - 8pm
-          </p>
+          <p className="text-gray-600">Lunes a Sábado: 10am - 8pm</p>
         </div>
 
         {/* Contacto */}
@@ -60,11 +60,13 @@ export default function TiendaPage() {
           <FiShield className="text-6xl text-brand-cyan" />
           <div>
             <h2 className="text-2xl font-bold mb-2">Garantía Real y Soporte Local</h2>
-            <p className="text-gray-300 max-w-md">Olvídate de trámites engorrosos. Si falla, lo solucionamos aquí mismo en nuestra tienda física.</p>
+            <p className="text-gray-300 max-w-md">
+              Olvídate de trámites engorrosos. Si falla, lo solucionamos aquí mismo en nuestra
+              tienda física.
+            </p>
           </div>
         </div>
       </div>
-
     </div>
   );
 }

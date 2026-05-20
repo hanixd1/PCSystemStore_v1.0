@@ -40,8 +40,7 @@ function getSessionCookieName(scope: SessionScope) {
 
 function getCookieOptions(scope: SessionScope) {
   const isProduction = process.env.NODE_ENV === 'production';
-  const maxAgeMs =
-    scope === 'admin' ? ADMIN_SESSION_MAX_AGE_MS : CUSTOMER_SESSION_MAX_AGE_MS;
+  const maxAgeMs = scope === 'admin' ? ADMIN_SESSION_MAX_AGE_MS : CUSTOMER_SESSION_MAX_AGE_MS;
 
   return {
     httpOnly: true,
@@ -74,11 +73,7 @@ export class UsersController {
     @Req() request: express.Request,
     @Res({ passthrough: true }) response: express.Response,
   ) {
-    const session = await this.usersService.customerLogin(
-      body.email,
-      body.password,
-      request,
-    );
+    const session = await this.usersService.customerLogin(body.email, body.password, request);
     setSessionCookie(response, 'customer', session.token);
     return session;
   }
@@ -90,11 +85,7 @@ export class UsersController {
     @Req() request: express.Request,
     @Res({ passthrough: true }) response: express.Response,
   ) {
-    const session = await this.usersService.customerLogin(
-      body.email,
-      body.password,
-      request,
-    );
+    const session = await this.usersService.customerLogin(body.email, body.password, request);
     setSessionCookie(response, 'customer', session.token);
     return session;
   }
@@ -106,11 +97,7 @@ export class UsersController {
     @Req() request: express.Request,
     @Res({ passthrough: true }) response: express.Response,
   ) {
-    const session = await this.usersService.adminLogin(
-      body.email,
-      body.password,
-      request,
-    );
+    const session = await this.usersService.adminLogin(body.email, body.password, request);
     setSessionCookie(response, 'admin', session.token);
     return session;
   }
@@ -180,19 +167,13 @@ export class UsersController {
 
   @Roles('CUSTOMER')
   @Patch('me/profile')
-  updateProfile(
-    @Req() request: AuthenticatedRequest,
-    @Body() body: UpdateProfileDto,
-  ) {
+  updateProfile(@Req() request: AuthenticatedRequest, @Body() body: UpdateProfileDto) {
     return this.usersService.updateProfile(request.user.sub, body);
   }
 
   @Roles('CUSTOMER')
   @Patch('me/password')
-  changePassword(
-    @Req() request: AuthenticatedRequest,
-    @Body() body: ChangePasswordDto,
-  ) {
+  changePassword(@Req() request: AuthenticatedRequest, @Body() body: ChangePasswordDto) {
     return this.usersService.changePassword(
       request.user.sub,
       body.currentPassword,
@@ -208,19 +189,13 @@ export class UsersController {
 
   @Roles('CUSTOMER')
   @Post('me/addresses')
-  createAddress(
-    @Req() request: AuthenticatedRequest,
-    @Body() body: CreateAddressDto,
-  ) {
+  createAddress(@Req() request: AuthenticatedRequest, @Body() body: CreateAddressDto) {
     return this.usersService.createAddress(request.user.sub, body);
   }
 
   @Roles('CUSTOMER')
   @Delete('me/addresses/:id')
-  deleteAddress(
-    @Req() request: AuthenticatedRequest,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  deleteAddress(@Req() request: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.deleteAddress(request.user.sub, id);
   }
 
@@ -250,10 +225,7 @@ export class UsersController {
 
   @Roles('ADMIN')
   @Patch(':id')
-  updateUser(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: UpdateUserDto,
-  ) {
+  updateUser(@Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateUserDto) {
     return this.usersService.updateUser(id, body);
   }
 }

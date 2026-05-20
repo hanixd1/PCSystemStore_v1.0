@@ -44,7 +44,9 @@ describeWithTestDb('Auditoria HTTP E2E real', () => {
   });
 
   it('AUD-E2E-02/03 editar precio y stock genera valores anteriores/nuevos', async () => {
-    const product = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.noSale } });
+    const product = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.noSale },
+    });
 
     await request(ctx.app.getHttpServer())
       .patch(`/products/${product.id}`)
@@ -52,13 +54,24 @@ describeWithTestDb('Auditoria HTTP E2E real', () => {
       .send({ price: 930, stock: 2 })
       .expect(200);
 
-    const logs = await ctx.prisma.actionLog.findMany({ where: { entityId: product.id } });
-    expect(logs.some((log) => log.action === 'UPDATE_PRICE' && log.oldValue && log.newValue)).toBe(true);
-    expect(logs.some((log) => log.action === 'UPDATE_STOCK' && log.stockBefore !== null && log.stockAfter !== null)).toBe(true);
+    const logs = await ctx.prisma.actionLog.findMany({
+      where: { entityId: product.id },
+    });
+    expect(logs.some((log) => log.action === 'UPDATE_PRICE' && log.oldValue && log.newValue)).toBe(
+      true,
+    );
+    expect(
+      logs.some(
+        (log) =>
+          log.action === 'UPDATE_STOCK' && log.stockBefore !== null && log.stockAfter !== null,
+      ),
+    ).toBe(true);
   });
 
   it('AUD-E2E-04 desactivar oferta genera log', async () => {
-    const product = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.saleActive } });
+    const product = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.saleActive },
+    });
 
     await request(ctx.app.getHttpServer())
       .patch(`/products/${product.id}`)
@@ -66,7 +79,9 @@ describeWithTestDb('Auditoria HTTP E2E real', () => {
       .send({ isOnSale: false })
       .expect(200);
 
-    const logs = await ctx.prisma.actionLog.findMany({ where: { entityId: product.id } });
+    const logs = await ctx.prisma.actionLog.findMany({
+      where: { entityId: product.id },
+    });
     expect(logs.some((log) => log.action === 'DISABLE_PRODUCT_SALE')).toBe(true);
   });
 
@@ -82,7 +97,10 @@ describeWithTestDb('Auditoria HTTP E2E real', () => {
   });
 
   it('AUD-E2E-08 login cliente no aparece en auditoria administrativa', async () => {
-    await request(ctx.app.getHttpServer()).post('/users/customer-login').send(qaUsers.customer).expect(201);
+    await request(ctx.app.getHttpServer())
+      .post('/users/customer-login')
+      .send(qaUsers.customer)
+      .expect(201);
 
     const logs = await request(ctx.app.getHttpServer())
       .get('/admin/audit/security')

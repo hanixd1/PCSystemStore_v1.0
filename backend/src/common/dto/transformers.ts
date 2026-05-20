@@ -62,10 +62,16 @@ export function toOptionalStringArray({ value }: TransformFnParams) {
         return parsed.map((item) => String(item).trim()).filter(Boolean);
       }
     } catch {
-      return trimmed.split(',').map((item) => item.trim()).filter(Boolean);
+      return trimmed
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
 
-    return trimmed.split(',').map((item) => item.trim()).filter(Boolean);
+    return trimmed
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   return value;

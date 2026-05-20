@@ -48,7 +48,9 @@ describeWithTestDb('Productos y ofertas HTTP E2E real', () => {
   });
 
   it('PROD-E2E-03/04 admin edita stock y precio normal', async () => {
-    const product = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.noSale } });
+    const product = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.noSale },
+    });
 
     const res = await request(ctx.app.getHttpServer())
       .patch(`/products/${product.id}`)
@@ -61,7 +63,9 @@ describeWithTestDb('Productos y ofertas HTTP E2E real', () => {
   });
 
   it('PROD-E2E-05 admin activa oferta valida', async () => {
-    const product = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.noSale } });
+    const product = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.noSale },
+    });
 
     const res = await request(ctx.app.getHttpServer())
       .patch(`/products/${product.id}`)
@@ -74,7 +78,9 @@ describeWithTestDb('Productos y ofertas HTTP E2E real', () => {
   });
 
   it('PROD-E2E-06 rechaza oferta con salePrice >= price', async () => {
-    const product = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.noSale } });
+    const product = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.noSale },
+    });
 
     return request(ctx.app.getHttpServer())
       .patch(`/products/${product.id}`)
@@ -84,7 +90,9 @@ describeWithTestDb('Productos y ofertas HTTP E2E real', () => {
   });
 
   it('PROD-E2E-07 desactiva oferta y DB queda salePrice null', async () => {
-    const product = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.saleActive } });
+    const product = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.saleActive },
+    });
 
     await request(ctx.app.getHttpServer())
       .patch(`/products/${product.id}`)
@@ -92,18 +100,24 @@ describeWithTestDb('Productos y ofertas HTTP E2E real', () => {
       .send({ isOnSale: false })
       .expect(200);
 
-    const updated = await ctx.prisma.product.findUniqueOrThrow({ where: { id: product.id } });
+    const updated = await ctx.prisma.product.findUniqueOrThrow({
+      where: { id: product.id },
+    });
     expect(updated.isOnSale).toBe(false);
     expect(updated.salePrice).toBeNull();
   });
 
   it('PROD-E2E-08 editar producto sin oferta no exige salePrice', async () => {
-    const product = await ctx.prisma.product.findUniqueOrThrow({ where: { sku: qaSkus.noSale } });
+    const product = await ctx.prisma.product.findUniqueOrThrow({
+      where: { sku: qaSkus.noSale },
+    });
 
     return request(ctx.app.getHttpServer())
       .patch(`/products/${product.id}`)
       .set('Authorization', `Bearer ${ctx.tokens.admin}`)
-      .send({ description: 'Descripcion actualizada por HTTP sin activar oferta.' })
+      .send({
+        description: 'Descripcion actualizada por HTTP sin activar oferta.',
+      })
       .expect(200);
   });
 

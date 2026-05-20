@@ -35,7 +35,7 @@ describe('OrdersService checkout/stock', () => {
     };
 
     return {
-      service: new OrdersService(prisma as any, new ProductPricingService(), builderService as any),
+      service: new OrdersService(prisma as any, new ProductPricingService(), builderService),
       prisma,
       builderService,
     };
@@ -48,7 +48,10 @@ describe('OrdersService checkout/stock', () => {
 
     await expect(
       service.create(
-        { method: PaymentMethod.CARD_CREDIT, items: [{ productId: 'product-1', quantity: 1 }] },
+        {
+          method: PaymentMethod.CARD_CREDIT,
+          items: [{ productId: 'product-1', quantity: 1 }],
+        },
         'customer-1',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -60,7 +63,10 @@ describe('OrdersService checkout/stock', () => {
     ]);
 
     const order = await service.create(
-      { method: PaymentMethod.CARD_CREDIT, items: [{ productId: 'product-1', quantity: 2 }] },
+      {
+        method: PaymentMethod.CARD_CREDIT,
+        items: [{ productId: 'product-1', quantity: 2 }],
+      },
       'customer-1',
     );
 
@@ -70,12 +76,20 @@ describe('OrdersService checkout/stock', () => {
 
   it('STOCK-05 cantidad mayor al stock se bloquea', async () => {
     const { service } = createService([
-      { id: 'product-1', name: 'Producto con stock limitado', price: 100, stock: 1 },
+      {
+        id: 'product-1',
+        name: 'Producto con stock limitado',
+        price: 100,
+        stock: 1,
+      },
     ]);
 
     await expect(
       service.create(
-        { method: PaymentMethod.CARD_CREDIT, items: [{ productId: 'product-1', quantity: 2 }] },
+        {
+          method: PaymentMethod.CARD_CREDIT,
+          items: [{ productId: 'product-1', quantity: 2 }],
+        },
         'customer-1',
       ),
     ).rejects.toThrow('Stock insuficiente');
@@ -94,7 +108,10 @@ describe('OrdersService checkout/stock', () => {
     ]);
 
     const order = await service.create(
-      { method: PaymentMethod.CARD_CREDIT, items: [{ productId: 'product-1', quantity: 1 }] },
+      {
+        method: PaymentMethod.CARD_CREDIT,
+        items: [{ productId: 'product-1', quantity: 1 }],
+      },
       'customer-1',
     );
 
@@ -115,7 +132,10 @@ describe('OrdersService checkout/stock', () => {
     ]);
 
     const order = await service.create(
-      { method: PaymentMethod.CARD_CREDIT, items: [{ productId: 'product-1', quantity: 1 }] },
+      {
+        method: PaymentMethod.CARD_CREDIT,
+        items: [{ productId: 'product-1', quantity: 1 }],
+      },
       'customer-1',
     );
 
@@ -128,7 +148,10 @@ describe('OrdersService checkout/stock', () => {
     ]);
 
     const order = await service.create(
-      { method: PaymentMethod.YAPE, items: [{ productId: 'product-1', quantity: 1 }] },
+      {
+        method: PaymentMethod.YAPE,
+        items: [{ productId: 'product-1', quantity: 1 }],
+      },
       'customer-1',
     );
 
@@ -143,7 +166,10 @@ describe('OrdersService checkout/stock', () => {
 
     await expect(
       service.create(
-        { method: PaymentMethod.PLIN, items: [{ productId: 'product-1', quantity: 1 }] },
+        {
+          method: PaymentMethod.PLIN,
+          items: [{ productId: 'product-1', quantity: 1 }],
+        },
         'customer-1',
       ),
     ).rejects.toThrow('Yape/Plin no disponible para pedidos mayores a S/. 500.');

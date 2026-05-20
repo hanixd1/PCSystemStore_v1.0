@@ -59,12 +59,7 @@ export class UsersService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private async buildSession(user: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  }) {
+  private async buildSession(user: { id: string; name: string; email: string; role: string }) {
     const payload: JwtUserPayload = {
       sub: user.id,
       email: user.email,
@@ -108,12 +103,11 @@ export class UsersService {
     details: string,
     request?: Request,
   ) {
-    const module =
-      action.startsWith('ADMIN_')
-        ? 'SECURITY'
-        : entity === 'USER'
-          ? 'EMPLOYEES'
-          : undefined;
+    const module = action.startsWith('ADMIN_')
+      ? 'SECURITY'
+      : entity === 'USER'
+        ? 'EMPLOYEES'
+        : undefined;
 
     await this.prisma.actionLog.create({
       data: {
@@ -176,12 +170,7 @@ export class UsersService {
     this.adminLoginAttempts.delete(this.getLoginAttemptKey(email, request));
   }
 
-  private async logAuthEvent(
-    action: string,
-    userId: string,
-    details: string,
-    request?: Request,
-  ) {
+  private async logAuthEvent(action: string, userId: string, details: string, request?: Request) {
     await this.createLog(userId, action, 'USER', details, request);
   }
 
@@ -196,9 +185,7 @@ export class UsersService {
     }
 
     if (user.status === 'INACTIVE') {
-      throw new UnauthorizedException(
-        'Cuenta suspendida. Contacte al administrador.',
-      );
+      throw new UnauthorizedException('Cuenta suspendida. Contacte al administrador.');
     }
 
     const isMatch = await bcrypt.compare(pass, user.password);
@@ -334,9 +321,7 @@ export class UsersService {
     );
 
     if (!response.ok) {
-      throw new UnauthorizedException(
-        'No se pudo verificar la cuenta de Google',
-      );
+      throw new UnauthorizedException('No se pudo verificar la cuenta de Google');
     }
 
     const payload = (await response.json()) as {
@@ -348,15 +333,11 @@ export class UsersService {
 
     const configuredClientId = process.env.GOOGLE_CLIENT_ID;
     if (configuredClientId && payload.aud !== configuredClientId) {
-      throw new UnauthorizedException(
-        'El cliente de Google no coincide con la configuracion',
-      );
+      throw new UnauthorizedException('El cliente de Google no coincide con la configuracion');
     }
 
     if (!payload.email || payload.email_verified !== 'true') {
-      throw new UnauthorizedException(
-        'La cuenta de Google no tiene un correo verificado',
-      );
+      throw new UnauthorizedException('La cuenta de Google no tiene un correo verificado');
     }
 
     const normalizedEmail = this.sanitizeEmail(payload.email);
@@ -365,16 +346,11 @@ export class UsersService {
     });
 
     if (user?.status === 'INACTIVE') {
-      throw new UnauthorizedException(
-        'Cuenta suspendida. Contacte al administrador.',
-      );
+      throw new UnauthorizedException('Cuenta suspendida. Contacte al administrador.');
     }
 
     if (!user) {
-      const generatedPassword = await bcrypt.hash(
-        `${normalizedEmail}-${Date.now()}`,
-        10,
-      );
+      const generatedPassword = await bcrypt.hash(`${normalizedEmail}-${Date.now()}`, 10);
       user = await this.prisma.user.create({
         data: {
           name: payload.name?.trim() || normalizedEmail.split('@')[0],
@@ -404,8 +380,7 @@ export class UsersService {
       where: { email: normalizedEmail },
     });
     const genericResponse = {
-      message:
-        'Si el correo esta registrado, recibiras las instrucciones de recuperacion.',
+      message: 'Si el correo esta registrado, recibiras las instrucciones de recuperacion.',
     };
 
     if (!user) {
@@ -431,17 +406,12 @@ export class UsersService {
 
     const frontendUrl = this.getFrontendUrl();
     if (!frontendUrl) {
-      throw new InternalServerErrorException(
-        'FRONTEND_URL no esta configurado en el backend.',
-      );
+      throw new InternalServerErrorException('FRONTEND_URL no esta configurado en el backend.');
     }
 
     const resetPath = this.getResetPasswordPath(flow);
     const resetLink = `${frontendUrl}${resetPath}?token=${plainToken}`;
-    console.log(
-      '[SIMULACION EMAIL] Para recuperar contrasena entra aqui:',
-      resetLink,
-    );
+    console.log('[SIMULACION EMAIL] Para recuperar contrasena entra aqui:', resetLink);
 
     return genericResponse;
   }
@@ -471,12 +441,7 @@ export class UsersService {
       },
     });
 
-    await this.createLog(
-      user.id,
-      'UPDATE',
-      'USER',
-      `Actualizacion de contrasena de ${user.email}`,
-    );
+    await this.createLog(user.id, 'UPDATE', 'USER', `Actualizacion de contrasena de ${user.email}`);
 
     return { message: 'Contrasena actualizada correctamente' };
   }
@@ -517,12 +482,7 @@ export class UsersService {
       },
     });
 
-    await this.createLog(
-      user.id,
-      'CREATE',
-      'USER',
-      `Creacion de usuario ${user.email}`,
-    );
+    await this.createLog(user.id, 'CREATE', 'USER', `Creacion de usuario ${user.email}`);
 
     return user;
   }
@@ -652,10 +612,7 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    const isCurrentPasswordValid = await bcrypt.compare(
-      currentPassword,
-      user.password,
-    );
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
 
     if (!isCurrentPasswordValid) {
       throw new UnauthorizedException('La contrasena actual es incorrecta');
@@ -733,12 +690,7 @@ export class UsersService {
       select: { id: true, name: true, status: true },
     });
 
-    await this.createLog(
-      id,
-      'UPDATE',
-      'USER',
-      `Cambio de estado de ${user.email} a ${newStatus}`,
-    );
+    await this.createLog(id, 'UPDATE', 'USER', `Cambio de estado de ${user.email} a ${newStatus}`);
 
     return updatedUser;
   }
@@ -773,9 +725,7 @@ export class UsersService {
     }
 
     if (Object.keys(updateData).length === 0) {
-      throw new BadRequestException(
-        'Debes enviar al menos un campo valido para actualizar',
-      );
+      throw new BadRequestException('Debes enviar al menos un campo valido para actualizar');
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -784,12 +734,7 @@ export class UsersService {
       select: { id: true, name: true, email: true, role: true },
     });
 
-    await this.createLog(
-      id,
-      'UPDATE',
-      'USER',
-      `Actualizacion de usuario ${updatedUser.email}`,
-    );
+    await this.createLog(id, 'UPDATE', 'USER', `Actualizacion de usuario ${updatedUser.email}`);
 
     return updatedUser;
   }

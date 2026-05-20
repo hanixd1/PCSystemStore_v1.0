@@ -62,7 +62,18 @@ const CATEGORY_GROUPS: Record<string, string[]> = {
   componentes: ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'PSU', 'CASE', 'COOLER', 'STORAGE'],
   ordenadores: ['LAPTOP', 'PC_DESKTOP', 'SOFTWARE', 'LAPTOP_COOLING_BASE', 'BACKPACK'],
   'laptop-accessorios': ['LAPTOP_COOLING_BASE', 'BACKPACK'],
-  perifericos: ['MONITOR', 'KEYBOARD', 'MOUSE', 'MOUSEPAD', 'CHAIR', 'GAMING_DESK', 'WEBCAM', 'CAPTURE_CARD', 'CABLE_HUB', 'PROTECTION'],
+  perifericos: [
+    'MONITOR',
+    'KEYBOARD',
+    'MOUSE',
+    'MOUSEPAD',
+    'CHAIR',
+    'GAMING_DESK',
+    'WEBCAM',
+    'CAPTURE_CARD',
+    'CABLE_HUB',
+    'PROTECTION',
+  ],
   audio: ['HEADSET', 'SPEAKER', 'MICROPHONE'],
 };
 
@@ -74,7 +85,10 @@ type ProductsResponse = {
   totalPages?: number;
 };
 
-type FilterOptions = Record<string, string[] | number | { min: number | null; max: number | null } | null>;
+type FilterOptions = Record<
+  string,
+  string[] | number | { min: number | null; max: number | null } | null
+>;
 
 const decodeSlugPart = (value: string) => {
   try {
@@ -115,7 +129,8 @@ const resolveCategory = (lastSlug: string, fullSlug: string) => {
   return SLUG_TO_CATEGORY[lastSlug];
 };
 
-const getFilterValue = (params: URLSearchParams, key: string, fallback = '') => params.get(key) || fallback;
+const getFilterValue = (params: URLSearchParams, key: string, fallback = '') =>
+  params.get(key) || fallback;
 
 const areFiltersEqual = (a: Record<string, string>, b: Record<string, string>) => {
   const aKeys = Object.keys(a);
@@ -134,14 +149,26 @@ export default function CategoryPage() {
     const rawSlugArray = Array.isArray(params?.slug) ? params.slug : [];
     return rawSlugArray.join('/');
   }, [params?.slug]);
-  const slugArray = useMemo(() => slugKey.split('/').map(normalizeSearchText).filter(Boolean), [slugKey]);
-  const fullSlug = useMemo(() => slugArray.map((slug) => slug.toLowerCase()).join('/'), [slugArray]);
+  const slugArray = useMemo(
+    () => slugKey.split('/').map(normalizeSearchText).filter(Boolean),
+    [slugKey],
+  );
+  const fullSlug = useMemo(
+    () => slugArray.map((slug) => slug.toLowerCase()).join('/'),
+    [slugArray],
+  );
   const lastSlug = useMemo(() => slugArray[slugArray.length - 1]?.toLowerCase() || '', [slugArray]);
   const selectedCategory = useMemo(() => resolveCategory(lastSlug, fullSlug), [fullSlug, lastSlug]);
   const isKnownRoute = Boolean(selectedCategory || CATEGORY_GROUPS[lastSlug]);
-  const routeFilters = useMemo(() => getInitialRouteFilters(fullSlug, lastSlug), [fullSlug, lastSlug]);
+  const routeFilters = useMemo(
+    () => getInitialRouteFilters(fullSlug, lastSlug),
+    [fullSlug, lastSlug],
+  );
   const pageTitle = useMemo(
-    () => DICTIONARY[lastSlug] || DICTIONARY[fullSlug] || formatDisplayText(slugArray[slugArray.length - 1] || ''),
+    () =>
+      DICTIONARY[lastSlug] ||
+      DICTIONARY[fullSlug] ||
+      formatDisplayText(slugArray[slugArray.length - 1] || ''),
     [fullSlug, lastSlug, slugArray],
   );
 
@@ -153,13 +180,22 @@ export default function CategoryPage() {
   const [draftFilters, setDraftFilters] = useState<Record<string, string>>({});
 
   const searchParamString = searchParams.toString();
-  const filterConfig = useMemo(() => (selectedCategory ? PRODUCT_FILTERS_BY_CATEGORY[selectedCategory] || [] : []), [selectedCategory]);
+  const filterConfig = useMemo(
+    () => (selectedCategory ? PRODUCT_FILTERS_BY_CATEGORY[selectedCategory] || [] : []),
+    [selectedCategory],
+  );
   const priceFilters = useMemo(
-    () => GENERAL_PRODUCT_FILTERS.filter((filter) => filter.key === 'minPrice' || filter.key === 'maxPrice'),
+    () =>
+      GENERAL_PRODUCT_FILTERS.filter(
+        (filter) => filter.key === 'minPrice' || filter.key === 'maxPrice',
+      ),
     [],
   );
   const nonPriceGeneralFilters = useMemo(
-    () => GENERAL_PRODUCT_FILTERS.filter((filter) => filter.key !== 'minPrice' && filter.key !== 'maxPrice'),
+    () =>
+      GENERAL_PRODUCT_FILTERS.filter(
+        (filter) => filter.key !== 'minPrice' && filter.key !== 'maxPrice',
+      ),
     [],
   );
 
@@ -175,7 +211,11 @@ export default function CategoryPage() {
         return;
       }
 
-      nextDraft[filter.key] = getFilterValue(paramsSnapshot, filter.key, routeFilters[filter.key] || '');
+      nextDraft[filter.key] = getFilterValue(
+        paramsSnapshot,
+        filter.key,
+        routeFilters[filter.key] || '',
+      );
     });
 
     setDraftFilters((previous) => (areFiltersEqual(previous, nextDraft) ? previous : nextDraft));
@@ -239,7 +279,8 @@ export default function CategoryPage() {
 
     const query = new URLSearchParams();
     if (selectedCategory) query.set('category', selectedCategory);
-    if (!selectedCategory && CATEGORY_GROUPS[lastSlug]) query.set('categories', CATEGORY_GROUPS[lastSlug].join(','));
+    if (!selectedCategory && CATEGORY_GROUPS[lastSlug])
+      query.set('categories', CATEGORY_GROUPS[lastSlug].join(','));
     return query.toString();
   }, [isKnownRoute, lastSlug, selectedCategory]);
 
@@ -267,13 +308,23 @@ export default function CategoryPage() {
     setDraftFilters((current) => {
       const next = { ...current, [key]: value };
       if (key === 'cpuBrand') {
-        const validSockets = value === 'AMD' ? ['AM4', 'AM5'] : value === 'Intel' ? ['LGA 1200', 'LGA 1700', 'LGA 1851'] : [];
+        const validSockets =
+          value === 'AMD'
+            ? ['AM4', 'AM5']
+            : value === 'Intel'
+              ? ['LGA 1200', 'LGA 1700', 'LGA 1851']
+              : [];
         if (validSockets.length && next.socket && !validSockets.includes(next.socket)) {
           next.socket = '';
         }
       }
       if (key === 'platform') {
-        const validSockets = value === 'AMD' ? ['AM4', 'AM5'] : value === 'Intel' ? ['LGA 1200', 'LGA 1700', 'LGA 1851'] : [];
+        const validSockets =
+          value === 'AMD'
+            ? ['AM4', 'AM5']
+            : value === 'Intel'
+              ? ['LGA 1200', 'LGA 1700', 'LGA 1851']
+              : [];
         if (validSockets.length && next.socket && !validSockets.includes(next.socket)) {
           next.socket = '';
         }
@@ -298,7 +349,9 @@ export default function CategoryPage() {
     });
 
     query.set('page', '1');
-    router.push(`/categoria/${slugArray.map((slug) => encodeURIComponent(slug)).join('/')}?${query.toString()}`);
+    router.push(
+      `/categoria/${slugArray.map((slug) => encodeURIComponent(slug)).join('/')}?${query.toString()}`,
+    );
     setFiltersOpen(false);
   };
 
@@ -318,17 +371,27 @@ export default function CategoryPage() {
 
     if (filter.key === 'socket' && selectedCategory === 'CPU') {
       const selectedBrand = draftFilters.cpuBrand;
-      if (selectedBrand === 'AMD') options = options?.filter((option) => !option.value || ['AM4', 'AM5'].includes(option.value));
+      if (selectedBrand === 'AMD')
+        options = options?.filter(
+          (option) => !option.value || ['AM4', 'AM5'].includes(option.value),
+        );
       if (selectedBrand === 'Intel') {
-        options = options?.filter((option) => !option.value || ['LGA 1200', 'LGA 1700', 'LGA 1851'].includes(option.value));
+        options = options?.filter(
+          (option) => !option.value || ['LGA 1200', 'LGA 1700', 'LGA 1851'].includes(option.value),
+        );
       }
     }
 
     if (filter.key === 'socket' && selectedCategory === 'MOTHERBOARD') {
       const selectedPlatform = draftFilters.platform;
-      if (selectedPlatform === 'AMD') options = options?.filter((option) => !option.value || ['AM4', 'AM5'].includes(option.value));
+      if (selectedPlatform === 'AMD')
+        options = options?.filter(
+          (option) => !option.value || ['AM4', 'AM5'].includes(option.value),
+        );
       if (selectedPlatform === 'Intel') {
-        options = options?.filter((option) => !option.value || ['LGA 1200', 'LGA 1700', 'LGA 1851'].includes(option.value));
+        options = options?.filter(
+          (option) => !option.value || ['LGA 1200', 'LGA 1700', 'LGA 1851'].includes(option.value),
+        );
       }
     }
 
@@ -338,7 +401,9 @@ export default function CategoryPage() {
 
     return (
       <label key={filter.key} className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-500">{filter.label}</span>
+        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-500">
+          {filter.label}
+        </span>
         {filter.type === 'select' ? (
           <select
             value={draftFilters[filter.key] || ''}
@@ -373,7 +438,9 @@ export default function CategoryPage() {
 
   const renderPriceFilters = () => (
     <div className="block">
-      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-500">Precio</span>
+      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-gray-500">
+        Precio
+      </span>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {priceFilters.map((filter) => (
           <input
@@ -400,7 +467,30 @@ export default function CategoryPage() {
       );
     }
 
-    if (selectedCategory === 'MOTHERBOARD' || selectedCategory === 'GPU' || selectedCategory === 'RAM' || selectedCategory === 'STORAGE' || selectedCategory === 'PSU' || selectedCategory === 'CASE' || selectedCategory === 'COOLER' || selectedCategory === 'LAPTOP' || selectedCategory === 'MONITOR' || selectedCategory === 'KEYBOARD' || selectedCategory === 'MOUSE' || selectedCategory === 'MOUSEPAD' || selectedCategory === 'WEBCAM' || selectedCategory === 'CAPTURE_CARD' || selectedCategory === 'CABLE_HUB' || selectedCategory === 'CHAIR' || selectedCategory === 'GAMING_DESK' || selectedCategory === 'LAPTOP_COOLING_BASE' || selectedCategory === 'BACKPACK' || selectedCategory === 'HEADSET' || selectedCategory === 'MICROPHONE' || selectedCategory === 'SPEAKER') {
+    if (
+      selectedCategory === 'MOTHERBOARD' ||
+      selectedCategory === 'GPU' ||
+      selectedCategory === 'RAM' ||
+      selectedCategory === 'STORAGE' ||
+      selectedCategory === 'PSU' ||
+      selectedCategory === 'CASE' ||
+      selectedCategory === 'COOLER' ||
+      selectedCategory === 'LAPTOP' ||
+      selectedCategory === 'MONITOR' ||
+      selectedCategory === 'KEYBOARD' ||
+      selectedCategory === 'MOUSE' ||
+      selectedCategory === 'MOUSEPAD' ||
+      selectedCategory === 'WEBCAM' ||
+      selectedCategory === 'CAPTURE_CARD' ||
+      selectedCategory === 'CABLE_HUB' ||
+      selectedCategory === 'CHAIR' ||
+      selectedCategory === 'GAMING_DESK' ||
+      selectedCategory === 'LAPTOP_COOLING_BASE' ||
+      selectedCategory === 'BACKPACK' ||
+      selectedCategory === 'HEADSET' ||
+      selectedCategory === 'MICROPHONE' ||
+      selectedCategory === 'SPEAKER'
+    ) {
       const [brandFilter, ...remainingFilters] = filterConfig;
       return (
         <>
@@ -423,7 +513,11 @@ export default function CategoryPage() {
     <form onSubmit={applyFilters} className="space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-black text-gray-900">Filtros</h2>
-        <button type="button" onClick={() => setFiltersOpen(false)} className="lg:hidden text-gray-500">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(false)}
+          className="lg:hidden text-gray-500"
+        >
           <FiX />
         </button>
       </div>
@@ -434,10 +528,17 @@ export default function CategoryPage() {
       </div>
 
       <div className="flex gap-2 border-t border-gray-100 pt-4">
-        <button type="submit" className="flex-1 rounded-xl bg-gray-900 px-4 py-3 text-sm font-black text-white hover:bg-brand-cyan hover:text-black">
+        <button
+          type="submit"
+          className="flex-1 rounded-xl bg-gray-900 px-4 py-3 text-sm font-black text-white hover:bg-brand-cyan hover:text-black"
+        >
           Aplicar
         </button>
-        <button type="button" onClick={clearFilters} className="rounded-xl border border-gray-200 px-4 py-3 text-sm font-black text-gray-600 hover:border-brand-cyan">
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="rounded-xl border border-gray-200 px-4 py-3 text-sm font-black text-gray-600 hover:border-brand-cyan"
+        >
           Limpiar
         </button>
       </div>
@@ -463,7 +564,9 @@ export default function CategoryPage() {
                 <div key={slug} className="flex items-center">
                   <FiChevronRight className="mx-2 flex-shrink-0" />
                   {isLast ? (
-                    <span className="text-gray-900 capitalize">{DICTIONARY[slug.toLowerCase()] || formatDisplayText(slug)}</span>
+                    <span className="text-gray-900 capitalize">
+                      {DICTIONARY[slug.toLowerCase()] || formatDisplayText(slug)}
+                    </span>
                   ) : (
                     <Link href={href} className="hover:text-brand-cyan transition capitalize">
                       {DICTIONARY[slug.toLowerCase()] || formatDisplayText(slug)}
@@ -491,18 +594,24 @@ export default function CategoryPage() {
 
       <div className="container mx-auto px-4 mt-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-          <aside className="hidden rounded-3xl border border-gray-100 bg-white p-5 shadow-sm lg:block">{filtersPanel}</aside>
+          <aside className="hidden rounded-3xl border border-gray-100 bg-white p-5 shadow-sm lg:block">
+            {filtersPanel}
+          </aside>
 
           {filtersOpen ? (
             <div className="fixed inset-0 z-50 bg-black/40 p-4 lg:hidden">
-              <div className="ml-auto h-full max-w-sm overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">{filtersPanel}</div>
+              <div className="ml-auto h-full max-w-sm overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
+                {filtersPanel}
+              </div>
             </div>
           ) : null}
 
           <main>
             <div className="mb-5 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-5 py-4 text-sm font-bold text-gray-500">
               <span>{loading ? 'Cargando productos...' : `${total} producto(s) encontrados`}</span>
-              {selectedCategory ? <span className="text-brand-cyan">{selectedCategory}</span> : null}
+              {selectedCategory ? (
+                <span className="text-brand-cyan">{selectedCategory}</span>
+              ) : null}
             </div>
 
             {loading ? (
@@ -512,9 +621,16 @@ export default function CategoryPage() {
             ) : products.length === 0 ? (
               <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-16 text-center max-w-2xl mx-auto mt-10">
                 <FiBox className="mx-auto text-6xl text-gray-300 mb-4" />
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">No se encontraron productos</h2>
-                <p className="text-gray-500 mb-6">No hay productos que coincidan con los filtros seleccionados.</p>
-                <button onClick={clearFilters} className="bg-brand-cyan text-gray-900 font-bold px-6 py-3 rounded-xl hover:bg-cyan-400 transition">
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                  No se encontraron productos
+                </h2>
+                <p className="text-gray-500 mb-6">
+                  No hay productos que coincidan con los filtros seleccionados.
+                </p>
+                <button
+                  onClick={clearFilters}
+                  className="bg-brand-cyan text-gray-900 font-bold px-6 py-3 rounded-xl hover:bg-cyan-400 transition"
+                >
                   Limpiar filtros
                 </button>
               </div>
@@ -525,7 +641,10 @@ export default function CategoryPage() {
                     key={product.id}
                     className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col overflow-hidden group"
                   >
-                    <Link href={`/product/${product.id}`} className="block relative h-56 p-6 bg-white flex items-center justify-center border-b border-gray-50">
+                    <Link
+                      href={`/product/${product.id}`}
+                      className="block relative h-56 p-6 bg-white flex items-center justify-center border-b border-gray-50"
+                    >
                       {product.images && product.images.length > 0 ? (
                         <img
                           src={product.images[0]}
@@ -538,7 +657,9 @@ export default function CategoryPage() {
                     </Link>
 
                     <div className="p-5 flex-1 flex flex-col bg-gray-50/30">
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{product.category}</span>
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                        {product.category}
+                      </span>
 
                       <Link href={`/product/${product.id}`}>
                         <h3 className="font-bold text-sm text-gray-800 leading-tight mb-4 hover:text-brand-cyan transition line-clamp-2">
@@ -553,10 +674,14 @@ export default function CategoryPage() {
                               <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">
                                 -{getDiscountPercent(product)}%
                               </span>
-                              <span className="text-xs font-bold text-gray-400 line-through">S/. {Number(product.price).toFixed(2)}</span>
+                              <span className="text-xs font-bold text-gray-400 line-through">
+                                S/. {Number(product.price).toFixed(2)}
+                              </span>
                             </div>
                           ) : null}
-                          <p className="text-xl font-black text-gray-900">S/. {getEffectivePrice(product).toFixed(2)}</p>
+                          <p className="text-xl font-black text-gray-900">
+                            S/. {getEffectivePrice(product).toFixed(2)}
+                          </p>
                         </div>
                         <button
                           onClick={() => {
@@ -580,5 +705,3 @@ export default function CategoryPage() {
     </div>
   );
 }
-
-

@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  HttpException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -58,7 +53,10 @@ export class IdempotencyService {
   constructor(private readonly prisma: PrismaService) {}
 
   buildRequestHash(body: unknown, userId?: string) {
-    const normalizedPayload = stableStringify({ body: body ?? {}, userId: userId ?? null });
+    const normalizedPayload = stableStringify({
+      body: body ?? {},
+      userId: userId ?? null,
+    });
     return createHash('sha256').update(normalizedPayload).digest('hex');
   }
 
@@ -83,7 +81,13 @@ export class IdempotencyService {
 
     let created = false;
     let record = await this.prisma.idempotencyKey.findUnique({
-      where: { key_route_method: { key: normalizedKey, route, method: normalizedMethod } },
+      where: {
+        key_route_method: {
+          key: normalizedKey,
+          route,
+          method: normalizedMethod,
+        },
+      },
     });
 
     if (!record) {
@@ -107,7 +111,13 @@ export class IdempotencyService {
         }
 
         record = await this.prisma.idempotencyKey.findUnique({
-          where: { key_route_method: { key: normalizedKey, route, method: normalizedMethod } },
+          where: {
+            key_route_method: {
+              key: normalizedKey,
+              route,
+              method: normalizedMethod,
+            },
+          },
         });
       }
     }
@@ -161,7 +171,8 @@ export class IdempotencyService {
       };
     } catch (error) {
       const statusCode = error instanceof HttpException ? error.getStatus() : 500;
-      const response = error instanceof HttpException ? error.getResponse() : { message: 'Error interno' };
+      const response =
+        error instanceof HttpException ? error.getResponse() : { message: 'Error interno' };
 
       await this.prisma.idempotencyKey.update({
         where: { id: record.id },

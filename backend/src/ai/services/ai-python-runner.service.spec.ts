@@ -20,6 +20,8 @@ describe('AiPythonRunnerService', () => {
   it('devuelve error controlado si no existe predictor.py', async () => {
     const service = new AiPythonRunnerService();
 
-    await expect(service.runPredictor([])).rejects.toThrow('No se encontro el archivo predictor.py');
+    await expect(service.runPredictor([])).rejects.toThrow(
+      'No se encontro el archivo predictor.py',
+    );
   });
 });

@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PaymentMethod, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -51,9 +56,7 @@ export class OrdersService {
     for (const item of normalizedItems) {
       const product = productById.get(item.productId);
       if (!product || product.stock < item.quantity) {
-        throw new BadRequestException(
-          `Stock insuficiente para ${product?.name || 'un producto'}`,
-        );
+        throw new BadRequestException(`Stock insuficiente para ${product?.name || 'un producto'}`);
       }
     }
 
@@ -83,10 +86,7 @@ export class OrdersService {
 
     const igv = total * IGV_RATE_INCLUDED;
     const subtotal = total - igv;
-    const status =
-      isManualWalletPayment(data.method)
-        ? 'PENDING_REVIEW'
-        : 'PENDING_PAYMENT';
+    const status = isManualWalletPayment(data.method) ? 'PENDING_REVIEW' : 'PENDING_PAYMENT';
 
     return this.prisma.order.create({
       data: {

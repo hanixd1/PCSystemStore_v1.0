@@ -122,7 +122,9 @@ export default function LoginPage() {
         password: formData.password,
       });
 
-      setSuccess(res.data.message || 'Cuenta creada correctamente. Ahora ya puedes iniciar sesion.');
+      setSuccess(
+        res.data.message || 'Cuenta creada correctamente. Ahora ya puedes iniciar sesion.',
+      );
       setMode('login');
       setFormData((current) => ({
         ...current,
@@ -161,8 +163,8 @@ export default function LoginPage() {
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Gestiona tus pedidos</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Ten el control de todos tus pedidos y recibe notificaciones con el
-                    seguimiento en tiempo real.
+                    Ten el control de todos tus pedidos y recibe notificaciones con el seguimiento
+                    en tiempo real.
                   </p>
                 </div>
               </div>

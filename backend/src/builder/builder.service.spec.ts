@@ -36,7 +36,9 @@ describe('BuilderService', () => {
     prisma.product.findUnique.mockResolvedValue(null);
 
     const service = new BuilderService(prisma as any);
-    await expect(service.getCompatibleMotherboards('missing')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getCompatibleMotherboards('missing')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('filtra RAM por tipo de memoria de la motherboard', async () => {
@@ -76,9 +78,17 @@ describe('BuilderService', () => {
         },
       },
       { id: 'ram-1', category: 'RAM', ramSpecs: { memoryType: 'DDR5' } },
-      { id: 'gpu-1', category: 'GPU', gpuSpecs: { length: 280, gpuPowerWatts: 250 } },
+      {
+        id: 'gpu-1',
+        category: 'GPU',
+        gpuSpecs: { length: 280, gpuPowerWatts: 250 },
+      },
       { id: 'psu-1', category: 'PSU', psuSpecs: { wattage: 650 } },
-      { id: 'case-1', category: 'CASE', caseSpecs: { formFactor: 'ATX', maxGpuLength: 320 } },
+      {
+        id: 'case-1',
+        category: 'CASE',
+        caseSpecs: { formFactor: 'ATX', maxGpuLength: 320 },
+      },
       {
         id: 'cooler-1',
         category: 'COOLER',
@@ -111,7 +121,11 @@ describe('BuilderService', () => {
   it('detecta CPU y motherboard con sockets incompatibles', async () => {
     const prisma = createPrismaMock();
     prisma.product.findMany.mockResolvedValue([
-      { id: 'cpu-1', category: 'CPU', cpuSpecs: { socket: 'LGA1700', tdp: 125 } },
+      {
+        id: 'cpu-1',
+        category: 'CPU',
+        cpuSpecs: { socket: 'LGA1700', tdp: 125 },
+      },
       {
         id: 'board-1',
         category: 'MOTHERBOARD',
@@ -120,10 +134,7 @@ describe('BuilderService', () => {
     ]);
 
     const service = new BuilderService(prisma as any);
-    const result = await service.validateBuild([
-      { productId: 'cpu-1' },
-      { productId: 'board-1' },
-    ]);
+    const result = await service.validateBuild([{ productId: 'cpu-1' }, { productId: 'board-1' }]);
 
     expect(result.compatible).toBe(false);
     expect(result.errors).toEqual(
@@ -145,15 +156,14 @@ describe('BuilderService', () => {
     ]);
 
     const service = new BuilderService(prisma as any);
-    const result = await service.validateBuild([
-      { productId: 'board-1' },
-      { productId: 'ram-1' },
-    ]);
+    const result = await service.validateBuild([{ productId: 'board-1' }, { productId: 'ram-1' }]);
 
     expect(result.compatible).toBe(false);
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: 'RAM_MOTHERBOARD_MEMORY_TYPE_MISMATCH' }),
+        expect.objectContaining({
+          code: 'RAM_MOTHERBOARD_MEMORY_TYPE_MISMATCH',
+        }),
       ]),
     );
   });
@@ -175,9 +185,7 @@ describe('BuilderService', () => {
 
     expect(result.compatible).toBe(false);
     expect(result.errors).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ code: 'PSU_INSUFFICIENT_WATTAGE' }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ code: 'PSU_INSUFFICIENT_WATTAGE' })]),
     );
   });
 });

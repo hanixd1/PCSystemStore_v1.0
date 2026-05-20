@@ -18,41 +18,43 @@ const generateBreadcrumbs = (product: any) => {
   if (product.category === 'CPU') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/cpu', label: 'Procesadores' });
-    if (name.includes('amd') || name.includes('ryzen')) breadcrumbs.push({ url: '/categoria/cpu/amd', label: 'AMD' });
-    if (name.includes('intel') || name.includes('core')) breadcrumbs.push({ url: '/categoria/cpu/intel', label: 'Intel' });
-  } 
-  else if (product.category === 'MOTHERBOARD') {
+    if (name.includes('amd') || name.includes('ryzen'))
+      breadcrumbs.push({ url: '/categoria/cpu/amd', label: 'AMD' });
+    if (name.includes('intel') || name.includes('core'))
+      breadcrumbs.push({ url: '/categoria/cpu/intel', label: 'Intel' });
+  } else if (product.category === 'MOTHERBOARD') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/mobo', label: 'Placas Base' });
-  }
-  else if (product.category === 'GPU') {
+  } else if (product.category === 'GPU') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/graficas', label: 'Tarjetas Gráficas' });
     const chip = product.gpuSpecs?.chipset?.toLowerCase() || name;
-    if (chip.includes('nvidia') || chip.includes('rtx')) breadcrumbs.push({ url: '/categoria/nvidia', label: 'NVIDIA' });
-    if (chip.includes('amd') || chip.includes('radeon')) breadcrumbs.push({ url: '/categoria/amd', label: 'AMD' });
-  }
-  else if (product.category === 'RAM') {
+    if (chip.includes('nvidia') || chip.includes('rtx'))
+      breadcrumbs.push({ url: '/categoria/nvidia', label: 'NVIDIA' });
+    if (chip.includes('amd') || chip.includes('radeon'))
+      breadcrumbs.push({ url: '/categoria/amd', label: 'AMD' });
+  } else if (product.category === 'RAM') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/ram', label: 'Memorias RAM' });
-    if (product.ramSpecs?.memoryType === 'DDR4' || name.includes('ddr4')) breadcrumbs.push({ url: '/categoria/ddr4', label: 'DDR4' });
-    if (product.ramSpecs?.memoryType === 'DDR5' || name.includes('ddr5')) breadcrumbs.push({ url: '/categoria/ddr5', label: 'DDR5' });
-  }
-  else if (product.category === 'STORAGE') {
+    if (product.ramSpecs?.memoryType === 'DDR4' || name.includes('ddr4'))
+      breadcrumbs.push({ url: '/categoria/ddr4', label: 'DDR4' });
+    if (product.ramSpecs?.memoryType === 'DDR5' || name.includes('ddr5'))
+      breadcrumbs.push({ url: '/categoria/ddr5', label: 'DDR5' });
+  } else if (product.category === 'STORAGE') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/almacenamiento', label: 'Almacenamiento' });
-  }
-  else if (product.category === 'MONITOR') {
+  } else if (product.category === 'MONITOR') {
     breadcrumbs.push({ url: '/categoria/perifericos', label: 'Periféricos' });
     breadcrumbs.push({ url: '/categoria/monitores', label: 'Monitores' });
-  }
-  else if (product.category === 'LAPTOP') {
+  } else if (product.category === 'LAPTOP') {
     breadcrumbs.push({ url: '/categoria/ordenadores', label: 'Ordenadores' });
     breadcrumbs.push({ url: '/categoria/laptops', label: 'Laptops' });
-  }
-  else {
+  } else {
     // Genérico para cualquier otra cosa
-    breadcrumbs.push({ url: `/categoria/${product.category.toLowerCase()}`, label: product.category });
+    breadcrumbs.push({
+      url: `/categoria/${product.category.toLowerCase()}`,
+      label: product.category,
+    });
   }
 
   return breadcrumbs;
@@ -75,9 +77,8 @@ export default function ProductPage() {
         setProduct(currentProduct);
         setRelatedProducts(Array.isArray(relatedRes.data) ? relatedRes.data : []);
       })
-      .catch(err => console.error("Error al cargar producto:", err))
+      .catch((err) => console.error('Error al cargar producto:', err))
       .finally(() => setLoading(false));
-      
   }, [id]);
 
   if (loading) {
@@ -92,7 +93,9 @@ export default function ProductPage() {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center">
         <h1 className="text-2xl font-bold text-gray-800">Producto no encontrado</h1>
-        <Link href="/" className="mt-4 text-brand-cyan hover:underline">Volver a la tienda</Link>
+        <Link href="/" className="mt-4 text-brand-cyan hover:underline">
+          Volver a la tienda
+        </Link>
       </div>
     );
   }
@@ -108,11 +111,12 @@ export default function ProductPage() {
   return (
     <div className="bg-white min-h-screen pb-20">
       <div className="container mx-auto px-4 pt-6">
-        
         {}
         <div className="flex items-center text-sm font-medium text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2">
-          <Link href="/" className="hover:text-brand-cyan hover:underline transition">Inicio</Link>
-          
+          <Link href="/" className="hover:text-brand-cyan hover:underline transition">
+            Inicio
+          </Link>
+
           {breadcrumbs.map((crumb, idx) => (
             <div key={idx} className="flex items-center">
               <FiChevronRight className="mx-2 flex-shrink-0 text-gray-400" />
@@ -121,9 +125,12 @@ export default function ProductPage() {
               </Link>
             </div>
           ))}
-          
+
           <FiChevronRight className="mx-2 flex-shrink-0 text-gray-400" />
-          <span className="text-gray-900 font-bold max-w-[200px] sm:max-w-xs md:max-w-md truncate" title={product.name}>
+          <span
+            className="text-gray-900 font-bold max-w-[200px] sm:max-w-xs md:max-w-md truncate"
+            title={product.name}
+          >
             {product.name}
           </span>
         </div>
@@ -132,14 +139,13 @@ export default function ProductPage() {
             CONTENIDO DEL PRODUCTO
             ========================================= */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
           {/* COLUMNA IZQUIERDA: IMÁGENES */}
           <div className="lg:col-span-7">
             <div className="border border-gray-200 rounded-2xl p-8 h-[500px] flex items-center justify-center relative mb-4">
               {product.images && product.images.length > 0 ? (
-                <img 
-                  src={product.images[activeImage]} 
-                  alt={product.name} 
+                <img
+                  src={product.images[activeImage]}
+                  alt={product.name}
                   className="max-h-full max-w-full object-contain mix-blend-multiply"
                 />
               ) : (
@@ -150,14 +156,20 @@ export default function ProductPage() {
             {product.images && product.images.length > 1 && (
               <div className="flex gap-4 overflow-x-auto pb-2">
                 {product.images.map((img: string, idx: number) => (
-                  <button 
-                    key={idx} 
+                  <button
+                    key={idx}
                     onClick={() => setActiveImage(idx)}
                     className={`border-2 rounded-xl p-2 h-24 w-24 flex-shrink-0 transition-all ${
-                      activeImage === idx ? 'border-brand-cyan shadow-md' : 'border-gray-200 hover:border-gray-300'
+                      activeImage === idx
+                        ? 'border-brand-cyan shadow-md'
+                        : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <img src={img} alt={`Thumb ${idx}`} className="h-full w-full object-contain mix-blend-multiply" />
+                    <img
+                      src={img}
+                      alt={`Thumb ${idx}`}
+                      className="h-full w-full object-contain mix-blend-multiply"
+                    />
                   </button>
                 ))}
               </div>
@@ -170,16 +182,21 @@ export default function ProductPage() {
               {product.name}
             </h1>
             <div className="flex items-center gap-4 text-sm text-gray-500 mb-6">
-              <span>SKU: {product.sku || product.id.substring(0,8).toUpperCase()}</span>
+              <span>SKU: {product.sku || product.id.substring(0, 8).toUpperCase()}</span>
               {hasStock ? (
-                <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[15px] font-black text-green-600 ring-1 ring-green-100"><FiCheck className="text-base" /> En stock</span>
+                <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[15px] font-black text-green-600 ring-1 ring-green-100">
+                  <FiCheck className="text-base" /> En stock
+                </span>
               ) : (
-                <span className="rounded-full bg-red-50 px-2.5 py-1 text-[15px] font-black text-red-600 ring-1 ring-red-100">Sin stock</span>
+                <span className="rounded-full bg-red-50 px-2.5 py-1 text-[15px] font-black text-red-600 ring-1 ring-red-100">
+                  Sin stock
+                </span>
               )}
             </div>
 
             <p className="text-gray-600 mb-8 leading-relaxed">
-              {product.description || `Excelente ${product.category.toLowerCase()} ideal para tu ensamble. Revisa las especificaciones completas para más detalles.`}
+              {product.description ||
+                `Excelente ${product.category.toLowerCase()} ideal para tu ensamble. Revisa las especificaciones completas para más detalles.`}
             </p>
 
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mt-auto">
@@ -202,7 +219,7 @@ export default function ProductPage() {
                 <p className="text-sm text-gray-500 mt-1">Precio con IGV incluido.</p>
               </div>
 
-              <button 
+              <button
                 onClick={() => {
                   if (!hasStock) return;
                   addItem(product);
@@ -216,7 +233,6 @@ export default function ProductPage() {
               </button>
             </div>
           </div>
-          
         </div>
 
         {relatedProducts.length > 0 && (
@@ -226,9 +242,7 @@ export default function ProductPage() {
                 <p className="text-xs font-black uppercase tracking-widest text-brand-cyan">
                   Misma categoria
                 </p>
-                <h2 className="text-2xl font-black text-gray-900">
-                  Productos relacionados
-                </h2>
+                <h2 className="text-2xl font-black text-gray-900">Productos relacionados</h2>
               </div>
             </div>
 

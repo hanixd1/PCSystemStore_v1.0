@@ -33,12 +33,10 @@ export default function OffersPage() {
               <MdLocalOffer />
             </div>
 
-            <h1 className="text-3xl font-black text-gray-900">
-              No hay ofertas disponibles
-            </h1>
+            <h1 className="text-3xl font-black text-gray-900">No hay ofertas disponibles</h1>
             <p className="mt-3 text-sm font-medium leading-6 text-gray-500">
-              Por el momento no tenemos promociones activas. Revisa nuestro catalogo
-              para encontrar productos disponibles.
+              Por el momento no tenemos promociones activas. Revisa nuestro catalogo para encontrar
+              productos disponibles.
             </p>
 
             <Link
@@ -73,10 +71,20 @@ export default function OffersPage() {
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product) => (
-              <div key={product.id} className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:shadow-xl">
-                <Link href={`/product/${product.id}`} className="flex h-56 items-center justify-center bg-white p-6">
+              <div
+                key={product.id}
+                className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:shadow-xl"
+              >
+                <Link
+                  href={`/product/${product.id}`}
+                  className="flex h-56 items-center justify-center bg-white p-6"
+                >
                   {product.images?.[0] ? (
-                    <img src={product.images[0]} alt={product.name} className="max-h-full max-w-full object-contain" />
+                    <img
+                      src={product.images[0]}
+                      alt={product.name}
+                      className="max-h-full max-w-full object-contain"
+                    />
                   ) : (
                     <FiBox className="text-6xl text-gray-200" />
                   )}
@@ -85,13 +93,20 @@ export default function OffersPage() {
                   <span className="mb-2 w-max rounded-full bg-red-50 px-2 py-1 text-[10px] font-black text-red-600">
                     -{getDiscountPercent(product)}% Oferta
                   </span>
-                  <Link href={`/product/${product.id}`} className="line-clamp-2 text-sm font-bold text-gray-800 hover:text-brand-cyan">
+                  <Link
+                    href={`/product/${product.id}`}
+                    className="line-clamp-2 text-sm font-bold text-gray-800 hover:text-brand-cyan"
+                  >
                     {product.name}
                   </Link>
                   <div className="mt-auto flex items-end justify-between pt-4">
                     <div>
-                      <p className="text-xs font-bold text-gray-400 line-through">S/. {Number(product.price).toFixed(2)}</p>
-                      <p className="text-xl font-black text-gray-900">S/. {getEffectivePrice(product).toFixed(2)}</p>
+                      <p className="text-xs font-bold text-gray-400 line-through">
+                        S/. {Number(product.price).toFixed(2)}
+                      </p>
+                      <p className="text-xl font-black text-gray-900">
+                        S/. {getEffectivePrice(product).toFixed(2)}
+                      </p>
                     </div>
                     <button
                       onClick={() => addItem(product)}

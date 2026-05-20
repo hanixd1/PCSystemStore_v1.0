@@ -525,7 +525,8 @@ export default function Chatbot() {
               </button>
             </form>
             <p className="text-center text-[10px] text-gray-400 mt-2">
-              La recomendacion se basa en el catalogo y stock actual. Verifica el carrito antes de pagar.
+              La recomendacion se basa en el catalogo y stock actual. Verifica el carrito antes de
+              pagar.
             </p>
           </div>
         </div>

@@ -21,7 +21,12 @@ describe('ProductsService filtros de catalogo', () => {
   it('filtra CPU por marca AMD', async () => {
     const { service, prisma } = createService();
 
-    await service.findAll({ category: 'CPU', cpuBrand: 'AMD', page: '1', limit: '12' });
+    await service.findAll({
+      category: 'CPU',
+      cpuBrand: 'AMD',
+      page: '1',
+      limit: '12',
+    });
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -50,14 +55,23 @@ describe('ProductsService filtros de catalogo', () => {
   it('filtra motherboard por socket y tipo de RAM', async () => {
     const { service, prisma } = createService();
 
-    await service.findAll({ category: 'MOTHERBOARD', socket: 'LGA 1700', ramType: 'DDR5', page: '1' });
+    await service.findAll({
+      category: 'MOTHERBOARD',
+      socket: 'LGA 1700',
+      ramType: 'DDR5',
+      page: '1',
+    });
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           category: 'MOTHERBOARD',
           AND: expect.arrayContaining([
-            { motherboardSpecs: { is: { socket: 'LGA 1700', memoryType: 'DDR5' } } },
+            {
+              motherboardSpecs: {
+                is: { socket: 'LGA 1700', memoryType: 'DDR5' },
+              },
+            },
           ]),
         }),
       }),
@@ -67,7 +81,11 @@ describe('ProductsService filtros de catalogo', () => {
   it('filtra motherboard por marca ASUS sin devolver otras categorias', async () => {
     const { service, prisma } = createService();
 
-    await service.findAll({ category: 'MOTHERBOARD', brand: 'ASUS', page: '1' });
+    await service.findAll({
+      category: 'MOTHERBOARD',
+      brand: 'ASUS',
+      page: '1',
+    });
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -112,13 +130,27 @@ describe('ProductsService filtros de catalogo', () => {
   it('filtra GPU por chipset y VRAM sin mezclar otras categorias', async () => {
     const { service, prisma } = createService();
 
-    await service.findAll({ category: 'GPU', gpuChipset: 'NVIDIA', vram: '8', page: '1' });
+    await service.findAll({
+      category: 'GPU',
+      gpuChipset: 'NVIDIA',
+      vram: '8',
+      page: '1',
+    });
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           category: 'GPU',
-          AND: expect.arrayContaining([{ gpuSpecs: { is: { chipset: expect.objectContaining({ contains: 'NVIDIA' }), vram: 8 } } }]),
+          AND: expect.arrayContaining([
+            {
+              gpuSpecs: {
+                is: {
+                  chipset: expect.objectContaining({ contains: 'NVIDIA' }),
+                  vram: 8,
+                },
+              },
+            },
+          ]),
         }),
       }),
     );
@@ -151,7 +183,11 @@ describe('ProductsService filtros de catalogo', () => {
   it('un productType desconocido no devuelve catalogo completo', async () => {
     const { service, prisma } = createService();
 
-    await service.findAll({ productType: 'UNKNOWN_TYPE', page: '1', limit: '24' });
+    await service.findAll({
+      productType: 'UNKNOWN_TYPE',
+      page: '1',
+      limit: '24',
+    });
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -189,7 +225,13 @@ describe('ProductsService filtros de catalogo', () => {
   it('combina cpuBrand, socket y rango de precio', async () => {
     const { service, prisma } = createService();
 
-    await service.findAll({ category: 'CPU', cpuBrand: 'AMD', socket: 'AM5', minPrice: '600', maxPrice: '1600' });
+    await service.findAll({
+      category: 'CPU',
+      cpuBrand: 'AMD',
+      socket: 'AM5',
+      minPrice: '600',
+      maxPrice: '1600',
+    });
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -205,7 +247,13 @@ describe('ProductsService filtros de catalogo', () => {
   it('ignora filtros invalidos sin romper paginacion', async () => {
     const { service, prisma } = createService();
 
-    await expect(service.findAll({ category: 'CPU', minPrice: 'abc', unknown: 'value' } as any)).resolves.toEqual({
+    await expect(
+      service.findAll({
+        category: 'CPU',
+        minPrice: 'abc',
+        unknown: 'value',
+      } as any),
+    ).resolves.toEqual({
       items: [],
       total: 0,
       page: 1,

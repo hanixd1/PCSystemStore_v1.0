@@ -45,8 +45,7 @@ export class ProductsService {
   } satisfies Prisma.ProductInclude;
 
   private readonly nameRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,+\-/%\s]{10,120}$/;
-  private readonly descriptionRegex =
-    /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,;:+\-/%\s]{20,1200}$/;
+  private readonly descriptionRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,;:+\-/%\s]{20,1200}$/;
 
   private toInt(val: unknown): number {
     const n = Number.parseInt(String(val ?? ''), 10);
@@ -67,31 +66,47 @@ export class ProductsService {
   }
 
   private toStringArray(val: any): string[] {
-    if (!val) return [];
-    if (Array.isArray(val)) return val.map((item) => String(item).trim()).filter(Boolean);
+    if (!val) {
+      return [];
+    }
+    if (Array.isArray(val)) {
+      return val.map((item) => String(item).trim()).filter(Boolean);
+    }
     try {
       const parsed = JSON.parse(String(val));
       if (Array.isArray(parsed)) {
         return parsed.map((item) => String(item).trim()).filter(Boolean);
       }
     } catch {
-      return String(val).split(',').map((item) => item.trim()).filter(Boolean);
+      return String(val)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
     return [];
   }
 
   private normalizeCoolerType(val: any): 'Torre' | 'Líquida' {
-    const value = String(val || '').trim().toLowerCase();
-    if (value === 'aio' || value.includes('liqu') || value.includes('líqu')) return 'Líquida';
+    const value = String(val || '')
+      .trim()
+      .toLowerCase();
+    if (value === 'aio' || value.includes('liqu') || value.includes('líqu')) {
+      return 'Líquida';
+    }
     return 'Torre';
   }
 
   private buildCoolerTypeWhere(value: string) {
     const normalized = this.normalizeCoolerType(value);
-    const variants = normalized === 'Torre'
-      ? ['Torre', 'AIR', 'Air', 'aire', 'Aire (Torre)']
-      : ['Líquida', 'Liquida', 'AIO', 'aio', 'Liquida (AIO)', 'Líquida (AIO)'];
-    return { OR: variants.map((variant) => ({ type: { equals: variant, mode: 'insensitive' as const } })) };
+    const variants =
+      normalized === 'Torre'
+        ? ['Torre', 'AIR', 'Air', 'aire', 'Aire (Torre)']
+        : ['Líquida', 'Liquida', 'AIO', 'aio', 'Liquida (AIO)', 'Líquida (AIO)'];
+    return {
+      OR: variants.map((variant) => ({
+        type: { equals: variant, mode: 'insensitive' as const },
+      })),
+    };
   }
 
   private buildSlug(name: string) {
@@ -154,9 +169,7 @@ export class ProductsService {
     }
 
     if (String(value).includes('-')) {
-      throw new BadRequestException(
-        `El campo ${field} no puede contener valores negativos`,
-      );
+      throw new BadRequestException(`El campo ${field} no puede contener valores negativos`);
     }
   }
 
@@ -350,7 +363,9 @@ export class ProductsService {
       const storageType = String(data.type || '').toUpperCase();
       const isM2 = storageType.includes('M.2') || storageType.includes('NVME');
       if (isM2 && !data.m2FormFactor) {
-        throw new BadRequestException('El tamaño fisico M.2 es obligatorio para almacenamientos M.2');
+        throw new BadRequestException(
+          'El tamaño fisico M.2 es obligatorio para almacenamientos M.2',
+        );
       }
     }
 
@@ -374,13 +389,19 @@ export class ProductsService {
       throw new BadRequestException('Selecciona la marca del gabinete.');
     }
 
-    if (category === 'CASE' && data.radiatorSupportMm !== undefined && data.radiatorSupportMm !== '') {
+    if (
+      category === 'CASE' &&
+      data.radiatorSupportMm !== undefined &&
+      data.radiatorSupportMm !== ''
+    ) {
       this.ensureNonNegative('radiatorSupportMm', data.radiatorSupportMm, false);
     }
 
     const validConnections = ['Cableado', 'Bluetooth', 'Dongle USB'];
     if ((category === 'KEYBOARD' || category === 'MOUSE') && data.connections !== undefined) {
-      const invalidConnection = this.toStringArray(data.connections).find((connection) => !validConnections.includes(connection));
+      const invalidConnection = this.toStringArray(data.connections).find(
+        (connection) => !validConnections.includes(connection),
+      );
       if (invalidConnection) {
         throw new BadRequestException('Tipo de conexion no valido');
       }
@@ -391,7 +412,10 @@ export class ProductsService {
         throw new BadRequestException('Selecciona la marca del teclado.');
       }
       const keyboardType = String(data.keyboardType || '').trim();
-      if (keyboardType && !['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico'].includes(keyboardType)) {
+      if (
+        keyboardType &&
+        !['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico'].includes(keyboardType)
+      ) {
         throw new BadRequestException('Tipo de teclado no valido');
       }
     }
@@ -404,17 +428,28 @@ export class ProductsService {
       if (mouseType && !['Oficina', 'Gamer'].includes(mouseType)) {
         throw new BadRequestException('Tipo de mouse no valido');
       }
-      if (mouseType === 'Gamer' && data.pollingRateHz !== undefined && ![1000, 2000, 4000, 8000].includes(this.toInt(data.pollingRateHz))) {
+      if (
+        mouseType === 'Gamer' &&
+        data.pollingRateHz !== undefined &&
+        ![1000, 2000, 4000, 8000].includes(this.toInt(data.pollingRateHz))
+      ) {
         throw new BadRequestException('Frecuencia de mouse no valida');
       }
-      if (data.powerType !== undefined && !['Pila', 'Bateria', 'Ninguno'].includes(String(data.powerType))) {
+      if (
+        data.powerType !== undefined &&
+        !['Pila', 'Bateria', 'Ninguno'].includes(String(data.powerType))
+      ) {
         throw new BadRequestException('Tipo de energia de mouse no valido');
       }
     }
 
     if (category === 'WEBCAM' || category === 'CAPTURE_CARD') {
       if (!String(data.brand || '').trim()) {
-        throw new BadRequestException(category === 'WEBCAM' ? 'Selecciona la marca de la webcam.' : 'Selecciona la marca de la capturadora.');
+        throw new BadRequestException(
+          category === 'WEBCAM'
+            ? 'Selecciona la marca de la webcam.'
+            : 'Selecciona la marca de la capturadora.',
+        );
       }
       if (!['HD', 'FHD', '4K'].includes(String(data.resolution || '').trim())) {
         throw new BadRequestException('Selecciona una resolucion valida.');
@@ -434,7 +469,15 @@ export class ProductsService {
         throw new BadRequestException('Selecciona el tipo Cable o Hub.');
       }
       if (cableHubType === 'Cable') {
-        if (!['HDMI a HDMI', 'DisplayPort a DisplayPort', 'Tipo C a HDMI', 'Tipo C a DisplayPort', 'Tipo C a Tipo C'].includes(String(data.cableType || '').trim())) {
+        if (
+          ![
+            'HDMI a HDMI',
+            'DisplayPort a DisplayPort',
+            'Tipo C a HDMI',
+            'Tipo C a DisplayPort',
+            'Tipo C a Tipo C',
+          ].includes(String(data.cableType || '').trim())
+        ) {
           throw new BadRequestException('Selecciona el tipo de cable.');
         }
         if (![1, 2, 3].includes(this.toInt(data.cableLengthMeters))) {
@@ -486,7 +529,9 @@ export class ProductsService {
       const allowedOptions = connection === 'Cableado' ? wiredOptions : wirelessOptions;
       const invalidOption = supportedConnections.find((option) => !allowedOptions.includes(option));
       if (invalidOption) {
-        throw new BadRequestException('La conectividad soportada no corresponde al tipo de conexion.');
+        throw new BadRequestException(
+          'La conectividad soportada no corresponde al tipo de conexion.',
+        );
       }
     }
 
@@ -540,7 +585,9 @@ export class ProductsService {
             cores: this.toInt(data.cores),
             threads: this.toInt(data.threads),
             frequency: data.frequency || '',
-            ...(data.baseTdpWatts !== undefined ? { baseTdpWatts: this.toInt(data.baseTdpWatts) } : {}),
+            ...(data.baseTdpWatts !== undefined
+              ? { baseTdpWatts: this.toInt(data.baseTdpWatts) }
+              : {}),
             tdp: this.toInt(data.tdp),
             integratedGraphics: this.toBool(data.integratedGraphics),
             includesCooler: this.toBool(data.includesCooler),
@@ -615,7 +662,9 @@ export class ProductsService {
             maxGpuLength: this.toInt(data.maxGpuLength),
             includesPsu: this.toBool(data.includesPsu),
             includedFans: this.toInt(data.includedFans),
-            ...(data.radiatorSupportMm !== undefined ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) } : {}),
+            ...(data.radiatorSupportMm !== undefined
+              ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) }
+              : {}),
           },
         };
         break;
@@ -628,11 +677,17 @@ export class ProductsService {
             socketSupport: this.toStringArray(data.compatibleSockets).join(', '),
             compatibleSockets: this.toStringArray(data.compatibleSockets),
             fanCount: this.toInt(data.fanCount),
-            radiatorSize: this.normalizeCoolerType(data.type) === 'Líquida' ? this.toInt(data.radiatorSize) : null,
+            radiatorSize:
+              this.normalizeCoolerType(data.type) === 'Líquida'
+                ? this.toInt(data.radiatorSize)
+                : null,
             hasScreen: this.toBool(data.hasScreen),
             hasRGB: this.toBool(data.hasRGB),
             tdpCapacity: this.toInt(data.tdpCapacity),
-            coolerHeight: this.normalizeCoolerType(data.type) === 'Torre' ? this.toInt(data.coolerHeight) : null,
+            coolerHeight:
+              this.normalizeCoolerType(data.type) === 'Torre'
+                ? this.toInt(data.coolerHeight)
+                : null,
           },
         };
         break;
@@ -701,7 +756,8 @@ export class ProductsService {
             resolution: data.resolution || 'FHD (1920x1080)',
             panelType: data.panelType || 'IPS',
             refreshRate: this.toInt(data.refreshRate),
-            responseTimeMs: data.responseTimeMs !== undefined ? this.toFloat(data.responseTimeMs) : null,
+            responseTimeMs:
+              data.responseTimeMs !== undefined ? this.toFloat(data.responseTimeMs) : null,
             ports: this.toStringArray(data.ports),
             hasSpeakers: this.toBool(data.hasSpeakers),
           },
@@ -711,7 +767,8 @@ export class ProductsService {
       case 'KEYBOARD':
         productData.keyboardSpecs = {
           create: {
-            connection: data.connection || this.toStringArray(data.connections).join(', ') || 'Cableado',
+            connection:
+              data.connection || this.toStringArray(data.connections).join(', ') || 'Cableado',
             switchType: data.switchType || '',
             layout: data.layoutLanguage || data.layout || 'Español',
             hasRGB: this.toBool(data.hasRGB || data.hasLighting),
@@ -731,15 +788,20 @@ export class ProductsService {
         const isGamerMouse = mouseType === 'Gamer';
         productData.mouseSpecs = {
           create: {
-            connection: data.connection || this.toStringArray(data.connections).join(', ') || 'Cableado',
+            connection:
+              data.connection || this.toStringArray(data.connections).join(', ') || 'Cableado',
             dpi: isGamerMouse ? this.toInt(data.dpi) : 0,
             sensor: data.sensor || 'Optico',
             hasRGB: this.toBool(data.hasRGB),
             brand: data.brand || '',
             mouseType,
             connections: this.toStringArray(data.connections),
-            buttonCount: isGamerMouse && data.buttonCount !== undefined ? this.toInt(data.buttonCount) : null,
-            pollingRateHz: isGamerMouse && data.pollingRateHz !== undefined ? this.toInt(data.pollingRateHz) : null,
+            buttonCount:
+              isGamerMouse && data.buttonCount !== undefined ? this.toInt(data.buttonCount) : null,
+            pollingRateHz:
+              isGamerMouse && data.pollingRateHz !== undefined
+                ? this.toInt(data.pollingRateHz)
+                : null,
             weightGrams: data.weightGrams !== undefined ? this.toInt(data.weightGrams) : null,
             powerType: data.powerType || 'Ninguno',
           },
@@ -871,9 +933,7 @@ export class ProductsService {
         break;
 
       default:
-        throw new BadRequestException(
-          `Categoria no soportada: ${data.category}`,
-        );
+        throw new BadRequestException(`Categoria no soportada: ${data.category}`);
     }
 
     const product = await this.prisma.product.create({ data: productData });
@@ -887,7 +947,11 @@ export class ProductsService {
         entityId: product.id,
         entityName: product.name,
         description: `Se creo el producto ${product.name}.`,
-        metadata: { category: product.category, price: String(product.price), stock: product.stock },
+        metadata: {
+          category: product.category,
+          price: String(product.price),
+          stock: product.stock,
+        },
       });
     }
 
@@ -906,16 +970,24 @@ export class ProductsService {
 
   private getQueryNumber(query: ProductQuery, key: string): number | undefined {
     const value = this.getQueryString(query, key);
-    if (value === undefined) return undefined;
+    if (value === undefined) {
+      return undefined;
+    }
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
 
   private getQueryBoolean(query: ProductQuery, key: string): boolean | undefined {
     const value = this.getQueryString(query, key);
-    if (value === undefined || value === 'all') return undefined;
-    if (['true', '1', 'yes', 'si', 'sí'].includes(value.toLowerCase())) return true;
-    if (['false', '0', 'no'].includes(value.toLowerCase())) return false;
+    if (value === undefined || value === 'all') {
+      return undefined;
+    }
+    if (['true', '1', 'yes', 'si', 'sí'].includes(value.toLowerCase())) {
+      return true;
+    }
+    if (['false', '0', 'no'].includes(value.toLowerCase())) {
+      return false;
+    }
     return undefined;
   }
 
@@ -929,7 +1001,9 @@ export class ProductsService {
   }
 
   private addAnd(where: any, condition: any) {
-    if (!condition || Object.keys(condition).length === 0) return;
+    if (!condition || Object.keys(condition).length === 0) {
+      return;
+    }
     where.AND = [...(where.AND ?? []), condition];
   }
 
@@ -941,23 +1015,35 @@ export class ProductsService {
     const min = this.getQueryNumber(query, minKey);
     const max = this.getQueryNumber(query, maxKey);
     const range: Record<string, number> = {};
-    if (min !== undefined) range.gte = min;
-    if (max !== undefined) range.lte = max;
+    if (min !== undefined) {
+      range.gte = min;
+    }
+    if (max !== undefined) {
+      range.lte = max;
+    }
     return Object.keys(range).length ? range : undefined;
   }
 
   private oneOfOrContains(query: ProductQuery, key: string, field: string) {
     const values = this.getQueryList(query, key);
-    if (values.length === 0) return undefined;
+    if (values.length === 0) {
+      return undefined;
+    }
     return values.length === 1
       ? { [field]: this.textContains(values[0]) }
       : { OR: values.map((value) => ({ [field]: this.textContains(value) })) };
   }
 
   private inferMotherboardSockets(platform?: string) {
-    if (!platform) return undefined;
-    if (platform.toUpperCase() === 'AMD') return ['AM4', 'AM5'];
-    if (platform.toUpperCase() === 'INTEL') return ['LGA 1200', 'LGA 1700', 'LGA 1851'];
+    if (!platform) {
+      return undefined;
+    }
+    if (platform.toUpperCase() === 'AMD') {
+      return ['AM4', 'AM5'];
+    }
+    if (platform.toUpperCase() === 'INTEL') {
+      return ['LGA 1200', 'LGA 1700', 'LGA 1851'];
+    }
     return undefined;
   }
 
@@ -968,7 +1054,8 @@ export class ProductsService {
   private buildProductWhere(query: ProductQuery): Prisma.ProductWhereInput {
     const where: any = {};
     const search = this.getQueryString(query, 'search');
-    const category = this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
+    const category =
+      this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
     const categories = this.getQueryList(query, 'categories');
 
     if (category) {
@@ -992,7 +1079,11 @@ export class ProductsService {
           { webcamSpecs: { is: { brand: this.textContains(search) } } },
           { captureCardSpecs: { is: { brand: this.textContains(search) } } },
           { cableHubSpecs: { is: { brand: this.textContains(search) } } },
-          { laptopCoolingBaseSpecs: { is: { brand: this.textContains(search) } } },
+          {
+            laptopCoolingBaseSpecs: {
+              is: { brand: this.textContains(search) },
+            },
+          },
           { backpackSpecs: { is: { brand: this.textContains(search) } } },
           { mousepadSpecs: { is: { brand: this.textContains(search) } } },
           { chairSpecs: { is: { brand: this.textContains(search) } } },
@@ -1005,13 +1096,19 @@ export class ProductsService {
     }
 
     const priceRange = this.numberRange(query, 'minPrice', 'maxPrice');
-    if (priceRange) where.price = priceRange;
+    if (priceRange) {
+      where.price = priceRange;
+    }
 
     const inStock = this.getQueryBoolean(query, 'inStock');
-    if (inStock !== undefined) where.stock = inStock ? { gt: 0 } : { lte: 0 };
+    if (inStock !== undefined) {
+      where.stock = inStock ? { gt: 0 } : { lte: 0 };
+    }
 
     const isOnSale = this.getQueryBoolean(query, 'isOnSale');
-    if (isOnSale !== undefined) where.isOnSale = isOnSale;
+    if (isOnSale !== undefined) {
+      where.isOnSale = isOnSale;
+    }
 
     const brand = this.getQueryString(query, 'brand');
     if (brand) {
@@ -1021,7 +1118,9 @@ export class ProductsService {
           motherboardSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: { notIn: knownMotherboardBrands } }] }
+                ? {
+                    OR: [{ brand: 'Otros' }, { brand: { notIn: knownMotherboardBrands } }],
+                  }
                 : { brand },
           },
         });
@@ -1031,17 +1130,34 @@ export class ProductsService {
           gpuSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: { notIn: knownGpuBrands } }, { brand: null }] }
+                ? {
+                    OR: [{ brand: 'Otros' }, { brand: { notIn: knownGpuBrands } }, { brand: null }],
+                  }
                 : { brand },
           },
         });
       } else if (category === 'CASE') {
-        const knownCaseBrands = ['Halion', 'Micronics', 'ASUS', 'Gigabyte', 'DeepCool', 'Antryx', 'MSI', 'Lian Li'];
+        const knownCaseBrands = [
+          'Halion',
+          'Micronics',
+          'ASUS',
+          'Gigabyte',
+          'DeepCool',
+          'Antryx',
+          'MSI',
+          'Lian Li',
+        ];
         this.addAnd(where, {
           caseSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: { notIn: knownCaseBrands } }, { brand: null }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: { notIn: knownCaseBrands } },
+                      { brand: null },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1051,17 +1167,51 @@ export class ProductsService {
           coolerSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownCoolerBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownCoolerBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
       } else if (category === 'PSU') {
-        const knownPsuBrands = ['MSI', 'ASUS', 'Gigabyte', 'Corsair', 'DeepCool', 'Antryx', 'Cooler Master', 'Seasonic', 'Thermaltake'];
+        const knownPsuBrands = [
+          'MSI',
+          'ASUS',
+          'Gigabyte',
+          'Corsair',
+          'DeepCool',
+          'Antryx',
+          'Cooler Master',
+          'Seasonic',
+          'Thermaltake',
+        ];
         this.addAnd(where, {
           psuSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownPsuBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownPsuBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1071,7 +1221,20 @@ export class ProductsService {
           laptopSpecs: {
             is:
               brand === 'Otra' || brand === 'Otros'
-                ? { OR: [{ brand: 'Otra' }, { brand: 'Otros' }, { brand: null }, { NOT: { OR: knownLaptopBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otra' },
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownLaptopBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1081,19 +1244,56 @@ export class ProductsService {
           monitorSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownMonitorBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownMonitorBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
       } else if (category === 'KEYBOARD') {
-        const knownKeyboardBrands = ['Redragon', 'MSI', 'Logitech', 'Razer', 'Aula', 'Royal Kludge'];
+        const knownKeyboardBrands = [
+          'Redragon',
+          'MSI',
+          'Logitech',
+          'Razer',
+          'Aula',
+          'Royal Kludge',
+        ];
         this.addAnd(where, {
           keyboardSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownKeyboardBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownKeyboardBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : brand === 'Royal Kludge'
-                  ? { OR: [{ brand: this.textContains('Royal Kludge') }, { brand: this.textContains('RoyalKludge') }, { brand: this.textContains('RK') }] }
+                  ? {
+                      OR: [
+                        { brand: this.textContains('Royal Kludge') },
+                        { brand: this.textContains('RoyalKludge') },
+                        { brand: this.textContains('RK') },
+                      ],
+                    }
                   : { brand: this.textContains(brand) },
           },
         });
@@ -1103,7 +1303,19 @@ export class ProductsService {
           mouseSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownMouseBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownMouseBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1113,7 +1325,19 @@ export class ProductsService {
           mousepadSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownMousepadBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownMousepadBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1123,7 +1347,19 @@ export class ProductsService {
           webcamSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownWebcamBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownWebcamBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1133,7 +1369,19 @@ export class ProductsService {
           captureCardSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownCaptureBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownCaptureBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1143,7 +1391,19 @@ export class ProductsService {
           cableHubSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownCableHubBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownCableHubBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1153,7 +1413,19 @@ export class ProductsService {
           laptopCoolingBaseSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownBaseBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownBaseBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1163,7 +1435,19 @@ export class ProductsService {
           backpackSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownBackpackBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownBackpackBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1173,17 +1457,48 @@ export class ProductsService {
           headsetSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownHeadsetBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownHeadsetBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
       } else if (category === 'MICROPHONE') {
-        const knownMicrophoneBrands = ['Fifine', 'Streamplify', 'Redragon', 'Razer', 'Logitech', 'Corsair'];
+        const knownMicrophoneBrands = [
+          'Fifine',
+          'Streamplify',
+          'Redragon',
+          'Razer',
+          'Logitech',
+          'Corsair',
+        ];
         this.addAnd(where, {
           microphoneSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownMicrophoneBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownMicrophoneBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1193,7 +1508,19 @@ export class ProductsService {
           speakerSpecs: {
             is:
               brand === 'Otros'
-                ? { OR: [{ brand: 'Otros' }, { brand: null }, { NOT: { OR: knownSpeakerBrands.map((knownBrand) => ({ brand: this.textContains(knownBrand) })) } }] }
+                ? {
+                    OR: [
+                      { brand: 'Otros' },
+                      { brand: null },
+                      {
+                        NOT: {
+                          OR: knownSpeakerBrands.map((knownBrand) => ({
+                            brand: this.textContains(knownBrand),
+                          })),
+                        },
+                      },
+                    ],
+                  }
                 : { brand: this.textContains(brand) },
           },
         });
@@ -1214,7 +1541,11 @@ export class ProductsService {
             { webcamSpecs: { is: { brand: this.textContains(brand) } } },
             { captureCardSpecs: { is: { brand: this.textContains(brand) } } },
             { cableHubSpecs: { is: { brand: this.textContains(brand) } } },
-            { laptopCoolingBaseSpecs: { is: { brand: this.textContains(brand) } } },
+            {
+              laptopCoolingBaseSpecs: {
+                is: { brand: this.textContains(brand) },
+              },
+            },
             { backpackSpecs: { is: { brand: this.textContains(brand) } } },
             { mousepadSpecs: { is: { brand: this.textContains(brand) } } },
             { chairSpecs: { is: { brand: this.textContains(brand) } } },
@@ -1239,93 +1570,191 @@ export class ProductsService {
   }
 
   private addSpecFilters(where: any, query: ProductQuery) {
-    const targetCategory = this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
+    const targetCategory =
+      this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
     const cpu: any = {};
     const cpuBrand = this.getQueryString(query, 'cpuBrand');
     const socket = this.getQueryString(query, 'socket');
     const cpuTdp = this.numberRange(query, 'minTdp', 'maxTdp');
     const integratedGraphics = this.getQueryBoolean(query, 'integratedGraphics');
     const includesCooler = this.getQueryBoolean(query, 'includesCooler');
-    if (cpuBrand) cpu.brand = cpuBrand;
-    if (socket) cpu.socket = socket;
-    if (cpuTdp) cpu.tdp = cpuTdp;
-    if (integratedGraphics !== undefined) cpu.integratedGraphics = integratedGraphics;
-    if (includesCooler !== undefined) cpu.includesCooler = includesCooler;
-    if (Object.keys(cpu).length && this.shouldApplySpecFilter(targetCategory, 'CPU')) this.addAnd(where, { cpuSpecs: { is: cpu } });
+    if (cpuBrand) {
+      cpu.brand = cpuBrand;
+    }
+    if (socket) {
+      cpu.socket = socket;
+    }
+    if (cpuTdp) {
+      cpu.tdp = cpuTdp;
+    }
+    if (integratedGraphics !== undefined) {
+      cpu.integratedGraphics = integratedGraphics;
+    }
+    if (includesCooler !== undefined) {
+      cpu.includesCooler = includesCooler;
+    }
+    if (Object.keys(cpu).length && this.shouldApplySpecFilter(targetCategory, 'CPU')) {
+      this.addAnd(where, { cpuSpecs: { is: cpu } });
+    }
 
     const motherboard: any = {};
     const platformSockets = this.inferMotherboardSockets(this.getQueryString(query, 'platform'));
-    const formFactor = this.getQueryString(query, 'formFactor') || this.getQueryString(query, 'format');
-    const ramType = this.getQueryString(query, 'ramType') || this.getQueryString(query, 'memoryType');
+    const formFactor =
+      this.getQueryString(query, 'formFactor') || this.getQueryString(query, 'format');
+    const ramType =
+      this.getQueryString(query, 'ramType') || this.getQueryString(query, 'memoryType');
     const m2Slots = this.getQueryNumber(query, 'm2Slots');
-    if (socket) motherboard.socket = socket;
-    if (!socket && platformSockets) motherboard.socket = { in: platformSockets };
-    if (formFactor) motherboard.formFactor = formFactor;
-    if (ramType) motherboard.memoryType = ramType;
-    if (m2Slots !== undefined) motherboard.m2Slots = m2Slots >= 3 ? { gte: 3 } : m2Slots;
-    if (Object.keys(motherboard).length && this.shouldApplySpecFilter(targetCategory, 'MOTHERBOARD')) this.addAnd(where, { motherboardSpecs: { is: motherboard } });
+    if (socket) {
+      motherboard.socket = socket;
+    }
+    if (!socket && platformSockets) {
+      motherboard.socket = { in: platformSockets };
+    }
+    if (formFactor) {
+      motherboard.formFactor = formFactor;
+    }
+    if (ramType) {
+      motherboard.memoryType = ramType;
+    }
+    if (m2Slots !== undefined) {
+      motherboard.m2Slots = m2Slots >= 3 ? { gte: 3 } : m2Slots;
+    }
+    if (
+      Object.keys(motherboard).length &&
+      this.shouldApplySpecFilter(targetCategory, 'MOTHERBOARD')
+    ) {
+      this.addAnd(where, { motherboardSpecs: { is: motherboard } });
+    }
 
     const ram: any = {};
     const capacity = this.getQueryNumber(query, 'capacity');
     const speed = this.getQueryNumber(query, 'speed') || this.getQueryNumber(query, 'frequency');
     const hasRGB = this.getQueryBoolean(query, 'hasRGB') ?? this.getQueryBoolean(query, 'rgb');
-    if (ramType) ram.memoryType = ramType;
-    if (capacity !== undefined) ram.capacity = capacity;
-    if (speed !== undefined) ram.speed = speed;
-    if (hasRGB !== undefined) ram.hasRGB = hasRGB;
-    if (Object.keys(ram).length && this.shouldApplySpecFilter(targetCategory, 'RAM')) this.addAnd(where, { ramSpecs: { is: ram } });
+    if (ramType) {
+      ram.memoryType = ramType;
+    }
+    if (capacity !== undefined) {
+      ram.capacity = capacity;
+    }
+    if (speed !== undefined) {
+      ram.speed = speed;
+    }
+    if (hasRGB !== undefined) {
+      ram.hasRGB = hasRGB;
+    }
+    if (Object.keys(ram).length && this.shouldApplySpecFilter(targetCategory, 'RAM')) {
+      this.addAnd(where, { ramSpecs: { is: ram } });
+    }
 
     const gpu: any = {};
-    const gpuChipset = this.getQueryString(query, 'gpuChipset') || this.getQueryString(query, 'chipset');
+    const gpuChipset =
+      this.getQueryString(query, 'gpuChipset') || this.getQueryString(query, 'chipset');
     const vram = this.getQueryNumber(query, 'vram');
     const gpuTdp = this.numberRange(query, 'minGpuTdp', 'maxGpuTdp') || cpuTdp;
-    if (gpuChipset) gpu.chipset = this.textContains(gpuChipset);
-    if (vram !== undefined) gpu.vram = vram;
-    if (gpuTdp) gpu.gpuPowerWatts = gpuTdp;
-    if (Object.keys(gpu).length && this.shouldApplySpecFilter(targetCategory, 'GPU')) this.addAnd(where, { gpuSpecs: { is: gpu } });
+    if (gpuChipset) {
+      gpu.chipset = this.textContains(gpuChipset);
+    }
+    if (vram !== undefined) {
+      gpu.vram = vram;
+    }
+    if (gpuTdp) {
+      gpu.gpuPowerWatts = gpuTdp;
+    }
+    if (Object.keys(gpu).length && this.shouldApplySpecFilter(targetCategory, 'GPU')) {
+      this.addAnd(where, { gpuSpecs: { is: gpu } });
+    }
 
     const psu: any = {};
-    const psuWatts = this.getQueryNumber(query, 'psuWatts') || this.getQueryNumber(query, 'wattage');
+    const psuWatts =
+      this.getQueryNumber(query, 'psuWatts') || this.getQueryNumber(query, 'wattage');
     const certification = this.getQueryString(query, 'certification');
     const modular = this.getQueryString(query, 'modular');
-    if (psuWatts !== undefined) psu.wattage = psuWatts >= 1000 ? { gte: 1000 } : psuWatts;
-    if (certification) psu.certification = this.textContains(certification);
-    if (modular) psu.modular = this.textContains(modular);
-    if (Object.keys(psu).length && this.shouldApplySpecFilter(targetCategory, 'PSU')) this.addAnd(where, { psuSpecs: { is: psu } });
+    if (psuWatts !== undefined) {
+      psu.wattage = psuWatts >= 1000 ? { gte: 1000 } : psuWatts;
+    }
+    if (certification) {
+      psu.certification = this.textContains(certification);
+    }
+    if (modular) {
+      psu.modular = this.textContains(modular);
+    }
+    if (Object.keys(psu).length && this.shouldApplySpecFilter(targetCategory, 'PSU')) {
+      this.addAnd(where, { psuSpecs: { is: psu } });
+    }
 
     const caseSpecs: any = {};
     const caseIncludesPsu = this.getQueryBoolean(query, 'includesPsu');
-    if (formFactor) caseSpecs.formFactor = formFactor;
-    if (caseIncludesPsu !== undefined) caseSpecs.includesPsu = caseIncludesPsu;
-    if (Object.keys(caseSpecs).length && this.shouldApplySpecFilter(targetCategory, 'CASE')) this.addAnd(where, { caseSpecs: { is: caseSpecs } });
+    if (formFactor) {
+      caseSpecs.formFactor = formFactor;
+    }
+    if (caseIncludesPsu !== undefined) {
+      caseSpecs.includesPsu = caseIncludesPsu;
+    }
+    if (Object.keys(caseSpecs).length && this.shouldApplySpecFilter(targetCategory, 'CASE')) {
+      this.addAnd(where, { caseSpecs: { is: caseSpecs } });
+    }
 
     const cooler: any = {};
-    const coolerType = this.getQueryString(query, 'coolerType') || this.getQueryString(query, 'type');
-    const maxTdpWatts = this.numberRange(query, 'minMaxTdp', 'maxMaxTdp') || this.numberRange(query, 'minMaxTdpWatts', 'maxMaxTdpWatts');
-    const hasScreen = this.getQueryBoolean(query, 'hasScreen') ?? this.getQueryBoolean(query, 'hasLCD');
+    const coolerType =
+      this.getQueryString(query, 'coolerType') || this.getQueryString(query, 'type');
+    const maxTdpWatts =
+      this.numberRange(query, 'minMaxTdp', 'maxMaxTdp') ||
+      this.numberRange(query, 'minMaxTdpWatts', 'maxMaxTdpWatts');
+    const hasScreen =
+      this.getQueryBoolean(query, 'hasScreen') ?? this.getQueryBoolean(query, 'hasLCD');
     const radiatorSize = this.getQueryNumber(query, 'radiatorSize');
     const compatibleSockets = this.getQueryList(query, 'compatibleSockets');
-    if (coolerType) Object.assign(cooler, this.buildCoolerTypeWhere(coolerType));
-    if (maxTdpWatts) cooler.tdpCapacity = maxTdpWatts;
-    if (hasRGB !== undefined) cooler.hasRGB = hasRGB;
-    if (hasScreen !== undefined) cooler.hasScreen = hasScreen;
-    if (radiatorSize !== undefined) cooler.radiatorSize = radiatorSize;
-    if (compatibleSockets.length > 0) cooler.compatibleSockets = { hasSome: compatibleSockets };
-    if (Object.keys(cooler).length && this.shouldApplySpecFilter(targetCategory, 'COOLER')) this.addAnd(where, { coolerSpecs: { is: cooler } });
+    if (coolerType) {
+      Object.assign(cooler, this.buildCoolerTypeWhere(coolerType));
+    }
+    if (maxTdpWatts) {
+      cooler.tdpCapacity = maxTdpWatts;
+    }
+    if (hasRGB !== undefined) {
+      cooler.hasRGB = hasRGB;
+    }
+    if (hasScreen !== undefined) {
+      cooler.hasScreen = hasScreen;
+    }
+    if (radiatorSize !== undefined) {
+      cooler.radiatorSize = radiatorSize;
+    }
+    if (compatibleSockets.length > 0) {
+      cooler.compatibleSockets = { hasSome: compatibleSockets };
+    }
+    if (Object.keys(cooler).length && this.shouldApplySpecFilter(targetCategory, 'COOLER')) {
+      this.addAnd(where, { coolerSpecs: { is: cooler } });
+    }
 
     const storage: any = {};
-    const storageType = this.getQueryString(query, 'storageType') || this.getQueryString(query, 'type');
-    const generation = this.getQueryString(query, 'generation') || this.getQueryString(query, 'interface');
+    const storageType =
+      this.getQueryString(query, 'storageType') || this.getQueryString(query, 'type');
+    const generation =
+      this.getQueryString(query, 'generation') || this.getQueryString(query, 'interface');
     const m2FormFactor = this.getQueryString(query, 'm2FormFactor');
     const readSpeed = this.numberRange(query, 'minReadSpeed', 'maxReadSpeed');
     const writeSpeed = this.numberRange(query, 'minWriteSpeed', 'maxWriteSpeed');
-    if (storageType) storage.type = this.textContains(storageType);
-    if (generation) storage.interface = this.textContains(generation);
-    if (capacity !== undefined) storage.capacity = capacity >= 4000 ? { gte: 4000 } : capacity;
-    if (m2FormFactor) storage.m2FormFactor = m2FormFactor;
-    if (readSpeed) storage.readSpeed = readSpeed;
-    if (writeSpeed) storage.writeSpeed = writeSpeed;
-    if (Object.keys(storage).length && this.shouldApplySpecFilter(targetCategory, 'STORAGE')) this.addAnd(where, { storageSpecs: { is: storage } });
+    if (storageType) {
+      storage.type = this.textContains(storageType);
+    }
+    if (generation) {
+      storage.interface = this.textContains(generation);
+    }
+    if (capacity !== undefined) {
+      storage.capacity = capacity >= 4000 ? { gte: 4000 } : capacity;
+    }
+    if (m2FormFactor) {
+      storage.m2FormFactor = m2FormFactor;
+    }
+    if (readSpeed) {
+      storage.readSpeed = readSpeed;
+    }
+    if (writeSpeed) {
+      storage.writeSpeed = writeSpeed;
+    }
+    if (Object.keys(storage).length && this.shouldApplySpecFilter(targetCategory, 'STORAGE')) {
+      this.addAnd(where, { storageSpecs: { is: storage } });
+    }
 
     const laptop: any = {};
     const processor = this.getQueryString(query, 'processor');
@@ -1334,26 +1763,59 @@ export class ProductsService {
     const hasDedicatedGpu = this.getQueryBoolean(query, 'hasDedicatedGpu');
     const includesWindows = this.getQueryBoolean(query, 'includesWindows');
     const screenSize = this.getQueryString(query, 'screenSize');
-    const refreshRateHz = this.getQueryNumber(query, 'refreshRateHz') || this.getQueryNumber(query, 'refreshRate');
-    if (processor) laptop.processor = this.textContains(processor);
-    if (laptopRam) laptop.ram = this.textContains(laptopRam);
-    if (laptopStorage) laptop.storage = this.textContains(laptopStorage);
-    if (hasDedicatedGpu !== undefined) laptop.hasDedicatedGpu = hasDedicatedGpu;
-    if (includesWindows !== undefined) laptop.includesWindows = includesWindows;
-    if (screenSize) laptop.screenSize = this.textContains(screenSize);
-    if (refreshRateHz !== undefined) laptop.refreshRate = refreshRateHz;
-    if (Object.keys(laptop).length && this.shouldApplySpecFilter(targetCategory, 'LAPTOP')) this.addAnd(where, { laptopSpecs: { is: laptop } });
+    const refreshRateHz =
+      this.getQueryNumber(query, 'refreshRateHz') || this.getQueryNumber(query, 'refreshRate');
+    if (processor) {
+      laptop.processor = this.textContains(processor);
+    }
+    if (laptopRam) {
+      laptop.ram = this.textContains(laptopRam);
+    }
+    if (laptopStorage) {
+      laptop.storage = this.textContains(laptopStorage);
+    }
+    if (hasDedicatedGpu !== undefined) {
+      laptop.hasDedicatedGpu = hasDedicatedGpu;
+    }
+    if (includesWindows !== undefined) {
+      laptop.includesWindows = includesWindows;
+    }
+    if (screenSize) {
+      laptop.screenSize = this.textContains(screenSize);
+    }
+    if (refreshRateHz !== undefined) {
+      laptop.refreshRate = refreshRateHz;
+    }
+    if (Object.keys(laptop).length && this.shouldApplySpecFilter(targetCategory, 'LAPTOP')) {
+      this.addAnd(where, { laptopSpecs: { is: laptop } });
+    }
 
     const desktop: any = {};
     const desktopPsu = this.getQueryNumber(query, 'desktopPsuWatts') || psuWatts;
-    if (processor) desktop.processor = this.textContains(processor);
-    if (laptopRam) desktop.ram = this.textContains(laptopRam);
-    if (laptopStorage) desktop.storage = this.textContains(laptopStorage);
-    if (hasDedicatedGpu !== undefined) desktop.hasDedicatedGpu = hasDedicatedGpu;
-    if (gpuChipset) desktop.gpuBrand = this.textContains(gpuChipset);
-    if (coolerType) desktop.coolerType = this.textContains(coolerType);
-    if (desktopPsu !== undefined) desktop.psuWatts = desktopPsu >= 850 ? { gte: 850 } : desktopPsu;
-    if (Object.keys(desktop).length && this.shouldApplySpecFilter(targetCategory, 'PC_DESKTOP')) this.addAnd(where, { desktopSpecs: { is: desktop } });
+    if (processor) {
+      desktop.processor = this.textContains(processor);
+    }
+    if (laptopRam) {
+      desktop.ram = this.textContains(laptopRam);
+    }
+    if (laptopStorage) {
+      desktop.storage = this.textContains(laptopStorage);
+    }
+    if (hasDedicatedGpu !== undefined) {
+      desktop.hasDedicatedGpu = hasDedicatedGpu;
+    }
+    if (gpuChipset) {
+      desktop.gpuBrand = this.textContains(gpuChipset);
+    }
+    if (coolerType) {
+      desktop.coolerType = this.textContains(coolerType);
+    }
+    if (desktopPsu !== undefined) {
+      desktop.psuWatts = desktopPsu >= 850 ? { gte: 850 } : desktopPsu;
+    }
+    if (Object.keys(desktop).length && this.shouldApplySpecFilter(targetCategory, 'PC_DESKTOP')) {
+      this.addAnd(where, { desktopSpecs: { is: desktop } });
+    }
 
     const monitor: any = {};
     const resolution = this.getQueryString(query, 'resolution');
@@ -1361,86 +1823,189 @@ export class ProductsService {
     const responseTimeMs = this.getQueryNumber(query, 'responseTimeMs');
     const ports = this.getQueryList(query, 'ports');
     const hasSpeakers = this.getQueryBoolean(query, 'hasSpeakers');
-    if (screenSize) monitor.screenSize = this.textContains(screenSize);
-    if (resolution) monitor.resolution = resolution === 'Otro' ? { notIn: ['FHD (1920x1080)', 'QHD (2560x1440)', 'Ultra Wide QHD (3440x1440)', '4K UHD (3840x2160)'] } : this.textContains(resolution);
-    if (panel) monitor.panelType = this.textContains(panel);
-    if (refreshRateHz !== undefined) monitor.refreshRate = refreshRateHz;
-    if (responseTimeMs !== undefined) monitor.responseTimeMs = responseTimeMs;
-    if (ports.length > 0) monitor.ports = { hasSome: ports };
-    if (hasSpeakers !== undefined) monitor.hasSpeakers = hasSpeakers;
-    if (Object.keys(monitor).length && this.shouldApplySpecFilter(targetCategory, 'MONITOR')) this.addAnd(where, { monitorSpecs: { is: monitor } });
+    if (screenSize) {
+      monitor.screenSize = this.textContains(screenSize);
+    }
+    if (resolution) {
+      monitor.resolution =
+        resolution === 'Otro'
+          ? {
+              notIn: [
+                'FHD (1920x1080)',
+                'QHD (2560x1440)',
+                'Ultra Wide QHD (3440x1440)',
+                '4K UHD (3840x2160)',
+              ],
+            }
+          : this.textContains(resolution);
+    }
+    if (panel) {
+      monitor.panelType = this.textContains(panel);
+    }
+    if (refreshRateHz !== undefined) {
+      monitor.refreshRate = refreshRateHz;
+    }
+    if (responseTimeMs !== undefined) {
+      monitor.responseTimeMs = responseTimeMs;
+    }
+    if (ports.length > 0) {
+      monitor.ports = { hasSome: ports };
+    }
+    if (hasSpeakers !== undefined) {
+      monitor.hasSpeakers = hasSpeakers;
+    }
+    if (Object.keys(monitor).length && this.shouldApplySpecFilter(targetCategory, 'MONITOR')) {
+      this.addAnd(where, { monitorSpecs: { is: monitor } });
+    }
 
     const keyboard: any = {};
     const keyboardType = this.getQueryString(query, 'keyboardType');
     const connections = this.getQueryList(query, 'connections');
-    const layoutLanguage = this.getQueryString(query, 'layoutLanguage') || this.getQueryString(query, 'language');
+    const layoutLanguage =
+      this.getQueryString(query, 'layoutLanguage') || this.getQueryString(query, 'language');
     const keyboardFormFactor = this.getQueryString(query, 'keyboardFormFactor');
     const hasLighting = this.getQueryBoolean(query, 'hasLighting') ?? hasRGB;
-    if (keyboardType) keyboard.keyboardType = keyboardType;
-    if (connections.length > 0) keyboard.connections = { hasSome: connections };
-    if (layoutLanguage) keyboard.layoutLanguage = layoutLanguage;
-    if (keyboardFormFactor) keyboard.keyboardFormFactor = this.textContains(keyboardFormFactor);
-    if (hasLighting !== undefined) keyboard.hasLighting = hasLighting;
-    if (Object.keys(keyboard).length && this.shouldApplySpecFilter(targetCategory, 'KEYBOARD')) this.addAnd(where, { keyboardSpecs: { is: keyboard } });
+    if (keyboardType) {
+      keyboard.keyboardType = keyboardType;
+    }
+    if (connections.length > 0) {
+      keyboard.connections = { hasSome: connections };
+    }
+    if (layoutLanguage) {
+      keyboard.layoutLanguage = layoutLanguage;
+    }
+    if (keyboardFormFactor) {
+      keyboard.keyboardFormFactor = this.textContains(keyboardFormFactor);
+    }
+    if (hasLighting !== undefined) {
+      keyboard.hasLighting = hasLighting;
+    }
+    if (Object.keys(keyboard).length && this.shouldApplySpecFilter(targetCategory, 'KEYBOARD')) {
+      this.addAnd(where, { keyboardSpecs: { is: keyboard } });
+    }
 
     const mouse: any = {};
     const mouseType = this.getQueryString(query, 'mouseType');
     const dpi = this.numberRange(query, 'minDpi', 'maxDpi');
     const pollingRateHz = this.getQueryNumber(query, 'pollingRateHz');
-    if (mouseType) mouse.mouseType = mouseType;
-    if (connections.length > 0) mouse.connections = { hasSome: connections };
-    if (dpi) mouse.dpi = dpi;
-    if (pollingRateHz !== undefined) mouse.pollingRateHz = pollingRateHz;
-    if (Object.keys(mouse).length && this.shouldApplySpecFilter(targetCategory, 'MOUSE')) this.addAnd(where, { mouseSpecs: { is: mouse } });
+    if (mouseType) {
+      mouse.mouseType = mouseType;
+    }
+    if (connections.length > 0) {
+      mouse.connections = { hasSome: connections };
+    }
+    if (dpi) {
+      mouse.dpi = dpi;
+    }
+    if (pollingRateHz !== undefined) {
+      mouse.pollingRateHz = pollingRateHz;
+    }
+    if (Object.keys(mouse).length && this.shouldApplySpecFilter(targetCategory, 'MOUSE')) {
+      this.addAnd(where, { mouseSpecs: { is: mouse } });
+    }
 
     const headset: any = {};
     const headsetConnection = this.getQueryString(query, 'connection');
-    if (headsetConnection) headset.connection = headsetConnection;
-    if (Object.keys(headset).length && this.shouldApplySpecFilter(targetCategory, 'HEADSET')) this.addAnd(where, { headsetSpecs: { is: headset } });
+    if (headsetConnection) {
+      headset.connection = headsetConnection;
+    }
+    if (Object.keys(headset).length && this.shouldApplySpecFilter(targetCategory, 'HEADSET')) {
+      this.addAnd(where, { headsetSpecs: { is: headset } });
+    }
 
     const fps = this.getQueryNumber(query, 'fps');
     const webcam: any = {};
-    if (resolution) webcam.resolution = resolution;
-    if (fps !== undefined) webcam.fps = fps;
-    if (Object.keys(webcam).length && this.shouldApplySpecFilter(targetCategory, 'WEBCAM')) this.addAnd(where, { webcamSpecs: { is: webcam } });
+    if (resolution) {
+      webcam.resolution = resolution;
+    }
+    if (fps !== undefined) {
+      webcam.fps = fps;
+    }
+    if (Object.keys(webcam).length && this.shouldApplySpecFilter(targetCategory, 'WEBCAM')) {
+      this.addAnd(where, { webcamSpecs: { is: webcam } });
+    }
 
     const captureCard: any = {};
-    if (resolution) captureCard.resolution = resolution;
-    if (fps !== undefined) captureCard.fps = fps;
-    if (Object.keys(captureCard).length && this.shouldApplySpecFilter(targetCategory, 'CAPTURE_CARD')) this.addAnd(where, { captureCardSpecs: { is: captureCard } });
+    if (resolution) {
+      captureCard.resolution = resolution;
+    }
+    if (fps !== undefined) {
+      captureCard.fps = fps;
+    }
+    if (
+      Object.keys(captureCard).length &&
+      this.shouldApplySpecFilter(targetCategory, 'CAPTURE_CARD')
+    ) {
+      this.addAnd(where, { captureCardSpecs: { is: captureCard } });
+    }
 
     const cableHub: any = {};
-    const cableHubType = this.getQueryString(query, 'cableHubType') || this.getQueryString(query, 'type');
-    if (cableHubType) cableHub.type = cableHubType;
-    if (Object.keys(cableHub).length && this.shouldApplySpecFilter(targetCategory, 'CABLE_HUB')) this.addAnd(where, { cableHubSpecs: { is: cableHub } });
+    const cableHubType =
+      this.getQueryString(query, 'cableHubType') || this.getQueryString(query, 'type');
+    if (cableHubType) {
+      cableHub.type = cableHubType;
+    }
+    if (Object.keys(cableHub).length && this.shouldApplySpecFilter(targetCategory, 'CABLE_HUB')) {
+      this.addAnd(where, { cableHubSpecs: { is: cableHub } });
+    }
 
     const mousepad: any = {};
     const hasLed = this.getQueryBoolean(query, 'hasLed');
     const mousepadSize = this.getQueryString(query, 'mousepadSize');
-    if (hasLed !== undefined) mousepad.hasLed = hasLed;
-    if (mousepadSize === 'Pequeno') mousepad.widthCm = { lte: 350 };
-    if (mousepadSize === 'Mediano') mousepad.widthCm = { gt: 350, lte: 700 };
-    if (mousepadSize === 'Grande') mousepad.widthCm = { gt: 700, lte: 900 };
-    if (mousepadSize === 'XL') mousepad.widthCm = { gt: 900, lte: 1200 };
-    if (mousepadSize === 'XXL') mousepad.widthCm = { gt: 1200 };
-    if (Object.keys(mousepad).length && this.shouldApplySpecFilter(targetCategory, 'MOUSEPAD')) this.addAnd(where, { mousepadSpecs: { is: mousepad } });
+    if (hasLed !== undefined) {
+      mousepad.hasLed = hasLed;
+    }
+    if (mousepadSize === 'Pequeno') {
+      mousepad.widthCm = { lte: 350 };
+    }
+    if (mousepadSize === 'Mediano') {
+      mousepad.widthCm = { gt: 350, lte: 700 };
+    }
+    if (mousepadSize === 'Grande') {
+      mousepad.widthCm = { gt: 700, lte: 900 };
+    }
+    if (mousepadSize === 'XL') {
+      mousepad.widthCm = { gt: 900, lte: 1200 };
+    }
+    if (mousepadSize === 'XXL') {
+      mousepad.widthCm = { gt: 1200 };
+    }
+    if (Object.keys(mousepad).length && this.shouldApplySpecFilter(targetCategory, 'MOUSEPAD')) {
+      this.addAnd(where, { mousepadSpecs: { is: mousepad } });
+    }
 
     const chair: any = {};
     const color = this.getQueryString(query, 'color');
     const material = this.getQueryString(query, 'material');
     const maxWeight = this.numberRange(query, 'minMaxWeight', 'maxMaxWeight');
-    if (color) chair.color = this.textContains(color);
-    if (material) chair.material = this.textContains(material);
-    if (maxWeight) chair.maxWeightKg = maxWeight;
-    if (Object.keys(chair).length && this.shouldApplySpecFilter(targetCategory, 'CHAIR')) this.addAnd(where, { chairSpecs: { is: chair } });
+    if (color) {
+      chair.color = this.textContains(color);
+    }
+    if (material) {
+      chair.material = this.textContains(material);
+    }
+    if (maxWeight) {
+      chair.maxWeightKg = maxWeight;
+    }
+    if (Object.keys(chair).length && this.shouldApplySpecFilter(targetCategory, 'CHAIR')) {
+      this.addAnd(where, { chairSpecs: { is: chair } });
+    }
 
     const desk: any = {};
     const surface = this.getQueryString(query, 'surface');
     const weight = this.numberRange(query, 'minWeight', 'maxWeight');
-    if (color) desk.color = this.textContains(color);
-    if (surface) desk.surface = this.textContains(surface);
-    if (weight) desk.weightKg = weight;
-    if (Object.keys(desk).length && this.shouldApplySpecFilter(targetCategory, 'GAMING_DESK')) this.addAnd(where, { gamingDeskSpecs: { is: desk } });
+    if (color) {
+      desk.color = this.textContains(color);
+    }
+    if (surface) {
+      desk.surface = this.textContains(surface);
+    }
+    if (weight) {
+      desk.weightKg = weight;
+    }
+    if (Object.keys(desk).length && this.shouldApplySpecFilter(targetCategory, 'GAMING_DESK')) {
+      this.addAnd(where, { gamingDeskSpecs: { is: desk } });
+    }
   }
 
   async findAll(query: ProductQuery = {}) {
@@ -1477,10 +2042,15 @@ export class ProductsService {
   }
 
   async getFilterOptions(query: ProductQuery = {}) {
-    const category = this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
+    const category =
+      this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
     const categories = this.getQueryList(query, 'categories');
     const products = await this.prisma.product.findMany({
-      where: category ? { category } : categories.length > 0 ? { category: { in: categories } } : {},
+      where: category
+        ? { category }
+        : categories.length > 0
+          ? { category: { in: categories } }
+          : {},
       include: this.productInclude,
       orderBy: { createdAt: 'desc' },
       take: 500,
@@ -1496,7 +2066,9 @@ export class ProductsService {
         ),
       ).sort((a, b) => a.localeCompare(b));
 
-    const prices = products.map((product) => Number(product.price)).filter((value) => Number.isFinite(value));
+    const prices = products
+      .map((product) => Number(product.price))
+      .filter((value) => Number.isFinite(value));
 
     return {
       categories: unique(products.map((product) => product.category)),
@@ -1549,7 +2121,9 @@ export class ProductsService {
       storageTypes: unique(products.map((product: any) => product.storageSpecs?.type)),
       m2FormFactors: unique([
         ...products.map((product: any) => product.storageSpecs?.m2FormFactor),
-        ...products.flatMap((product: any) => product.motherboardSpecs?.supportedM2FormFactors ?? []),
+        ...products.flatMap(
+          (product: any) => product.motherboardSpecs?.supportedM2FormFactors ?? [],
+        ),
       ]),
       resolutions: unique([
         ...products.map((product: any) => product.monitorSpecs?.resolution),
@@ -1692,10 +2266,17 @@ export class ProductsService {
     if (data.isOnSale !== undefined && !this.toBool(data.isOnSale)) {
       updateData.isOnSale = false;
       updateData.salePrice = null;
-    } else if (data.isOnSale !== undefined || data.salePrice !== undefined || data.price !== undefined) {
-      const nextPrice = data.price !== undefined ? this.toFloat(data.price) : this.toFloat(currentProduct.price);
-      const nextIsOnSale = data.isOnSale !== undefined ? this.toBool(data.isOnSale) : Boolean(currentProduct.isOnSale);
-      const nextSalePrice = data.salePrice !== undefined ? data.salePrice : currentProduct.salePrice;
+    } else if (
+      data.isOnSale !== undefined ||
+      data.salePrice !== undefined ||
+      data.price !== undefined
+    ) {
+      const nextPrice =
+        data.price !== undefined ? this.toFloat(data.price) : this.toFloat(currentProduct.price);
+      const nextIsOnSale =
+        data.isOnSale !== undefined ? this.toBool(data.isOnSale) : Boolean(currentProduct.isOnSale);
+      const nextSalePrice =
+        data.salePrice !== undefined ? data.salePrice : currentProduct.salePrice;
       const sale = this.pricing.validateSale(nextPrice, nextIsOnSale, nextSalePrice);
       updateData.isOnSale = sale.isOnSale;
       updateData.salePrice = sale.salePrice;
@@ -1720,9 +2301,7 @@ export class ProductsService {
     const specUpdate = this.buildSpecUpdate(currentProduct, data);
 
     if (Object.keys(updateData).length === 0 && Object.keys(specUpdate).length === 0) {
-      throw new BadRequestException(
-        'Debes enviar al menos un campo valido para actualizar',
-      );
+      throw new BadRequestException('Debes enviar al menos un campo valido para actualizar');
     }
 
     const updatedProduct = await this.prisma.product.update({
@@ -1801,10 +2380,16 @@ export class ProductsService {
               ...(data.cores !== undefined ? { cores: this.toInt(data.cores) } : {}),
               ...(data.threads !== undefined ? { threads: this.toInt(data.threads) } : {}),
               ...(data.frequency !== undefined ? { frequency: data.frequency } : {}),
-              ...(data.baseTdpWatts !== undefined ? { baseTdpWatts: this.toInt(data.baseTdpWatts) } : {}),
+              ...(data.baseTdpWatts !== undefined
+                ? { baseTdpWatts: this.toInt(data.baseTdpWatts) }
+                : {}),
               ...(data.tdp !== undefined ? { tdp: this.toInt(data.tdp) } : {}),
-              ...(data.integratedGraphics !== undefined ? { integratedGraphics: this.toBool(data.integratedGraphics) } : {}),
-              ...(data.includesCooler !== undefined ? { includesCooler: this.toBool(data.includesCooler) } : {}),
+              ...(data.integratedGraphics !== undefined
+                ? { integratedGraphics: this.toBool(data.integratedGraphics) }
+                : {}),
+              ...(data.includesCooler !== undefined
+                ? { includesCooler: this.toBool(data.includesCooler) }
+                : {}),
             },
           },
         };
@@ -1822,7 +2407,9 @@ export class ProductsService {
           return {};
         }
 
-        const nextMotherboardBrand = String(data.brand ?? currentProduct.motherboardSpecs?.brand ?? '').trim();
+        const nextMotherboardBrand = String(
+          data.brand ?? currentProduct.motherboardSpecs?.brand ?? '',
+        ).trim();
         if (!nextMotherboardBrand) {
           throw new BadRequestException('Selecciona la marca de la placa madre.');
         }
@@ -1834,9 +2421,15 @@ export class ProductsService {
               ...(data.socket !== undefined ? { socket: data.socket } : {}),
               ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
               ...(data.memoryType !== undefined ? { memoryType: data.memoryType } : {}),
-              ...(data.memorySlots !== undefined ? { memorySlots: this.toInt(data.memorySlots) } : {}),
+              ...(data.memorySlots !== undefined
+                ? { memorySlots: this.toInt(data.memorySlots) }
+                : {}),
               ...(data.m2Slots !== undefined ? { m2Slots: this.toInt(data.m2Slots) } : {}),
-              ...(data.supportedM2FormFactors !== undefined ? { supportedM2FormFactors: this.toStringArray(data.supportedM2FormFactors) } : {}),
+              ...(data.supportedM2FormFactors !== undefined
+                ? {
+                    supportedM2FormFactors: this.toStringArray(data.supportedM2FormFactors),
+                  }
+                : {}),
             },
           },
         };
@@ -1858,7 +2451,9 @@ export class ProductsService {
         const nextGpuBrand = String(data.brand ?? currentProduct.gpuSpecs?.brand ?? '').trim();
         const nextGpuPower = this.hasValue(data.gpuPowerWatts)
           ? this.toInt(data.gpuPowerWatts)
-          : this.toInt(data.tdp ?? currentProduct.gpuSpecs?.gpuPowerWatts ?? currentProduct.gpuSpecs?.tdp);
+          : this.toInt(
+              data.tdp ?? currentProduct.gpuSpecs?.gpuPowerWatts ?? currentProduct.gpuSpecs?.tdp,
+            );
 
         if (!nextGpuBrand) {
           throw new BadRequestException('Selecciona la marca ensambladora de la tarjeta grafica.');
@@ -1887,9 +2482,17 @@ export class ProductsService {
                 ? { gpuPowerWatts: nextGpuPower, tdp: nextGpuPower }
                 : {}),
               ...(data.recommendedPsuWatts !== undefined
-                ? { recommendedPsuWatts: !this.hasValue(data.recommendedPsuWatts) ? null : this.toInt(data.recommendedPsuWatts) }
+                ? {
+                    recommendedPsuWatts: !this.hasValue(data.recommendedPsuWatts)
+                      ? null
+                      : this.toInt(data.recommendedPsuWatts),
+                  }
                 : {}),
-              ...(data.fans !== undefined ? { fans: !this.hasValue(data.fans) ? 0 : this.toInt(data.fans) } : {}),
+              ...(data.fans !== undefined
+                ? {
+                    fans: !this.hasValue(data.fans) ? 0 : this.toInt(data.fans),
+                  }
+                : {}),
             },
           },
         };
@@ -1916,10 +2519,18 @@ export class ProductsService {
             update: {
               ...(data.brand !== undefined ? { brand: data.brand } : {}),
               ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
-              ...(data.maxGpuLength !== undefined ? { maxGpuLength: this.toInt(data.maxGpuLength) } : {}),
-              ...(data.includesPsu !== undefined ? { includesPsu: this.toBool(data.includesPsu) } : {}),
-              ...(data.includedFans !== undefined ? { includedFans: this.toInt(data.includedFans) } : {}),
-              ...(data.radiatorSupportMm !== undefined ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) } : {}),
+              ...(data.maxGpuLength !== undefined
+                ? { maxGpuLength: this.toInt(data.maxGpuLength) }
+                : {}),
+              ...(data.includesPsu !== undefined
+                ? { includesPsu: this.toBool(data.includesPsu) }
+                : {}),
+              ...(data.includedFans !== undefined
+                ? { includedFans: this.toInt(data.includedFans) }
+                : {}),
+              ...(data.radiatorSupportMm !== undefined
+                ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) }
+                : {}),
             },
           },
         };
@@ -1938,15 +2549,23 @@ export class ProductsService {
           return {};
         }
 
-        const nextCoolerBrand = String(data.brand ?? currentProduct.coolerSpecs?.brand ?? '').trim();
-        const nextCoolerType = this.normalizeCoolerType(data.type ?? currentProduct.coolerSpecs?.type);
+        const nextCoolerBrand = String(
+          data.brand ?? currentProduct.coolerSpecs?.brand ?? '',
+        ).trim();
+        const nextCoolerType = this.normalizeCoolerType(
+          data.type ?? currentProduct.coolerSpecs?.type,
+        );
         const nextCompatibleSockets =
           data.compatibleSockets !== undefined
             ? this.toStringArray(data.compatibleSockets)
-            : this.toStringArray(currentProduct.coolerSpecs?.compatibleSockets ?? currentProduct.coolerSpecs?.socketSupport);
-        const nextTdpCapacity = data.tdpCapacity !== undefined
-          ? this.toInt(data.tdpCapacity)
-          : this.toInt(currentProduct.coolerSpecs?.tdpCapacity);
+            : this.toStringArray(
+                currentProduct.coolerSpecs?.compatibleSockets ??
+                  currentProduct.coolerSpecs?.socketSupport,
+              );
+        const nextTdpCapacity =
+          data.tdpCapacity !== undefined
+            ? this.toInt(data.tdpCapacity)
+            : this.toInt(currentProduct.coolerSpecs?.tdpCapacity);
 
         if (!nextCoolerBrand) {
           throw new BadRequestException('Selecciona la marca del cooler.');
@@ -1960,12 +2579,14 @@ export class ProductsService {
           throw new BadRequestException('El TDP soportado del cooler debe ser mayor a 0');
         }
 
-        const nextCoolerHeight = data.coolerHeight !== undefined
-          ? this.toInt(data.coolerHeight)
-          : this.toInt(currentProduct.coolerSpecs?.coolerHeight);
-        const nextRadiatorSize = data.radiatorSize !== undefined
-          ? this.toInt(data.radiatorSize)
-          : this.toInt(currentProduct.coolerSpecs?.radiatorSize);
+        const nextCoolerHeight =
+          data.coolerHeight !== undefined
+            ? this.toInt(data.coolerHeight)
+            : this.toInt(currentProduct.coolerSpecs?.coolerHeight);
+        const nextRadiatorSize =
+          data.radiatorSize !== undefined
+            ? this.toInt(data.radiatorSize)
+            : this.toInt(currentProduct.coolerSpecs?.radiatorSize);
 
         if (nextCoolerType === 'Torre' && nextCoolerHeight <= 0) {
           throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
@@ -1986,9 +2607,19 @@ export class ProductsService {
                     socketSupport: this.toStringArray(data.compatibleSockets).join(', '),
                   }
                 : {}),
-              ...(data.tdpCapacity !== undefined ? { tdpCapacity: this.toInt(data.tdpCapacity) } : {}),
-              ...(data.coolerHeight !== undefined || data.type !== undefined ? { coolerHeight: nextCoolerType === 'Torre' ? nextCoolerHeight : null } : {}),
-              ...(data.radiatorSize !== undefined || data.type !== undefined ? { radiatorSize: nextCoolerType === 'Líquida' ? nextRadiatorSize : null } : {}),
+              ...(data.tdpCapacity !== undefined
+                ? { tdpCapacity: this.toInt(data.tdpCapacity) }
+                : {}),
+              ...(data.coolerHeight !== undefined || data.type !== undefined
+                ? {
+                    coolerHeight: nextCoolerType === 'Torre' ? nextCoolerHeight : null,
+                  }
+                : {}),
+              ...(data.radiatorSize !== undefined || data.type !== undefined
+                ? {
+                    radiatorSize: nextCoolerType === 'Líquida' ? nextRadiatorSize : null,
+                  }
+                : {}),
               ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
               ...(data.hasScreen !== undefined ? { hasScreen: this.toBool(data.hasScreen) } : {}),
             },
@@ -2007,9 +2638,10 @@ export class ProductsService {
         }
 
         const nextPsuBrand = String(data.brand ?? currentProduct.psuSpecs?.brand ?? '').trim();
-        const nextWattage = data.wattage !== undefined
-          ? this.toInt(data.wattage)
-          : this.toInt(currentProduct.psuSpecs?.wattage);
+        const nextWattage =
+          data.wattage !== undefined
+            ? this.toInt(data.wattage)
+            : this.toInt(currentProduct.psuSpecs?.wattage);
 
         if (!nextPsuBrand) {
           throw new BadRequestException('Selecciona la marca de la fuente de poder.');
@@ -2043,11 +2675,15 @@ export class ProductsService {
           return {};
         }
 
-        const nextStorageType = String(data.type ?? currentProduct.storageSpecs?.type ?? '').toUpperCase();
+        const nextStorageType = String(
+          data.type ?? currentProduct.storageSpecs?.type ?? '',
+        ).toUpperCase();
         const nextM2FormFactor = data.m2FormFactor ?? currentProduct.storageSpecs?.m2FormFactor;
         const isM2 = nextStorageType.includes('M.2') || nextStorageType.includes('NVME');
         if (isM2 && !nextM2FormFactor) {
-          throw new BadRequestException('El tamaño fisico M.2 es obligatorio para almacenamientos M.2');
+          throw new BadRequestException(
+            'El tamaño fisico M.2 es obligatorio para almacenamientos M.2',
+          );
         }
         return {
           storageSpecs: {
@@ -2057,7 +2693,9 @@ export class ProductsService {
               ...(data.interface !== undefined ? { interface: data.interface } : {}),
               ...(data.readSpeed !== undefined ? { readSpeed: this.toInt(data.readSpeed) } : {}),
               ...(data.writeSpeed !== undefined ? { writeSpeed: this.toInt(data.writeSpeed) } : {}),
-              ...(data.m2FormFactor !== undefined ? { m2FormFactor: data.m2FormFactor || null } : {}),
+              ...(data.m2FormFactor !== undefined
+                ? { m2FormFactor: data.m2FormFactor || null }
+                : {}),
             },
           },
         };
@@ -2079,7 +2717,9 @@ export class ProductsService {
           return {};
         }
 
-        const nextLaptopBrand = String(data.brand ?? currentProduct.laptopSpecs?.brand ?? '').trim();
+        const nextLaptopBrand = String(
+          data.brand ?? currentProduct.laptopSpecs?.brand ?? '',
+        ).trim();
         if (!nextLaptopBrand) {
           throw new BadRequestException('Selecciona la marca de la laptop.');
         }
@@ -2093,12 +2733,18 @@ export class ProductsService {
               ...(data.ram !== undefined ? { ram: data.ram } : {}),
               ...(data.storage !== undefined ? { storage: data.storage } : {}),
               ...(data.screenSize !== undefined ? { screenSize: data.screenSize } : {}),
-              ...(data.refreshRate !== undefined ? { refreshRate: this.toInt(data.refreshRate) } : {}),
+              ...(data.refreshRate !== undefined
+                ? { refreshRate: this.toInt(data.refreshRate) }
+                : {}),
               ...(data.panelType !== undefined ? { panelType: data.panelType } : {}),
-              ...(data.hasDedicatedGpu !== undefined ? { hasDedicatedGpu: this.toBool(data.hasDedicatedGpu) } : {}),
+              ...(data.hasDedicatedGpu !== undefined
+                ? { hasDedicatedGpu: this.toBool(data.hasDedicatedGpu) }
+                : {}),
               ...(data.gpuBrand !== undefined ? { gpuBrand: data.gpuBrand } : {}),
               ...(data.gpuModel !== undefined ? { gpuModel: data.gpuModel } : {}),
-              ...(data.includesWindows !== undefined ? { includesWindows: this.toBool(data.includesWindows) } : {}),
+              ...(data.includesWindows !== undefined
+                ? { includesWindows: this.toBool(data.includesWindows) }
+                : {}),
             },
           },
         };
@@ -2125,7 +2771,9 @@ export class ProductsService {
               ...(data.processor !== undefined ? { processor: data.processor } : {}),
               ...(data.ram !== undefined ? { ram: data.ram } : {}),
               ...(data.storage !== undefined ? { storage: data.storage } : {}),
-              ...(data.hasDedicatedGpu !== undefined ? { hasDedicatedGpu: this.toBool(data.hasDedicatedGpu) } : {}),
+              ...(data.hasDedicatedGpu !== undefined
+                ? { hasDedicatedGpu: this.toBool(data.hasDedicatedGpu) }
+                : {}),
               ...(data.gpuBrand !== undefined ? { gpuBrand: data.gpuBrand } : {}),
               ...(data.gpuModel !== undefined ? { gpuModel: data.gpuModel } : {}),
               ...(data.coolerType !== undefined ? { coolerType: data.coolerType } : {}),
@@ -2149,7 +2797,9 @@ export class ProductsService {
           return {};
         }
 
-        const nextMonitorBrand = String(data.brand ?? currentProduct.monitorSpecs?.brand ?? '').trim();
+        const nextMonitorBrand = String(
+          data.brand ?? currentProduct.monitorSpecs?.brand ?? '',
+        ).trim();
         if (!nextMonitorBrand) {
           throw new BadRequestException('Selecciona la marca del monitor.');
         }
@@ -2163,10 +2813,16 @@ export class ProductsService {
               ...(data.screenSize !== undefined ? { screenSize: data.screenSize } : {}),
               ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
               ...(data.panelType !== undefined ? { panelType: data.panelType } : {}),
-              ...(data.refreshRate !== undefined ? { refreshRate: this.toInt(data.refreshRate) } : {}),
-              ...(data.responseTimeMs !== undefined ? { responseTimeMs: this.toFloat(data.responseTimeMs) } : {}),
+              ...(data.refreshRate !== undefined
+                ? { refreshRate: this.toInt(data.refreshRate) }
+                : {}),
+              ...(data.responseTimeMs !== undefined
+                ? { responseTimeMs: this.toFloat(data.responseTimeMs) }
+                : {}),
               ...(data.ports !== undefined ? { ports: this.toStringArray(data.ports) } : {}),
-              ...(data.hasSpeakers !== undefined ? { hasSpeakers: this.toBool(data.hasSpeakers) } : {}),
+              ...(data.hasSpeakers !== undefined
+                ? { hasSpeakers: this.toBool(data.hasSpeakers) }
+                : {}),
             },
           },
         };
@@ -2184,7 +2840,9 @@ export class ProductsService {
           return {};
         }
 
-        const nextKeyboardBrand = String(data.brand ?? currentProduct.keyboardSpecs?.brand ?? '').trim();
+        const nextKeyboardBrand = String(
+          data.brand ?? currentProduct.keyboardSpecs?.brand ?? '',
+        ).trim();
         if (!nextKeyboardBrand) {
           throw new BadRequestException('Selecciona la marca del teclado.');
         }
@@ -2200,10 +2858,22 @@ export class ProductsService {
                     connection: this.toStringArray(data.connections).join(', '),
                   }
                 : {}),
-              ...(data.layoutLanguage !== undefined ? { layoutLanguage: data.layoutLanguage, layout: data.layoutLanguage } : {}),
-              ...(data.hasLighting !== undefined ? { hasLighting: this.toBool(data.hasLighting), hasRGB: this.toBool(data.hasLighting) } : {}),
+              ...(data.layoutLanguage !== undefined
+                ? {
+                    layoutLanguage: data.layoutLanguage,
+                    layout: data.layoutLanguage,
+                  }
+                : {}),
+              ...(data.hasLighting !== undefined
+                ? {
+                    hasLighting: this.toBool(data.hasLighting),
+                    hasRGB: this.toBool(data.hasLighting),
+                  }
+                : {}),
               ...(data.switchType !== undefined ? { switchType: data.switchType } : {}),
-              ...(data.keyboardFormFactor !== undefined ? { keyboardFormFactor: data.keyboardFormFactor } : {}),
+              ...(data.keyboardFormFactor !== undefined
+                ? { keyboardFormFactor: data.keyboardFormFactor }
+                : {}),
             },
           },
         };
@@ -2242,11 +2912,21 @@ export class ProductsService {
                     connection: this.toStringArray(data.connections).join(', '),
                   }
                 : {}),
-              ...(data.mouseType === 'Oficina' ? { buttonCount: null, dpi: 0, pollingRateHz: null } : {}),
-              ...(isUpdatingGamerMouse && data.buttonCount !== undefined ? { buttonCount: this.toInt(data.buttonCount) } : {}),
-              ...(isUpdatingGamerMouse && data.dpi !== undefined ? { dpi: this.toInt(data.dpi) } : {}),
-              ...(isUpdatingGamerMouse && data.pollingRateHz !== undefined ? { pollingRateHz: this.toInt(data.pollingRateHz) } : {}),
-              ...(data.weightGrams !== undefined ? { weightGrams: this.toInt(data.weightGrams) } : {}),
+              ...(data.mouseType === 'Oficina'
+                ? { buttonCount: null, dpi: 0, pollingRateHz: null }
+                : {}),
+              ...(isUpdatingGamerMouse && data.buttonCount !== undefined
+                ? { buttonCount: this.toInt(data.buttonCount) }
+                : {}),
+              ...(isUpdatingGamerMouse && data.dpi !== undefined
+                ? { dpi: this.toInt(data.dpi) }
+                : {}),
+              ...(isUpdatingGamerMouse && data.pollingRateHz !== undefined
+                ? { pollingRateHz: this.toInt(data.pollingRateHz) }
+                : {}),
+              ...(data.weightGrams !== undefined
+                ? { weightGrams: this.toInt(data.weightGrams) }
+                : {}),
               ...(data.powerType !== undefined ? { powerType: data.powerType } : {}),
             },
           },
@@ -2310,7 +2990,15 @@ export class ProductsService {
         }
         const nextCableHubType = data.cableHubType || data.type;
         if (nextCableHubType === 'Cable') {
-          if (!['HDMI a HDMI', 'DisplayPort a DisplayPort', 'Tipo C a HDMI', 'Tipo C a DisplayPort', 'Tipo C a Tipo C'].includes(String(data.cableType || '').trim())) {
+          if (
+            ![
+              'HDMI a HDMI',
+              'DisplayPort a DisplayPort',
+              'Tipo C a HDMI',
+              'Tipo C a DisplayPort',
+              'Tipo C a Tipo C',
+            ].includes(String(data.cableType || '').trim())
+          ) {
             throw new BadRequestException('Selecciona el tipo de cable.');
           }
           if (![1, 2, 3].includes(this.toInt(data.cableLengthMeters))) {
@@ -2329,34 +3017,59 @@ export class ProductsService {
           cableHubSpecs: {
             update: {
               ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(nextCableHubType !== undefined ? {
-                type: nextCableHubType,
-                cableType: nextCableHubType === 'Cable' ? data.cableType || null : null,
-                cableLengthMeters: nextCableHubType === 'Cable' ? this.toInt(data.cableLengthMeters) : null,
-                hubInputType: nextCableHubType === 'Hub' ? data.hubInputType || null : null,
-                hasHdmiOutput: nextCableHubType === 'Hub' ? this.toBool(data.hasHdmiOutput) : null,
-                hasRj45Output: nextCableHubType === 'Hub' ? this.toBool(data.hasRj45Output) : null,
-              } : {}),
-              ...(nextCableHubType === undefined && data.cableType !== undefined ? { cableType: data.cableType } : {}),
-              ...(nextCableHubType === undefined && data.cableLengthMeters !== undefined ? { cableLengthMeters: this.toInt(data.cableLengthMeters) } : {}),
-              ...(nextCableHubType === undefined && data.hubInputType !== undefined ? { hubInputType: data.hubInputType } : {}),
-              ...(nextCableHubType === undefined && data.hasHdmiOutput !== undefined ? { hasHdmiOutput: this.toBool(data.hasHdmiOutput) } : {}),
-              ...(nextCableHubType === undefined && data.hasRj45Output !== undefined ? { hasRj45Output: this.toBool(data.hasRj45Output) } : {}),
+              ...(nextCableHubType !== undefined
+                ? {
+                    type: nextCableHubType,
+                    cableType: nextCableHubType === 'Cable' ? data.cableType || null : null,
+                    cableLengthMeters:
+                      nextCableHubType === 'Cable' ? this.toInt(data.cableLengthMeters) : null,
+                    hubInputType: nextCableHubType === 'Hub' ? data.hubInputType || null : null,
+                    hasHdmiOutput:
+                      nextCableHubType === 'Hub' ? this.toBool(data.hasHdmiOutput) : null,
+                    hasRj45Output:
+                      nextCableHubType === 'Hub' ? this.toBool(data.hasRj45Output) : null,
+                  }
+                : {}),
+              ...(nextCableHubType === undefined && data.cableType !== undefined
+                ? { cableType: data.cableType }
+                : {}),
+              ...(nextCableHubType === undefined && data.cableLengthMeters !== undefined
+                ? { cableLengthMeters: this.toInt(data.cableLengthMeters) }
+                : {}),
+              ...(nextCableHubType === undefined && data.hubInputType !== undefined
+                ? { hubInputType: data.hubInputType }
+                : {}),
+              ...(nextCableHubType === undefined && data.hasHdmiOutput !== undefined
+                ? { hasHdmiOutput: this.toBool(data.hasHdmiOutput) }
+                : {}),
+              ...(nextCableHubType === undefined && data.hasRj45Output !== undefined
+                ? { hasRj45Output: this.toBool(data.hasRj45Output) }
+                : {}),
             },
           },
         };
 
       case 'LAPTOP_COOLING_BASE':
-        if (data.brand === undefined && data.fanCount === undefined && data.connectivity === undefined) {
+        if (
+          data.brand === undefined &&
+          data.fanCount === undefined &&
+          data.connectivity === undefined
+        ) {
           return {};
         }
         if (data.brand !== undefined && !String(data.brand || '').trim()) {
           throw new BadRequestException('Selecciona la marca de la base refrigeradora.');
         }
-        if (data.fanCount !== undefined && ![1, 2, 3, 4, 5, 6].includes(this.toInt(data.fanCount))) {
+        if (
+          data.fanCount !== undefined &&
+          ![1, 2, 3, 4, 5, 6].includes(this.toInt(data.fanCount))
+        ) {
           throw new BadRequestException('Selecciona la cantidad de ventiladores.');
         }
-        if (data.connectivity !== undefined && !['USB-A', 'USB-C'].includes(String(data.connectivity))) {
+        if (
+          data.connectivity !== undefined &&
+          !['USB-A', 'USB-C'].includes(String(data.connectivity))
+        ) {
           throw new BadRequestException('Selecciona la conectividad de la base refrigeradora.');
         }
         return {
@@ -2402,7 +3115,10 @@ export class ProductsService {
           throw new BadRequestException('Selecciona la marca del audifono.');
         }
         const nextHeadsetConnection = data.connection;
-        if (nextHeadsetConnection !== undefined && !['Cableado', 'Inalambrico'].includes(String(nextHeadsetConnection))) {
+        if (
+          nextHeadsetConnection !== undefined &&
+          !['Cableado', 'Inalambrico'].includes(String(nextHeadsetConnection))
+        ) {
           throw new BadRequestException('Selecciona la conexion del audifono.');
         }
         if (data.supportedConnections !== undefined) {
@@ -2412,10 +3128,15 @@ export class ProductsService {
           }
           const wiredOptions = ['Cable USB', 'Jack 3.5 mm'];
           const wirelessOptions = [...wiredOptions, 'USB Dongle 2.4 GHz', 'Bluetooth'];
-          const allowedOptions = nextHeadsetConnection === 'Cableado' ? wiredOptions : wirelessOptions;
-          const invalidOption = supportedConnections.find((option) => !allowedOptions.includes(option));
+          const allowedOptions =
+            nextHeadsetConnection === 'Cableado' ? wiredOptions : wirelessOptions;
+          const invalidOption = supportedConnections.find(
+            (option) => !allowedOptions.includes(option),
+          );
           if (invalidOption) {
-            throw new BadRequestException('La conectividad soportada no corresponde al tipo de conexion.');
+            throw new BadRequestException(
+              'La conectividad soportada no corresponde al tipo de conexion.',
+            );
           }
         }
         return {
@@ -2423,18 +3144,29 @@ export class ProductsService {
             update: {
               ...(data.brand !== undefined ? { brand: data.brand } : {}),
               ...(data.connection !== undefined ? { connection: data.connection } : {}),
-              ...(data.supportedConnections !== undefined ? { supportedConnections: this.toStringArray(data.supportedConnections) } : {}),
+              ...(data.supportedConnections !== undefined
+                ? {
+                    supportedConnections: this.toStringArray(data.supportedConnections),
+                  }
+                : {}),
               ...(data.driverSize !== undefined ? { driverSize: this.toInt(data.driverSize) } : {}),
               ...(data.impedance !== undefined ? { impedance: this.toInt(data.impedance) } : {}),
               ...(data.micType !== undefined ? { micType: data.micType } : {}),
-              ...(data.noiseCancel !== undefined ? { noiseCancel: this.toBool(data.noiseCancel) } : {}),
+              ...(data.noiseCancel !== undefined
+                ? { noiseCancel: this.toBool(data.noiseCancel) }
+                : {}),
               ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
             },
           },
         };
 
       case 'MICROPHONE':
-        if (data.brand === undefined && data.connection === undefined && data.micType === undefined && data.hasRGB === undefined) {
+        if (
+          data.brand === undefined &&
+          data.connection === undefined &&
+          data.micType === undefined &&
+          data.hasRGB === undefined
+        ) {
           return {};
         }
         if (data.brand !== undefined && !String(data.brand || '').trim()) {
@@ -2452,7 +3184,12 @@ export class ProductsService {
         };
 
       case 'SPEAKER':
-        if (data.brand === undefined && data.connection === undefined && data.wattage === undefined && data.hasRGB === undefined) {
+        if (
+          data.brand === undefined &&
+          data.connection === undefined &&
+          data.wattage === undefined &&
+          data.hasRGB === undefined
+        ) {
           return {};
         }
         if (data.brand !== undefined && !String(data.brand || '').trim()) {
@@ -2509,7 +3246,9 @@ export class ProductsService {
               ...(data.brand !== undefined ? { brand: data.brand } : {}),
               ...(data.color !== undefined ? { color: data.color } : {}),
               ...(data.material !== undefined ? { material: data.material } : {}),
-              ...(data.maxWeightKg !== undefined ? { maxWeightKg: this.toInt(data.maxWeightKg) } : {}),
+              ...(data.maxWeightKg !== undefined
+                ? { maxWeightKg: this.toInt(data.maxWeightKg) }
+                : {}),
             },
           },
         };
@@ -2584,24 +3323,51 @@ export class ProductsService {
       description: string,
       module = 'PRODUCTS',
     ) => {
-      if (JSON.stringify(oldValue) === JSON.stringify(newValue)) return;
+      if (JSON.stringify(oldValue) === JSON.stringify(newValue)) {
+        return;
+      }
       logs.push({ action, module, fieldName, oldValue, newValue, description });
     };
 
     if ('name' in updateData) {
-      addIfChanged('name', 'UPDATE_PRODUCT', before.name, after.name, `Cambio el nombre de ${before.name} a ${after.name}.`);
+      addIfChanged(
+        'name',
+        'UPDATE_PRODUCT',
+        before.name,
+        after.name,
+        `Cambio el nombre de ${before.name} a ${after.name}.`,
+      );
     }
 
     if ('description' in updateData) {
-      addIfChanged('description', 'UPDATE_PRODUCT_DESCRIPTION', before.description, after.description, `Modifico la descripcion del producto ${after.name}.`);
+      addIfChanged(
+        'description',
+        'UPDATE_PRODUCT_DESCRIPTION',
+        before.description,
+        after.description,
+        `Modifico la descripcion del producto ${after.name}.`,
+      );
     }
 
     if ('category' in updateData) {
-      addIfChanged('category', 'UPDATE_PRODUCT_CATEGORY', before.category, after.category, `Cambio la categoria de ${after.name} de ${before.category} a ${after.category}.`);
+      addIfChanged(
+        'category',
+        'UPDATE_PRODUCT_CATEGORY',
+        before.category,
+        after.category,
+        `Cambio la categoria de ${after.name} de ${before.category} a ${after.category}.`,
+      );
     }
 
     if ('price' in updateData) {
-      addIfChanged('price', 'UPDATE_PRICE', String(before.price), String(after.price), `Cambio el precio de ${after.name} de S/. ${before.price} a S/. ${after.price}.`, 'INVENTORY');
+      addIfChanged(
+        'price',
+        'UPDATE_PRICE',
+        String(before.price),
+        String(after.price),
+        `Cambio el precio de ${after.name} de S/. ${before.price} a S/. ${after.price}.`,
+        'INVENTORY',
+      );
     }
 
     if ('isOnSale' in updateData) {
@@ -2616,7 +3382,9 @@ export class ProductsService {
       addIfChanged(
         'salePrice',
         'UPDATE_SALE_PRICE',
-        before.salePrice === null || before.salePrice === undefined ? null : String(before.salePrice),
+        before.salePrice === null || before.salePrice === undefined
+          ? null
+          : String(before.salePrice),
         after.salePrice === null || after.salePrice === undefined ? null : String(after.salePrice),
         `Cambio el precio de oferta de ${after.name} de S/. ${before.salePrice ?? 'sin oferta'} a S/. ${after.salePrice ?? 'sin oferta'}.`,
         'INVENTORY',
@@ -2688,7 +3456,10 @@ export class ProductsService {
       GAMING_DESK: 'gamingDeskSpecs',
     };
     const specRelation = specRelationByCategory[after.category];
-    if (specRelation && JSON.stringify(before[specRelation]) !== JSON.stringify(after[specRelation])) {
+    if (
+      specRelation &&
+      JSON.stringify(before[specRelation]) !== JSON.stringify(after[specRelation])
+    ) {
       logs.push({
         action: 'UPDATE_PRODUCT_SPECS',
         module: 'PRODUCTS',

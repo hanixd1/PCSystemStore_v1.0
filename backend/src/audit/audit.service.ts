@@ -33,8 +33,10 @@ export class AuditService {
         entityId: data.entityId,
         entityName: data.entityName,
         fieldName: data.fieldName,
-        oldValue: data.oldValue === null || data.oldValue === undefined ? null : String(data.oldValue),
-        newValue: data.newValue === null || data.newValue === undefined ? null : String(data.newValue),
+        oldValue:
+          data.oldValue === null || data.oldValue === undefined ? null : String(data.oldValue),
+        newValue:
+          data.newValue === null || data.newValue === undefined ? null : String(data.newValue),
         stockBefore: data.stockBefore ?? null,
         stockAfter: data.stockAfter ?? null,
         details: data.description,

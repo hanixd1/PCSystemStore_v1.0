@@ -47,7 +47,9 @@ function ResetForm() {
     <div className="flex min-h-screen items-center justify-center bg-gray-900 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8">
         <h2 className="mb-4 text-center text-2xl font-bold">ADMIN PANEL</h2>
-        <p className="mb-6 text-center text-sm text-gray-500">Crea una nueva contrasena administrativa.</p>
+        <p className="mb-6 text-center text-sm text-gray-500">
+          Crea una nueva contrasena administrativa.
+        </p>
         {error && <p className="mb-4 text-center font-bold text-red-600">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <input

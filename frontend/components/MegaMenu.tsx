@@ -3,8 +3,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  FiX, FiChevronRight, FiChevronDown, FiChevronUp,
-  FiCpu, FiMousePointer, FiHeadphones, FiTool, FiHome
+  FiX,
+  FiChevronRight,
+  FiChevronDown,
+  FiChevronUp,
+  FiCpu,
+  FiMousePointer,
+  FiHeadphones,
+  FiTool,
+  FiHome,
 } from 'react-icons/fi';
 import { MdComputer } from 'react-icons/md';
 
@@ -32,7 +39,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
   const toggleAccordion = (itemName: string) => {
-    setExpandedItem(prev => (prev === itemName ? null : itemName));
+    setExpandedItem((prev) => (prev === itemName ? null : itemName));
   };
 
   // When switching category, also reset the expanded accordion
@@ -55,32 +62,32 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           href: '/categoria/cpu',
           children: [
             { name: 'INTEL', href: '/categoria/cpu/intel' },
-            { name: 'AMD', href: '/categoria/cpu/amd' }
-          ]
+            { name: 'AMD', href: '/categoria/cpu/amd' },
+          ],
         },
         {
           name: 'Placas Base',
           href: '/categoria/mobo',
           children: [
             { name: 'INTEL', href: '/categoria/mobo/intel' },
-            { name: 'AMD', href: '/categoria/mobo/amd' }
-          ]
+            { name: 'AMD', href: '/categoria/mobo/amd' },
+          ],
         },
         {
           name: 'Tarjetas graficas',
           href: '/categoria/graficas',
           children: [
             { name: 'Graficas NVIDIA', href: '/categoria/NVIDIA' },
-            { name: 'Graficas AMD', href: '/categoria/AMD' }
-          ]
+            { name: 'Graficas AMD', href: '/categoria/AMD' },
+          ],
         },
         {
           name: 'Memorias RAM',
           href: '/categoria/ram',
           children: [
             { name: 'RAM DDR4', href: '/categoria/ddr4' },
-            { name: 'RAM DDR5', href: '/categoria/ddr5' }
-          ]
+            { name: 'RAM DDR5', href: '/categoria/ddr5' },
+          ],
         },
         {
           name: 'Almacenamiento',
@@ -88,34 +95,34 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           children: [
             { name: 'Disco M.2', href: '/categoria/solido' },
             { name: 'Disco Sata', href: '/categoria/sata' },
-            { name: 'Disco Externo', href: '/categoria/externo' }
-          ]
+            { name: 'Disco Externo', href: '/categoria/externo' },
+          ],
         },
         {
           name: 'Torres / Gabinetes',
           href: '/categoria/torres',
           children: [
             { name: 'Con fuente', href: '/categoria/cfuente' },
-            { name: 'Sin fuente', href: '/categoria/sfuente' }
-          ]
+            { name: 'Sin fuente', href: '/categoria/sfuente' },
+          ],
         },
         {
           name: 'Fuentes de alimentacion',
           href: '/categoria/fuentes',
           children: [
             { name: 'Fuente Certificada', href: '/categoria/certificada' },
-            { name: 'Fuente Real', href: '/categoria/real' }
-          ]
+            { name: 'Fuente Real', href: '/categoria/real' },
+          ],
         },
         {
           name: 'Refrigeracion',
           href: '/categoria/refrigeracion',
           children: [
             { name: 'Refrigeracion Liquida', href: '/categoria/liquida' },
-            { name: 'Refrigeracion de Torre', href: '/categoria/torre' }
-          ]
-        }
-      ]
+            { name: 'Refrigeracion de Torre', href: '/categoria/torre' },
+          ],
+        },
+      ],
     },
 
     {
@@ -128,34 +135,34 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           href: '/categoria/pcs',
           children: [
             { name: 'PC Oficina', href: '/categoria/pc-oficina' },
-            { name: 'PC Gaming', href: '/categoria/pc-gaming' }
-          ]
+            { name: 'PC Gaming', href: '/categoria/pc-gaming' },
+          ],
         },
         {
           name: 'Laptops',
           href: '/categoria/laptops',
           children: [
             { name: 'Laptops Oficina', href: '/categoria/laptop-oficina' },
-            { name: 'Laptops Gaming', href: '/categoria/laptop-gaming' }
-          ]
+            { name: 'Laptops Gaming', href: '/categoria/laptop-gaming' },
+          ],
         },
         {
           name: 'Software',
           href: '/categoria/software',
           children: [
             { name: 'Antivirus', href: '/categoria/antivirus' },
-            { name: 'Licencias', href: '/categoria/licencias' }
-          ]
+            { name: 'Licencias', href: '/categoria/licencias' },
+          ],
         },
         {
           name: 'Accesorios para portatiles',
           href: '/categoria/laptop-accessorios',
           children: [
             { name: 'Bases refrigeradoras', href: '/categoria/bases-refrigeradoras' },
-            { name: 'Mochilas', href: '/categoria/mochilas' }
-          ]
-        }
-      ]
+            { name: 'Mochilas', href: '/categoria/mochilas' },
+          ],
+        },
+      ],
     },
 
     {
@@ -168,24 +175,24 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           href: '/categoria/monitores',
           children: [
             { name: 'Monitores Gamer', href: '/categoria/monitores-gamer' },
-            { name: 'Monitores', href: '/categoria/monitores' }
-          ]
+            { name: 'Monitores', href: '/categoria/monitores' },
+          ],
         },
         {
           name: 'Teclados',
           href: '/categoria/teclados',
           children: [
             { name: 'Teclados Gamer', href: '/categoria/teclados-gamer' },
-            { name: 'Teclados', href: '/categoria/teclados' }
-          ]
+            { name: 'Teclados', href: '/categoria/teclados' },
+          ],
         },
         {
           name: 'Mouse',
           href: '/categoria/mouse',
           children: [
             { name: 'Mouse Gamer', href: '/categoria/mouse-gamer' },
-            { name: 'Mouse', href: '/categoria/mouse' }
-          ]
+            { name: 'Mouse', href: '/categoria/mouse' },
+          ],
         },
         { name: 'Mousepads', href: '/categoria/mousepad' },
         { name: 'Sillas Gaming', href: '/categoria/chairs' },
@@ -199,10 +206,10 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           children: [
             { name: 'UPS', href: '/categoria/ups' },
             { name: 'Supresores de picos', href: '/categoria/supresores' },
-            { name: 'Estabilizadores', href: '/categoria/estabilizadores' }
-          ]
-        }
-      ]
+            { name: 'Estabilizadores', href: '/categoria/estabilizadores' },
+          ],
+        },
+      ],
     },
 
     {
@@ -215,16 +222,16 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           href: '/categoria/audifonos',
           children: [
             { name: 'Audifonos Cableados', href: '/categoria/headsets-cableados' },
-            { name: 'Audifonos Inalambricos', href: '/categoria/headsets-inalambricos' }
-          ]
+            { name: 'Audifonos Inalambricos', href: '/categoria/headsets-inalambricos' },
+          ],
         },
         { name: 'Parlantes', href: '/categoria/speakers' },
-        { name: 'Microfonos', href: '/categoria/microphones' }
-      ]
-    }
+        { name: 'Microfonos', href: '/categoria/microphones' },
+      ],
+    },
   ];
 
-  const activeCategoryData = CATEGORIES.find(c => c.id === selectedCategory);
+  const activeCategoryData = CATEGORIES.find((c) => c.id === selectedCategory);
 
   return (
     <>
@@ -249,7 +256,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {CATEGORIES.map(cat => (
+            {CATEGORIES.map((cat) => (
               <div
                 key={cat.id}
                 onClick={() => handleCategorySelect(cat.id)}
@@ -319,11 +326,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                               className="p-1 hover:text-cyan-800 shrink-0 ml-2"
                               aria-label={`Expandir ${item.name}`}
                             >
-                              {expandedItem === item.name ? (
-                                <FiChevronUp />
-                              ) : (
-                                <FiChevronDown />
-                              )}
+                              {expandedItem === item.name ? <FiChevronUp /> : <FiChevronDown />}
                             </button>
                           </div>
 
@@ -364,5 +367,3 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
 };
 
 export default MegaMenu;
-
-

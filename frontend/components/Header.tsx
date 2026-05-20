@@ -6,10 +6,7 @@ import { useRouter } from 'next/navigation';
 import { FiMapPin, FiMenu, FiPackage, FiSearch, FiShoppingCart, FiUser } from 'react-icons/fi';
 import MegaMenu from './MegaMenu';
 import { useCartStore } from '../store/useCartStore';
-import {
-  clearCustomerSession,
-  useCustomerSession,
-} from '@/lib/customerSession';
+import { clearCustomerSession, useCustomerSession } from '@/lib/customerSession';
 import { api } from '@/lib/api';
 
 const Header = () => {
@@ -219,9 +216,7 @@ const Header = () => {
                   </span>
                 ) : null}
               </div>
-              <span className="mt-1 hidden text-[10px] font-bold uppercase md:block">
-                Mi Cesta
-              </span>
+              <span className="mt-1 hidden text-[10px] font-bold uppercase md:block">Mi Cesta</span>
             </button>
           </div>
 

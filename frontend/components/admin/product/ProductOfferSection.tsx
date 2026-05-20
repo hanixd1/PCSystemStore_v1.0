@@ -14,7 +14,13 @@ type ProductOfferSectionProps = {
 function getDiscountPercent(price: string, salePrice: string) {
   const normalPrice = Number(price);
   const offerPrice = Number(salePrice);
-  if (!Number.isFinite(normalPrice) || !Number.isFinite(offerPrice) || normalPrice <= 0 || offerPrice <= 0 || offerPrice >= normalPrice) {
+  if (
+    !Number.isFinite(normalPrice) ||
+    !Number.isFinite(offerPrice) ||
+    normalPrice <= 0 ||
+    offerPrice <= 0 ||
+    offerPrice >= normalPrice
+  ) {
     return '0%';
   }
 
@@ -32,16 +38,25 @@ export default function ProductOfferSection({
   layout = 'grid',
 }: ProductOfferSectionProps) {
   const enabled = isOnSale === 'true';
+  const offerToggleId = 'product-offer-toggle';
+  const salePriceId = 'product-sale-price';
 
   return (
     <div className="col-span-2 rounded-xl border border-cyan-100 bg-cyan-50/40 p-4">
-      <label className="flex cursor-pointer items-center justify-between gap-4">
+      <label
+        htmlFor={offerToggleId}
+        className="flex cursor-pointer items-center justify-between gap-4"
+      >
         <div>
           <span className="block text-sm font-black text-gray-800">Producto en oferta</span>
-          <span className="text-xs font-semibold text-gray-500">Estado: {enabled ? 'Si' : 'No'}</span>
+          <span className="text-xs font-semibold text-gray-500">
+            Estado: {enabled ? 'Si' : 'No'}
+          </span>
         </div>
         <input
+          id={offerToggleId}
           type="checkbox"
+          aria-label="Producto en oferta"
           checked={enabled}
           onChange={(event) => onToggle(event.target.checked)}
           className="h-6 w-11 cursor-pointer accent-brand-cyan"
@@ -51,8 +66,11 @@ export default function ProductOfferSection({
       {enabled && (
         <div className={layout === 'grid' ? 'mt-4 grid grid-cols-1 gap-4 md:grid-cols-2' : 'mt-4'}>
           <div>
-            <label className={labelClassName}>Precio de oferta (S/.)</label>
+            <label htmlFor={salePriceId} className={labelClassName}>
+              Precio de oferta (S/.)
+            </label>
             <input
+              id={salePriceId}
               name="salePrice"
               type="number"
               step="0.01"

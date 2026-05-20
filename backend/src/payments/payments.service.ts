@@ -1,11 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
-  OrderStatus,
-  PaymentMethod,
-  PaymentProvider,
-  PaymentStatus,
-  Prisma,
-} from '@prisma/client';
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { OrderStatus, PaymentMethod, PaymentProvider, PaymentStatus, Prisma } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ManualPaymentDto } from './dto/manual-payment.dto';
@@ -38,9 +37,7 @@ export class PaymentsService {
 
   private getCommissionRate() {
     const configured = Number(process.env.PAYMENT_COMMISSION_RATE);
-    return Number.isFinite(configured) && configured >= 0
-      ? configured
-      : DEFAULT_COMMISSION_RATE;
+    return Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_COMMISSION_RATE;
   }
 
   private generateManualApprovalCode(): string {
@@ -73,10 +70,7 @@ export class PaymentsService {
     return order;
   }
 
-  private async markOrderPaidWithStockDiscount(
-    tx: Prisma.TransactionClient,
-    orderId: string,
-  ) {
+  private async markOrderPaidWithStockDiscount(tx: Prisma.TransactionClient, orderId: string) {
     const order = await tx.order.findUnique({
       where: { id: orderId },
       include: { items: true },
@@ -105,9 +99,7 @@ export class PaymentsService {
       });
 
       if (!product || product.stock < item.quantity) {
-        throw new BadRequestException(
-          `Stock insuficiente para ${item.productNameSnapshot}`,
-        );
+        throw new BadRequestException(`Stock insuficiente para ${item.productNameSnapshot}`);
       }
 
       const updated = await tx.product.updateMany({
@@ -121,9 +113,7 @@ export class PaymentsService {
       });
 
       if (updated.count !== 1) {
-        throw new BadRequestException(
-          `Stock insuficiente para ${item.productNameSnapshot}`,
-        );
+        throw new BadRequestException(`Stock insuficiente para ${item.productNameSnapshot}`);
       }
 
       stockChanges.push({
@@ -151,7 +141,7 @@ export class PaymentsService {
     const amount = Number(order.total);
     const commissionRate = this.getCommissionRate();
     const providerResult = this.simulatedProvider.createPayment({
-      method: data.method as PaymentMethod,
+      method: data.method,
       amount,
       simulateResult: data.simulateResult,
     });
@@ -169,13 +159,8 @@ export class PaymentsService {
           commissionAmount: amount * commissionRate,
           providerTransactionId: providerResult.providerTransactionId,
           approvalCode: providerResult.approvalCode,
-          customerNote: data.installments
-            ? `Cuotas simuladas: ${data.installments}`
-            : undefined,
-          paidAt:
-            providerResult.status === PaymentStatus.APPROVED
-              ? new Date()
-              : undefined,
+          customerNote: data.installments ? `Cuotas simuladas: ${data.installments}` : undefined,
+          paidAt: providerResult.status === PaymentStatus.APPROVED ? new Date() : undefined,
         },
       });
 
@@ -197,7 +182,11 @@ export class PaymentsService {
               stockBefore: change.before,
               stockAfter: change.after,
               details: `Producto vendido: ${change.productName}. Cantidad: ${change.quantity}. Stock reducido de ${change.before} a ${change.after}. Pedido: ${order.id}. Metodo: ${data.method}.`,
-              metadata: { orderId: order.id, method: data.method, quantity: change.quantity },
+              metadata: {
+                orderId: order.id,
+                method: data.method,
+                quantity: change.quantity,
+              },
             },
           });
         }
@@ -305,7 +294,12 @@ export class PaymentsService {
             stockBefore: change.before,
             stockAfter: change.after,
             details: `Pago manual aprobado. Se desconto stock de ${change.productName} de ${change.before} a ${change.after}. Pago: ${payment.id}.`,
-            metadata: { paymentId: payment.id, orderId: payment.orderId, method: payment.method, quantity: change.quantity },
+            metadata: {
+              paymentId: payment.id,
+              orderId: payment.orderId,
+              method: payment.method,
+              quantity: change.quantity,
+            },
           },
         });
       }
@@ -354,7 +348,11 @@ export class PaymentsService {
           entityId: payment.id,
           entityName: String(payment.method),
           details: `Pago manual rechazado. No se modifico stock. Pago: ${payment.id}.`,
-          metadata: { paymentId: payment.id, orderId: payment.orderId, method: payment.method },
+          metadata: {
+            paymentId: payment.id,
+            orderId: payment.orderId,
+            method: payment.method,
+          },
         },
       });
 

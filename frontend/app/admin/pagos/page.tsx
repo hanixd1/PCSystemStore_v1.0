@@ -64,7 +64,11 @@ export default function AdminPaymentsPage() {
           [IDEMPOTENCY_HEADER]: actionKeysRef.current[actionKey],
         },
       });
-      setMessage(action === 'approve' ? 'Pago aprobado y stock descontado.' : 'Pago rechazado sin descontar stock.');
+      setMessage(
+        action === 'approve'
+          ? 'Pago aprobado y stock descontado.'
+          : 'Pago rechazado sin descontar stock.',
+      );
       delete actionKeysRef.current[actionKey];
       await loadPayments();
     } catch (error) {
@@ -122,7 +126,8 @@ export default function AdminPaymentsPage() {
                     S/. {Number(payment.amount).toFixed(2)}
                   </p>
                   <p className="mt-1 text-sm text-gray-500">
-                    Codigo de operacion: <span className="font-bold text-gray-800">{payment.operationCode}</span>
+                    Codigo de operacion:{' '}
+                    <span className="font-bold text-gray-800">{payment.operationCode}</span>
                   </p>
                 </div>
 
@@ -146,14 +151,16 @@ export default function AdminPaymentsPage() {
                     onClick={() => updatePayment(payment.id, 'approve')}
                     className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-3 font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <FiCheck /> {processingAction === `${payment.id}:approve` ? 'Procesando...' : 'Aprobar'}
+                    <FiCheck />{' '}
+                    {processingAction === `${payment.id}:approve` ? 'Procesando...' : 'Aprobar'}
                   </button>
                   <button
                     disabled={processingAction !== null}
                     onClick={() => updatePayment(payment.id, 'reject')}
                     className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <FiX /> {processingAction === `${payment.id}:reject` ? 'Procesando...' : 'Rechazar'}
+                    <FiX />{' '}
+                    {processingAction === `${payment.id}:reject` ? 'Procesando...' : 'Rechazar'}
                   </button>
                 </div>
               </div>

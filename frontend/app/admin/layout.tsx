@@ -13,11 +13,7 @@ import {
   FiPlusSquare,
   FiUsers,
 } from 'react-icons/fi';
-import {
-  AUTHORIZED_ADMIN_ROLES,
-  clearStoredAuthSession,
-  api,
-} from '@/lib/api';
+import { AUTHORIZED_ADMIN_ROLES, clearStoredAuthSession, api } from '@/lib/api';
 
 type SessionUser = {
   id: string;
@@ -256,7 +252,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               >
                 <FiBarChart2 size={20} /> Estadistica
               </Link>
-
             </div>
           ) : null}
         </nav>

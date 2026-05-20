@@ -47,10 +47,7 @@ export class BrandingController {
 
   @Roles('ADMIN')
   @Post('admin/banners')
-  createBanner(
-    @Body() body: CreateBannerDto,
-    @Req() request: Request & { user: JwtUserPayload },
-  ) {
+  createBanner(@Body() body: CreateBannerDto, @Req() request: Request & { user: JwtUserPayload }) {
     return this.brandingService.createBanner(body, request.user.sub);
   }
 
@@ -66,19 +63,13 @@ export class BrandingController {
 
   @Roles('ADMIN')
   @Patch('admin/banners/:id/toggle')
-  toggleBanner(
-    @Param('id') id: string,
-    @Req() request: Request & { user: JwtUserPayload },
-  ) {
+  toggleBanner(@Param('id') id: string, @Req() request: Request & { user: JwtUserPayload }) {
     return this.brandingService.toggleBanner(id, request.user.sub);
   }
 
   @Roles('ADMIN')
   @Delete('admin/banners/:id')
-  deleteBanner(
-    @Param('id') id: string,
-    @Req() request: Request & { user: JwtUserPayload },
-  ) {
+  deleteBanner(@Param('id') id: string, @Req() request: Request & { user: JwtUserPayload }) {
     return this.brandingService.deleteBanner(id, request.user.sub);
   }
 }
