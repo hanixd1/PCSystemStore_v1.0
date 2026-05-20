@@ -17,6 +17,26 @@ from schemas.chatbot_schema import (
 MAX_BUDGET_TEXT_LENGTH = 300
 MIN_BUDGET = 100
 MAX_BUDGET = 50000
+TOKEN_STRIP_CHARS = ".,;:()[]{}"
+BUDGET_CONTEXT_PHRASES = (
+    "cuento con",
+    "quiero gastar",
+)
+TOWER_ONLY_PHRASES = (
+    "solo torre",
+    "solo la torre",
+    "sin monitor",
+    "sin teclado",
+    "sin mouse",
+    "sin perifericos",
+)
+PERIPHERAL_INCLUDED_PHRASES = (
+    "con monitor",
+    "incluye monitor",
+    "con teclado y mouse",
+    "todo completo",
+    "con todo",
+)
 
 MODEL_PATTERNS = [
     r"\brtx\s?\d{4}\b",
@@ -41,9 +61,8 @@ BUDGET_MARKERS = [
     "s/.",
     "tengo",
     "cuento",
-    "cuento con",
+    *BUDGET_CONTEXT_PHRASES,
     "gastar",
-    "quiero gastar",
     "maximo",
     "hasta",
     "invertir",
@@ -64,11 +83,6 @@ BUDGET_CONTEXT_TOKENS = {
     "hasta",
     "invertir",
 }
-
-BUDGET_CONTEXT_PHRASES = [
-    "cuento con",
-    "quiero gastar",
-]
 
 PRODUCT_MODEL_TOKENS = {
     "rtx",
@@ -145,7 +159,7 @@ def normalize_budget_text(text: str) -> str:
 
 
 def has_budget_context(text: str, tokens: list[str]) -> bool:
-    normalized_tokens = [token.strip(".,;:()[]{}") for token in tokens]
+    normalized_tokens = [token.strip(TOKEN_STRIP_CHARS) for token in tokens]
     if any(
         token in BUDGET_CONTEXT_TOKENS or token.startswith("s/")
         for token in normalized_tokens
@@ -155,21 +169,21 @@ def has_budget_context(text: str, tokens: list[str]) -> bool:
 
 
 def has_product_model_context(tokens: list[str]) -> bool:
-    return any(token.strip(".,;:()[]{}") in PRODUCT_MODEL_TOKENS for token in tokens)
+    return any(token.strip(TOKEN_STRIP_CHARS) in PRODUCT_MODEL_TOKENS for token in tokens)
 
 
 def is_budget_context_token(token: str) -> bool:
-    return token.strip(".,;:()[]{}") in BUDGET_CONTEXT_TOKENS
+    return token.strip(TOKEN_STRIP_CHARS) in BUDGET_CONTEXT_TOKENS
 
 
 def is_budget_candidate(tokens: list[str], index: int) -> bool:
-    token = tokens[index].strip(".,;:()[]{}")
+    token = tokens[index].strip(TOKEN_STRIP_CHARS)
     if token.startswith("s/") and parse_budget_token(token) is not None:
         return True
 
     previous_tokens = tokens[max(0, index - 4):index]
     next_token = (
-        tokens[index + 1].strip(".,;:()[]{}") if index + 1 < len(tokens) else ""
+        tokens[index + 1].strip(TOKEN_STRIP_CHARS) if index + 1 < len(tokens) else ""
     )
 
     if any(is_budget_context_token(previous) for previous in previous_tokens):
@@ -182,13 +196,13 @@ def is_budget_candidate(tokens: list[str], index: int) -> bool:
 
 
 def parse_budget_token(token: str) -> int | None:
-    cleaned = token.strip(".,;:()[]{}")
+    cleaned = token.strip(TOKEN_STRIP_CHARS)
     if cleaned.startswith("s/."):
         cleaned = cleaned[3:]
     elif cleaned.startswith("s/"):
         cleaned = cleaned[2:]
 
-    cleaned = cleaned.strip(".,;:()[]{}").replace(",", ".")
+    cleaned = cleaned.strip(TOKEN_STRIP_CHARS).replace(",", ".")
     if not cleaned:
         return None
 
@@ -260,8 +274,7 @@ def detect_budget(message: str, has_model_mention: bool) -> int | None:
             "soles",
             "s/",
             "tengo",
-            "cuento con",
-            "quiero gastar",
+            *BUDGET_CONTEXT_PHRASES,
             "maximo",
             "hasta",
         ]
@@ -286,28 +299,9 @@ def detect_usage(message: str) -> str | None:
 
 def detect_peripherals(message: str) -> bool | None:
     normalized = normalize_text(message)
-    if any(
-        text in normalized
-        for text in [
-            "solo torre",
-            "solo la torre",
-            "sin monitor",
-            "sin teclado",
-            "sin mouse",
-            "sin perifericos",
-        ]
-    ):
+    if any(text in normalized for text in TOWER_ONLY_PHRASES):
         return False
-    if any(
-        text in normalized
-        for text in [
-            "con monitor",
-            "incluye monitor",
-            "con teclado y mouse",
-            "todo completo",
-            "con todo",
-        ]
-    ):
+    if any(text in normalized for text in PERIPHERAL_INCLUDED_PHRASES):
         return True
     return None
 
@@ -338,7 +332,7 @@ def classify_intent(
         return state.intent
     if state.intent in ["pc_build", "budget_pc_build"] and any(
         text in normalized
-        for text in ["solo torre", "solo la torre", "con monitor", "con todo"]
+        for text in (*TOWER_ONLY_PHRASES[:2], "con monitor", "con todo")
     ):
         return state.intent
     if normalized in ["hola", "buenas", "hello", "ayuda"]:
@@ -540,7 +534,7 @@ def handle_pc_build(
             state.lastRecommendedProducts = stored_products
             state.lastFocusedProductId = stored_products[0].id if len(stored_products) == 1 else None
             state.awaiting = None
-            scope = "solo torre" if state.includesPeripherals is False else "con perifericos"
+            scope = TOWER_ONLY_PHRASES[0] if state.includesPeripherals is False else "con perifericos"
             reply = f"Perfecto. Con S/. {state.budget} para una PC {state.usage} {scope}, puedo priorizar estos productos reales del catalogo disponibles."
             return ChatResponse(
                 reply=reply,
