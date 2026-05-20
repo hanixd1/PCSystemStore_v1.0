@@ -120,30 +120,53 @@ export class ProductsService {
         continue;
       }
 
-      if (code >= 0x0300 && code <= 0x036f) {
+      if (this.isCombiningMark(code)) {
         continue;
       }
 
-      const isLowerLetter = code >= 97 && code <= 122;
-      const isDigit = code >= 48 && code <= 57;
-
-      if (isLowerLetter || isDigit || char === '_') {
+      if (this.isSlugAllowedCharacter(char, code)) {
         slugChars.push(char);
         previousWasSeparator = false;
         continue;
       }
 
-      if (char === ' ' || char === '-') {
-        if (!previousWasSeparator && slugChars.length > 0) {
-          slugChars.push('-');
-          previousWasSeparator = true;
-        }
+      if (this.shouldAppendSlugSeparator(char, previousWasSeparator, slugChars.length)) {
+        slugChars.push('-');
+        previousWasSeparator = true;
       }
     }
 
     const baseSlug = slugChars.join('').split('-').filter(Boolean).join('-');
 
     return `${baseSlug || 'producto'}-${Date.now()}`;
+  }
+
+  private isCombiningMark(code: number): boolean {
+    return code >= 0x0300 && code <= 0x036f;
+  }
+
+  private isSlugLetter(code: number): boolean {
+    return code >= 97 && code <= 122;
+  }
+
+  private isDigitCode(code: number): boolean {
+    return code >= 48 && code <= 57;
+  }
+
+  private isSlugAllowedCharacter(char: string, code: number): boolean {
+    return this.isSlugLetter(code) || this.isDigitCode(code) || char === '_';
+  }
+
+  private isSlugSeparator(char: string): boolean {
+    return char === ' ' || char === '-';
+  }
+
+  private shouldAppendSlugSeparator(
+    char: string,
+    previousWasSeparator: boolean,
+    currentLength: number,
+  ): boolean {
+    return this.isSlugSeparator(char) && !previousWasSeparator && currentLength > 0;
   }
 
   private ensureNonNegative(field: string, value: any, allowZero = true) {
@@ -202,6 +225,13 @@ export class ProductsService {
   }
 
   private validateCategoryFields(category: string, data: any) {
+    this.validateCategoryNumericFields(category, data);
+    this.validateCategoryTextFields(category, data);
+    this.validateCoreCategoryFields(category, data);
+    this.validatePeripheralCategoryFields(category, data);
+  }
+
+  private validateCategoryNumericFields(category: string, data: any) {
     const fieldsByCategory: Record<string, string[]> = {
       CPU: ['cores', 'tdp'],
       MOTHERBOARD: ['memorySlots', 'm2Slots'],
@@ -239,7 +269,9 @@ export class ProductsService {
         this.ensureNonNegative(field, data[field]);
       }
     }
+  }
 
+  private validateCategoryTextFields(category: string, data: any) {
     const textFieldsByCategory: Record<string, string[]> = {
       CPU: ['frequency'],
       MOTHERBOARD: [],
@@ -271,7 +303,9 @@ export class ProductsService {
     for (const field of textFieldsByCategory[category] || []) {
       this.ensureNoNegativeText(field, data[field]);
     }
+  }
 
+  private validateCoreCategoryFields(category: string, data: any) {
     if (category === 'CPU') {
       const brand = String(data.cpuBrand || '').trim();
       const socket = String(data.socket || '').trim();
@@ -290,10 +324,7 @@ export class ProductsService {
     }
 
     if (category === 'MOTHERBOARD') {
-      const brand = String(data.brand || '').trim();
-      if (!brand) {
-        throw new BadRequestException('Selecciona la marca de la placa madre.');
-      }
+      this.validateBrandRequired(data, 'Selecciona la marca de la placa madre.');
     }
 
     if (category === 'GPU') {
@@ -396,7 +427,21 @@ export class ProductsService {
     ) {
       this.ensureNonNegative('radiatorSupportMm', data.radiatorSupportMm, false);
     }
+  }
 
+  private validatePeripheralCategoryFields(category: string, data: any) {
+    this.validateKeyboardMouseConnections(category, data);
+    this.validateKeyboardCategory(category, data);
+    this.validateMouseCategory(category, data);
+    this.validateWebcamCaptureCategory(category, data);
+    this.validateCableHubCategory(category, data);
+    this.validateLaptopCoolingBaseCategory(category, data);
+    this.validateBackpackCategory(category, data);
+    this.validateHeadsetCategory(category, data);
+    this.validateBrandOnlyCategories(category, data);
+  }
+
+  private validateKeyboardMouseConnections(category: string, data: any) {
     const validConnections = ['Cableado', 'Bluetooth', 'Dongle USB'];
     if ((category === 'KEYBOARD' || category === 'MOUSE') && data.connections !== undefined) {
       const invalidConnection = this.toStringArray(data.connections).find(
@@ -406,7 +451,9 @@ export class ProductsService {
         throw new BadRequestException('Tipo de conexion no valido');
       }
     }
+  }
 
+  private validateKeyboardCategory(category: string, data: any) {
     if (category === 'KEYBOARD') {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException('Selecciona la marca del teclado.');
@@ -419,7 +466,9 @@ export class ProductsService {
         throw new BadRequestException('Tipo de teclado no valido');
       }
     }
+  }
 
+  private validateMouseCategory(category: string, data: any) {
     if (category === 'MOUSE') {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException('Selecciona la marca del mouse.');
@@ -442,7 +491,9 @@ export class ProductsService {
         throw new BadRequestException('Tipo de energia de mouse no valido');
       }
     }
+  }
 
+  private validateWebcamCaptureCategory(category: string, data: any) {
     if (category === 'WEBCAM' || category === 'CAPTURE_CARD') {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException(
@@ -459,7 +510,9 @@ export class ProductsService {
         throw new BadRequestException('Selecciona FPS validos.');
       }
     }
+  }
 
+  private validateCableHubCategory(category: string, data: any) {
     if (category === 'CABLE_HUB') {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException('Selecciona la marca de Cables y Hub.');
@@ -493,7 +546,9 @@ export class ProductsService {
         }
       }
     }
+  }
 
+  private validateLaptopCoolingBaseCategory(category: string, data: any) {
     if (category === 'LAPTOP_COOLING_BASE') {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException('Selecciona la marca de la base refrigeradora.');
@@ -505,13 +560,17 @@ export class ProductsService {
         throw new BadRequestException('Selecciona la conectividad de la base refrigeradora.');
       }
     }
+  }
 
+  private validateBackpackCategory(category: string, data: any) {
     if (category === 'BACKPACK') {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException('Selecciona la marca de la mochila.');
       }
     }
+  }
 
+  private validateHeadsetCategory(category: string, data: any) {
     if (category === 'HEADSET') {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException('Selecciona la marca del audifono.');
@@ -534,7 +593,9 @@ export class ProductsService {
         );
       }
     }
+  }
 
+  private validateBrandOnlyCategories(category: string, data: any) {
     if (category === 'MICROPHONE') {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException('Selecciona la marca del microfono.');
@@ -545,6 +606,12 @@ export class ProductsService {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException('Selecciona la marca del parlante.');
       }
+    }
+  }
+
+  private validateBrandRequired(data: any, message: string) {
+    if (!String(data.brand || '').trim()) {
+      throw new BadRequestException(message);
     }
   }
 
@@ -1053,48 +1120,63 @@ export class ProductsService {
 
   private buildProductWhere(query: ProductQuery): Prisma.ProductWhereInput {
     const where: any = {};
-    const search = this.getQueryString(query, 'search');
+    this.addCategoryFilter(where, query);
+    this.addSearchFilter(where, query);
+    this.addProductScalarFilters(where, query);
+    this.addBrandFilter(where, query);
+    this.addSpecFilters(where, query);
+    return where;
+  }
+
+  private addCategoryFilter(where: any, query: ProductQuery) {
     const category =
       this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
     const categories = this.getQueryList(query, 'categories');
 
     if (category) {
       where.category = category;
-    } else if (categories.length > 0) {
+      return;
+    }
+
+    if (categories.length > 0) {
       where.category = { in: categories };
     }
+  }
 
-    if (search) {
-      this.addAnd(where, {
-        OR: [
-          { name: this.textContains(search) },
-          { description: this.textContains(search) },
-          { sku: this.textContains(search) },
-          { cpuSpecs: { is: { brand: this.textContains(search) } } },
-          { gpuSpecs: { is: { brand: this.textContains(search) } } },
-          { coolerSpecs: { is: { brand: this.textContains(search) } } },
-          { monitorSpecs: { is: { brand: this.textContains(search) } } },
-          { keyboardSpecs: { is: { brand: this.textContains(search) } } },
-          { mouseSpecs: { is: { brand: this.textContains(search) } } },
-          { webcamSpecs: { is: { brand: this.textContains(search) } } },
-          { captureCardSpecs: { is: { brand: this.textContains(search) } } },
-          { cableHubSpecs: { is: { brand: this.textContains(search) } } },
-          {
-            laptopCoolingBaseSpecs: {
-              is: { brand: this.textContains(search) },
-            },
-          },
-          { backpackSpecs: { is: { brand: this.textContains(search) } } },
-          { mousepadSpecs: { is: { brand: this.textContains(search) } } },
-          { chairSpecs: { is: { brand: this.textContains(search) } } },
-          { gamingDeskSpecs: { is: { brand: this.textContains(search) } } },
-          { headsetSpecs: { is: { brand: this.textContains(search) } } },
-          { microphoneSpecs: { is: { brand: this.textContains(search) } } },
-          { speakerSpecs: { is: { brand: this.textContains(search) } } },
-        ],
-      });
+  private addSearchFilter(where: any, query: ProductQuery) {
+    const search = this.getQueryString(query, 'search');
+
+    if (!search) {
+      return;
     }
 
+    this.addAnd(where, {
+      OR: [
+        { name: this.textContains(search) },
+        { description: this.textContains(search) },
+        { sku: this.textContains(search) },
+        { cpuSpecs: { is: { brand: this.textContains(search) } } },
+        { gpuSpecs: { is: { brand: this.textContains(search) } } },
+        { coolerSpecs: { is: { brand: this.textContains(search) } } },
+        { monitorSpecs: { is: { brand: this.textContains(search) } } },
+        { keyboardSpecs: { is: { brand: this.textContains(search) } } },
+        { mouseSpecs: { is: { brand: this.textContains(search) } } },
+        { webcamSpecs: { is: { brand: this.textContains(search) } } },
+        { captureCardSpecs: { is: { brand: this.textContains(search) } } },
+        { cableHubSpecs: { is: { brand: this.textContains(search) } } },
+        { laptopCoolingBaseSpecs: { is: { brand: this.textContains(search) } } },
+        { backpackSpecs: { is: { brand: this.textContains(search) } } },
+        { mousepadSpecs: { is: { brand: this.textContains(search) } } },
+        { chairSpecs: { is: { brand: this.textContains(search) } } },
+        { gamingDeskSpecs: { is: { brand: this.textContains(search) } } },
+        { headsetSpecs: { is: { brand: this.textContains(search) } } },
+        { microphoneSpecs: { is: { brand: this.textContains(search) } } },
+        { speakerSpecs: { is: { brand: this.textContains(search) } } },
+      ],
+    });
+  }
+
+  private addProductScalarFilters(where: any, query: ProductQuery) {
     const priceRange = this.numberRange(query, 'minPrice', 'maxPrice');
     if (priceRange) {
       where.price = priceRange;
@@ -1109,7 +1191,11 @@ export class ProductsService {
     if (isOnSale !== undefined) {
       where.isOnSale = isOnSale;
     }
+  }
 
+  private addBrandFilter(where: any, query: ProductQuery) {
+    const category =
+      this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
     const brand = this.getQueryString(query, 'brand');
     if (brand) {
       if (category === 'MOTHERBOARD') {
@@ -1557,9 +1643,6 @@ export class ProductsService {
         });
       }
     }
-
-    this.addSpecFilters(where, query);
-    return where;
   }
 
   private buildProductOrderBy(query: ProductQuery): Prisma.ProductOrderByWithRelationInput {
@@ -2217,6 +2300,46 @@ export class ProductsService {
   }
 
   async update(id: string, data: UpdateProductDto, actorId?: string) {
+    const currentProduct = await this.findProductForUpdateOrThrow(id);
+    const updateData = this.buildProductUpdateData(currentProduct, data);
+    const specUpdate = this.buildSpecUpdate(currentProduct, data);
+
+    if (Object.keys(updateData).length === 0 && Object.keys(specUpdate).length === 0) {
+      throw new BadRequestException('Debes enviar al menos un campo valido para actualizar');
+    }
+
+    const updatedProduct = await this.prisma.product.update({
+      where: { id },
+      data: {
+        ...updateData,
+        ...specUpdate,
+      },
+      include: {
+        cpuSpecs: true,
+        motherboardSpecs: true,
+        gpuSpecs: true,
+        caseSpecs: true,
+        coolerSpecs: true,
+        storageSpecs: true,
+        laptopSpecs: true,
+        desktopSpecs: true,
+        monitorSpecs: true,
+        keyboardSpecs: true,
+        mouseSpecs: true,
+        mousepadSpecs: true,
+        chairSpecs: true,
+        gamingDeskSpecs: true,
+      },
+    });
+
+    if (actorId) {
+      await this.logProductChanges(actorId, currentProduct, updatedProduct, updateData);
+    }
+
+    return updatedProduct;
+  }
+
+  private async findProductForUpdateOrThrow(id: string) {
     const currentProduct = await this.prisma.product.findUnique({
       where: { id },
       include: {
@@ -2245,6 +2368,10 @@ export class ProductsService {
       throw new BadRequestException('Producto no encontrado');
     }
 
+    return currentProduct;
+  }
+
+  private buildProductUpdateData(currentProduct: any, data: UpdateProductDto) {
     const updateData: any = {};
 
     if (data.name !== undefined) {
@@ -2298,41 +2425,7 @@ export class ProductsService {
       updateData.images = data.images.filter((image) => String(image).trim());
     }
 
-    const specUpdate = this.buildSpecUpdate(currentProduct, data);
-
-    if (Object.keys(updateData).length === 0 && Object.keys(specUpdate).length === 0) {
-      throw new BadRequestException('Debes enviar al menos un campo valido para actualizar');
-    }
-
-    const updatedProduct = await this.prisma.product.update({
-      where: { id },
-      data: {
-        ...updateData,
-        ...specUpdate,
-      },
-      include: {
-        cpuSpecs: true,
-        motherboardSpecs: true,
-        gpuSpecs: true,
-        caseSpecs: true,
-        coolerSpecs: true,
-        storageSpecs: true,
-        laptopSpecs: true,
-        desktopSpecs: true,
-        monitorSpecs: true,
-        keyboardSpecs: true,
-        mouseSpecs: true,
-        mousepadSpecs: true,
-        chairSpecs: true,
-        gamingDeskSpecs: true,
-      },
-    });
-
-    if (actorId) {
-      await this.logProductChanges(actorId, currentProduct, updatedProduct, updateData);
-    }
-
-    return updatedProduct;
+    return updateData;
   }
 
   private validateCpuBrandSocket(brand: string, socket: string) {
@@ -3304,6 +3397,20 @@ export class ProductsService {
   }
 
   private async logProductChanges(actorId: string, before: any, after: any, updateData: any) {
+    const logs = this.collectProductChangeLogs(before, after, updateData);
+
+    for (const log of logs) {
+      await this.audit.log({
+        actorId,
+        entityType: 'PRODUCT',
+        entityId: after.id,
+        entityName: after.name,
+        ...log,
+      });
+    }
+  }
+
+  private collectProductChangeLogs(before: any, after: any, updateData: any) {
     const logs: Array<{
       action: string;
       module: string;
@@ -3470,14 +3577,6 @@ export class ProductsService {
       });
     }
 
-    for (const log of logs) {
-      await this.audit.log({
-        actorId,
-        entityType: 'PRODUCT',
-        entityId: after.id,
-        entityName: after.name,
-        ...log,
-      });
-    }
+    return logs;
   }
 }

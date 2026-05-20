@@ -23,6 +23,16 @@ const CUSTOMER_SESSION_EXPIRES_IN = '12h';
 const ADMIN_SESSION_EXPIRES_IN = '3h';
 const RESET_PASSWORD_TOKEN_EXPIRES_MS = 30 * 60 * 1000;
 
+type ProfileUpdateData = {
+  name?: string;
+  email?: string;
+  birthDate?: Date | null;
+  documentType?: string;
+  documentNumber?: string;
+  gender?: string;
+  mobilePhone?: string;
+};
+
 @Injectable()
 export class UsersService {
   private readonly adminLoginAttempts = new Map<
@@ -513,75 +523,8 @@ export class UsersService {
   }
 
   async updateProfile(id: string, data: UpdateProfileDto) {
-    const existingCurrentUser = await this.prisma.user.findUnique({
-      where: { id },
-      select: { documentNumber: true },
-    });
-
-    if (!existingCurrentUser) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
-
-    const updateData: {
-      name?: string;
-      email?: string;
-      birthDate?: Date | null;
-      documentType?: string;
-      documentNumber?: string;
-      gender?: string;
-      mobilePhone?: string;
-    } = {};
-
-    if (data.name !== undefined) {
-      updateData.name = data.name.trim();
-    }
-
-    if (data.email !== undefined) {
-      const normalizedEmail = this.sanitizeEmail(data.email);
-      const existingUser = await this.prisma.user.findUnique({
-        where: { email: normalizedEmail },
-      });
-
-      if (existingUser && existingUser.id !== id) {
-        throw new ConflictException('Ese correo ya esta registrado');
-      }
-
-      updateData.email = normalizedEmail;
-    }
-
-    const wantsDocumentChange =
-      data.documentType !== undefined || data.documentNumber !== undefined;
-    if (existingCurrentUser.documentNumber && wantsDocumentChange) {
-      throw new BadRequestException(
-        'El documento de identidad no puede modificarse una vez registrado.',
-      );
-    }
-
-    if (!existingCurrentUser.documentNumber) {
-      if (data.documentType !== undefined) {
-        updateData.documentType = data.documentType.trim();
-      }
-
-      if (data.documentNumber !== undefined) {
-        updateData.documentNumber = data.documentNumber.trim();
-      }
-    }
-
-    if (data.birthDate !== undefined) {
-      updateData.birthDate = data.birthDate ? new Date(data.birthDate) : null;
-    }
-
-    if (data.gender !== undefined) {
-      updateData.gender = data.gender.trim();
-    }
-
-    if (data.mobilePhone !== undefined) {
-      updateData.mobilePhone = data.mobilePhone.trim();
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      throw new BadRequestException('Debes enviar al menos un campo valido');
-    }
+    const existingCurrentUser = await this.findProfileUserOrThrow(id);
+    const updateData = await this.buildProfileUpdateData(id, data, existingCurrentUser);
 
     const user = await this.prisma.user.update({
       where: { id },
@@ -603,6 +546,109 @@ export class UsersService {
       message: 'Datos actualizados correctamente',
       user,
     };
+  }
+
+  private async findProfileUserOrThrow(id: string): Promise<{ documentNumber: string | null }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { documentNumber: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    return user;
+  }
+
+  private async buildProfileUpdateData(
+    id: string,
+    data: UpdateProfileDto,
+    currentUser: { documentNumber: string | null },
+  ): Promise<ProfileUpdateData> {
+    const updateData: ProfileUpdateData = {};
+
+    this.applyBasicProfileFields(updateData, data);
+
+    if (data.email !== undefined) {
+      updateData.email = await this.getAvailableProfileEmail(data.email, id);
+    }
+
+    this.applyDocumentProfileFields(updateData, data, currentUser.documentNumber);
+    this.assertProfileUpdateIsNotEmpty(updateData);
+
+    return updateData;
+  }
+
+  private applyBasicProfileFields(updateData: ProfileUpdateData, data: UpdateProfileDto): void {
+    if (data.name !== undefined) {
+      updateData.name = data.name.trim();
+    }
+
+    if (data.birthDate !== undefined) {
+      updateData.birthDate = data.birthDate ? new Date(data.birthDate) : null;
+    }
+
+    if (data.gender !== undefined) {
+      updateData.gender = data.gender.trim();
+    }
+
+    if (data.mobilePhone !== undefined) {
+      updateData.mobilePhone = data.mobilePhone.trim();
+    }
+  }
+
+  private async getAvailableProfileEmail(email: string, userId: string): Promise<string> {
+    const normalizedEmail = this.sanitizeEmail(email);
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (existingUser && existingUser.id !== userId) {
+      throw new ConflictException('Ese correo ya esta registrado');
+    }
+
+    return normalizedEmail;
+  }
+
+  private applyDocumentProfileFields(
+    updateData: ProfileUpdateData,
+    data: UpdateProfileDto,
+    currentDocumentNumber: string | null,
+  ): void {
+    this.assertDocumentCanBeChanged(currentDocumentNumber, data);
+
+    if (currentDocumentNumber) {
+      return;
+    }
+
+    if (data.documentType !== undefined) {
+      updateData.documentType = data.documentType.trim();
+    }
+
+    if (data.documentNumber !== undefined) {
+      updateData.documentNumber = data.documentNumber.trim();
+    }
+  }
+
+  private assertDocumentCanBeChanged(
+    currentDocumentNumber: string | null,
+    data: UpdateProfileDto,
+  ): void {
+    const wantsDocumentChange =
+      data.documentType !== undefined || data.documentNumber !== undefined;
+
+    if (currentDocumentNumber && wantsDocumentChange) {
+      throw new BadRequestException(
+        'El documento de identidad no puede modificarse una vez registrado.',
+      );
+    }
+  }
+
+  private assertProfileUpdateIsNotEmpty(updateData: ProfileUpdateData): void {
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException('Debes enviar al menos un campo valido');
+    }
   }
 
   async changePassword(id: string, currentPassword: string, newPassword: string) {

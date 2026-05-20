@@ -967,24 +967,77 @@ export class AiService {
     const includeKeyboard = slots.includeKeyboard === true;
     const includeMouse = slots.includeMouse === true;
     const platformPreference = slots.platformPreference ?? 'ANY';
+    const towerBudget = this.getBuildTowerBudget(slots, useCase, {
+      includeMonitor,
+      includeKeyboard,
+      includeMouse,
+    });
+    const needsDedicatedGpu = this.shouldUseDedicatedGpu(slots, useCase, towerBudget);
 
-    const monitorReserve =
-      includeMonitor === true ? (useCase === 'gaming' || useCase === 'editing' ? 650 : 480) : 0;
-    const keyboardReserve = includeKeyboard ? 90 : 0;
-    const mouseReserve = includeMouse ? 80 : 0;
+    return {
+      useCase,
+      towerBudget,
+      totalBudget: slots.budget ?? 0,
+      platformPreference,
+      needsDedicatedGpu,
+      includeMonitor,
+      includeKeyboard,
+      includeMouse,
+      weights: this.getBuildWeights(useCase, {
+        needsDedicatedGpu,
+        includeMonitor,
+        includeKeyboard,
+        includeMouse,
+      }),
+    };
+  }
 
-    const towerBudget = Math.max(
-      (slots.budget ?? 0) - monitorReserve - keyboardReserve - mouseReserve,
-      0,
-    );
+  private getBuildTowerBudget(
+    slots: ConversationSlots,
+    useCase: BuildUseCase,
+    peripherals: {
+      includeMonitor: boolean;
+      includeKeyboard: boolean;
+      includeMouse: boolean;
+    },
+  ): number {
+    const monitorReserve = this.getMonitorReserve(useCase, peripherals.includeMonitor);
+    const keyboardReserve = peripherals.includeKeyboard ? 90 : 0;
+    const mouseReserve = peripherals.includeMouse ? 80 : 0;
 
-    const needsDedicatedGpu =
-      slots.wantsDedicatedGpu !== null
-        ? slots.wantsDedicatedGpu
-        : useCase === 'gaming' || useCase === 'editing'
-          ? towerBudget >= 2500
-          : false;
+    return Math.max((slots.budget ?? 0) - monitorReserve - keyboardReserve - mouseReserve, 0);
+  }
 
+  private getMonitorReserve(useCase: BuildUseCase, includeMonitor: boolean): number {
+    if (!includeMonitor) {
+      return 0;
+    }
+
+    return useCase === 'gaming' || useCase === 'editing' ? 650 : 480;
+  }
+
+  private shouldUseDedicatedGpu(
+    slots: ConversationSlots,
+    useCase: BuildUseCase,
+    towerBudget: number,
+  ): boolean {
+    if (slots.wantsDedicatedGpu !== null) {
+      return slots.wantsDedicatedGpu;
+    }
+
+    return (useCase === 'gaming' || useCase === 'editing') && towerBudget >= 2500;
+  }
+
+  private getBuildWeights(
+    useCase: BuildUseCase,
+    options: {
+      needsDedicatedGpu: boolean;
+      includeMonitor: boolean;
+      includeKeyboard: boolean;
+      includeMouse: boolean;
+    },
+  ): Record<string, number> {
+    const { needsDedicatedGpu, includeMonitor, includeKeyboard, includeMouse } = options;
     const weightsByUseCase: Record<BuildUseCase, Record<string, number>> = {
       gaming: {
         CPU: 0.21,
@@ -1036,17 +1089,7 @@ export class AiService {
       },
     };
 
-    return {
-      useCase,
-      towerBudget,
-      totalBudget: slots.budget ?? 0,
-      platformPreference,
-      needsDedicatedGpu,
-      includeMonitor,
-      includeKeyboard,
-      includeMouse,
-      weights: weightsByUseCase[useCase],
-    };
+    return weightsByUseCase[useCase];
   }
 
   private async getStockedProducts(categories: string[]) {

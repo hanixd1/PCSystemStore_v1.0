@@ -24,6 +24,14 @@ export type IdempotencyResult<T> = {
   replayed: boolean;
 };
 
+type IdempotencyRecord = {
+  id: string;
+  requestHash: string;
+  status: string;
+  responseBody: Prisma.JsonValue | null;
+  statusCode: number | null;
+};
+
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== 'object') {
     return JSON.stringify(value);
@@ -69,100 +77,145 @@ export class IdempotencyService {
     successStatusCode,
     handler,
   }: IdempotencyRunOptions<T>): Promise<IdempotencyResult<T>> {
-    const normalizedKey = key?.trim();
-    if (!normalizedKey) {
-      throw new BadRequestException('Idempotency-Key es obligatorio para esta operacion.');
-    }
-
+    const normalizedKey = this.normalizeKeyOrThrow(key);
     const normalizedMethod = method.toUpperCase();
     const requestHash = this.buildRequestHash(body, userId);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + IDEMPOTENCY_TTL_HOURS * 60 * 60 * 1000);
-
-    let created = false;
-    let record = await this.prisma.idempotencyKey.findUnique({
-      where: {
-        key_route_method: {
-          key: normalizedKey,
-          route,
-          method: normalizedMethod,
-        },
-      },
+    const { record, created } = await this.findOrCreateProcessingRecord({
+      key: normalizedKey,
+      route,
+      method: normalizedMethod,
+      userId,
+      requestHash,
+      now,
+      expiresAt,
     });
 
-    if (!record) {
-      try {
-        record = await this.prisma.idempotencyKey.create({
-          data: {
-            key: normalizedKey,
-            route,
-            method: normalizedMethod,
-            userId,
-            requestHash,
-            status: STATUS_PROCESSING,
-            lockedAt: now,
-            expiresAt,
-          },
-        });
-        created = true;
-      } catch (error) {
-        if (!this.isUniqueConstraintError(error)) {
-          throw error;
-        }
-
-        record = await this.prisma.idempotencyKey.findUnique({
-          where: {
-            key_route_method: {
-              key: normalizedKey,
-              route,
-              method: normalizedMethod,
-            },
-          },
-        });
-      }
-    }
-
-    if (!record) {
-      throw new ConflictException('La operacion ya esta siendo procesada.');
-    }
-
     if (!created) {
-      if (record.requestHash !== requestHash) {
-        throw new ConflictException(
-          'La clave de idempotencia ya fue usada con una solicitud diferente.',
-        );
-      }
+      return this.resolveExistingRecord<T>(record, requestHash, successStatusCode);
+    }
 
-      if (record.status === STATUS_COMPLETED) {
-        return {
-          body: record.responseBody as T,
-          statusCode: record.statusCode ?? successStatusCode,
-          replayed: true,
-        };
-      }
+    return this.executeAndPersist(record.id, successStatusCode, handler);
+  }
 
-      if (record.status === STATUS_PROCESSING) {
-        throw new ConflictException('La operacion ya esta siendo procesada.');
-      }
+  private normalizeKeyOrThrow(key?: string): string {
+    const normalizedKey = key?.trim();
 
-      throw new ConflictException(
-        'La operacion fallo previamente. Genera una nueva clave para un nuevo intento.',
-      );
+    if (!normalizedKey) {
+      throw new BadRequestException('Idempotency-Key es obligatorio para esta operacion.');
+    }
+
+    return normalizedKey;
+  }
+
+  private async findOrCreateProcessingRecord({
+    key,
+    route,
+    method,
+    userId,
+    requestHash,
+    now,
+    expiresAt,
+  }: {
+    key: string;
+    route: string;
+    method: string;
+    userId?: string;
+    requestHash: string;
+    now: Date;
+    expiresAt: Date;
+  }): Promise<{ record: IdempotencyRecord; created: boolean }> {
+    const where = {
+      key_route_method: {
+        key,
+        route,
+        method,
+      },
+    };
+    const existingRecord = await this.prisma.idempotencyKey.findUnique({ where });
+
+    if (existingRecord) {
+      return { record: existingRecord, created: false };
     }
 
     try {
-      const result = await handler();
-      const responseBody = toJsonValue(result);
-
-      await this.prisma.idempotencyKey.update({
-        where: { id: record.id },
+      const createdRecord = await this.prisma.idempotencyKey.create({
         data: {
-          status: STATUS_COMPLETED,
-          responseBody,
-          statusCode: successStatusCode,
-          completedAt: new Date(),
+          key,
+          route,
+          method,
+          userId,
+          requestHash,
+          status: STATUS_PROCESSING,
+          lockedAt: now,
+          expiresAt,
         },
       });
+
+      return { record: createdRecord, created: true };
+    } catch (error) {
+      if (!this.isUniqueConstraintError(error)) {
+        throw error;
+      }
+
+      const concurrentRecord = await this.prisma.idempotencyKey.findUnique({ where });
+
+      if (!concurrentRecord) {
+        throw new ConflictException('La operacion ya esta siendo procesada.');
+      }
+
+      return { record: concurrentRecord, created: false };
+    }
+  }
+
+  private resolveExistingRecord<T>(
+    record: IdempotencyRecord,
+    requestHash: string,
+    successStatusCode: number,
+  ): IdempotencyResult<T> {
+    this.validatePayloadHashOrThrow(record, requestHash);
+
+    if (record.status === STATUS_COMPLETED) {
+      return this.buildCachedResponse(record, successStatusCode);
+    }
+
+    if (record.status === STATUS_PROCESSING) {
+      throw new ConflictException('La operacion ya esta siendo procesada.');
+    }
+
+    throw new ConflictException(
+      'La operacion fallo previamente. Genera una nueva clave para un nuevo intento.',
+    );
+  }
+
+  private validatePayloadHashOrThrow(record: IdempotencyRecord, requestHash: string): void {
+    if (record.requestHash !== requestHash) {
+      throw new ConflictException(
+        'La clave de idempotencia ya fue usada con una solicitud diferente.',
+      );
+    }
+  }
+
+  private buildCachedResponse<T>(
+    record: IdempotencyRecord,
+    successStatusCode: number,
+  ): IdempotencyResult<T> {
+    return {
+      body: record.responseBody as T,
+      statusCode: record.statusCode ?? successStatusCode,
+      replayed: true,
+    };
+  }
+
+  private async executeAndPersist<T>(
+    recordId: string,
+    successStatusCode: number,
+    handler: () => Promise<T>,
+  ): Promise<IdempotencyResult<T>> {
+    try {
+      const result = await handler();
+      await this.persistSuccessfulResult(recordId, result, successStatusCode);
 
       return {
         body: result,
@@ -170,22 +223,41 @@ export class IdempotencyService {
         replayed: false,
       };
     } catch (error) {
-      const statusCode = error instanceof HttpException ? error.getStatus() : 500;
-      const response =
-        error instanceof HttpException ? error.getResponse() : { message: 'Error interno' };
-
-      await this.prisma.idempotencyKey.update({
-        where: { id: record.id },
-        data: {
-          status: STATUS_FAILED,
-          responseBody: toJsonValue(response),
-          statusCode,
-          completedAt: new Date(),
-        },
-      });
-
+      await this.persistFailedResult(recordId, error);
       throw error;
     }
+  }
+
+  private async persistSuccessfulResult<T>(
+    recordId: string,
+    result: T,
+    successStatusCode: number,
+  ): Promise<void> {
+    await this.prisma.idempotencyKey.update({
+      where: { id: recordId },
+      data: {
+        status: STATUS_COMPLETED,
+        responseBody: toJsonValue(result),
+        statusCode: successStatusCode,
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  private async persistFailedResult(recordId: string, error: unknown): Promise<void> {
+    const statusCode = error instanceof HttpException ? error.getStatus() : 500;
+    const response =
+      error instanceof HttpException ? error.getResponse() : { message: 'Error interno' };
+
+    await this.prisma.idempotencyKey.update({
+      where: { id: recordId },
+      data: {
+        status: STATUS_FAILED,
+        responseBody: toJsonValue(response),
+        statusCode,
+        completedAt: new Date(),
+      },
+    });
   }
 
   deleteExpiredKeys(now = new Date()) {
