@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { ChangeEvent } from 'react';
 import {
   FiSave,
   FiCpu,
@@ -486,22 +487,101 @@ export default function AddProductPage() {
     setImageFiles([]);
   }, [selectedDept]);
 
-  const handleChange = (e: any) => {
-    const { name, value, type, checked } = e.target;
+  const restorePreviousFieldValue = (
+    target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+  ) => {
+    target.value = String(formData[target.name as keyof typeof formData] ?? '');
+  };
+
+  const shouldRejectFieldValue = (
+    target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+  ) => {
+    const { name, value, type } = target;
     if (type === 'number' && NON_NEGATIVE_FIELDS.has(name)) {
       if (value === '') {
         setFormData({ ...formData, [name]: '' });
-        return;
+        return true;
       }
 
       if (Number(value) < 0) {
-        e.target.value = String(formData[name as keyof typeof formData] ?? '');
-        return;
+        restorePreviousFieldValue(target);
+        return true;
       }
     }
 
     if (type !== 'number' && NO_NEGATIVE_TEXT_FIELDS.has(name) && value.includes('-')) {
-      e.target.value = String(formData[name as keyof typeof formData] ?? '');
+      restorePreviousFieldValue(target);
+      return true;
+    }
+
+    return false;
+  };
+
+  const handleCpuBrandChange = (value: string) => {
+    const nextSockets = CPU_SOCKETS_BY_BRAND[value] || [];
+    setFormData({
+      ...formData,
+      cpuBrand: value,
+      socket: nextSockets.includes(formData.socket) ? formData.socket : nextSockets[0] || '',
+    });
+  };
+
+  const handleOfficeMouseChange = (value: string) => {
+    setFormData({
+      ...formData,
+      mouseType: value,
+      buttonCount: '',
+      dpi: '',
+      pollingRateHz: '1000',
+    });
+  };
+
+  const handleKeyboardTypeChange = (value: string) => {
+    setFormData({
+      ...formData,
+      keyboardType: value,
+      hasLighting: value === 'Semi-mecanico' ? formData.hasLighting : 'false',
+      switchType: value === 'Mecanico' || value === 'Magnetico' ? formData.switchType : '',
+    });
+  };
+
+  const handleHeadsetConnectionChange = (value: string) => {
+    const allowed = value === 'Cableado' ? HEADSET_WIRED_CONNECTIONS : HEADSET_WIRELESS_CONNECTIONS;
+    const nextSupported = formData.supportedConnections.filter((item) => allowed.includes(item));
+    setFormData({
+      ...formData,
+      connection: value,
+      supportedConnections: nextSupported.length ? nextSupported : [allowed[0]],
+    });
+  };
+
+  const handleCableHubTypeChange = (value: string) => {
+    setFormData({
+      ...formData,
+      cableHubType: value,
+      cableType: value === 'Cable' ? formData.cableType || 'HDMI a HDMI' : '',
+      cableLengthMeters: value === 'Cable' ? formData.cableLengthMeters || '1' : '',
+      hubInputType: value === 'Hub' ? formData.hubInputType || 'USB-C' : '',
+      hasHdmiOutput: value === 'Hub' ? formData.hasHdmiOutput : 'false',
+      hasRj45Output: value === 'Hub' ? formData.hasRj45Output : 'false',
+    });
+  };
+
+  const updateFormField = (target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) => {
+    const { name, value, type } = target;
+    const checked = target instanceof HTMLInputElement ? target.checked : false;
+    setFormData({
+      ...formData,
+      [name]: type === 'checkbox' ? String(checked) : value,
+    });
+  };
+
+  const handleChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = event.target;
+
+    if (shouldRejectFieldValue(event.target)) {
       return;
     }
 
@@ -511,65 +591,31 @@ export default function AddProductPage() {
     }
 
     if (name === 'cpuBrand') {
-      const nextSockets = CPU_SOCKETS_BY_BRAND[value] || [];
-      setFormData({
-        ...formData,
-        cpuBrand: value,
-        socket: nextSockets.includes(formData.socket) ? formData.socket : nextSockets[0] || '',
-      });
+      handleCpuBrandChange(value);
       return;
     }
 
     if (name === 'mouseType' && value === 'Oficina') {
-      setFormData({
-        ...formData,
-        mouseType: value,
-        buttonCount: '',
-        dpi: '',
-        pollingRateHz: '1000',
-      });
+      handleOfficeMouseChange(value);
       return;
     }
 
     if (name === 'keyboardType') {
-      setFormData({
-        ...formData,
-        keyboardType: value,
-        hasLighting: value === 'Semi-mecanico' ? formData.hasLighting : 'false',
-        switchType: value === 'Mecanico' || value === 'Magnetico' ? formData.switchType : '',
-      });
+      handleKeyboardTypeChange(value);
       return;
     }
 
     if (name === 'connection' && formData.category === 'HEADSET') {
-      const allowed =
-        value === 'Cableado' ? HEADSET_WIRED_CONNECTIONS : HEADSET_WIRELESS_CONNECTIONS;
-      const nextSupported = formData.supportedConnections.filter((item) => allowed.includes(item));
-      setFormData({
-        ...formData,
-        connection: value,
-        supportedConnections: nextSupported.length ? nextSupported : [allowed[0]],
-      });
+      handleHeadsetConnectionChange(value);
       return;
     }
 
     if (name === 'cableHubType') {
-      setFormData({
-        ...formData,
-        cableHubType: value,
-        cableType: value === 'Cable' ? formData.cableType || 'HDMI a HDMI' : '',
-        cableLengthMeters: value === 'Cable' ? formData.cableLengthMeters || '1' : '',
-        hubInputType: value === 'Hub' ? formData.hubInputType || 'USB-C' : '',
-        hasHdmiOutput: value === 'Hub' ? formData.hasHdmiOutput : 'false',
-        hasRj45Output: value === 'Hub' ? formData.hasRj45Output : 'false',
-      });
+      handleCableHubTypeChange(value);
       return;
     }
 
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? String(checked) : value,
-    });
+    updateFormField(event.target);
   };
   const handleMultiSelectChange = (
     field:

@@ -636,20 +636,42 @@ export class ProductsService {
   }
 
   async create(data: CreateProductDto & { uploadedImages?: string[] }, actorId?: string) {
+    const finalImages = this.buildCreateProductImages(data);
+    this.validateCreateProductInput(data, finalImages);
+
+    const productData = this.buildCreateProductPayload(data, finalImages);
+    const product = await this.persistCreatedProduct(productData);
+    await this.logProductCreationIfNeeded(actorId, product);
+
+    return product;
+  }
+
+  private buildCreateProductImages(
+    data: CreateProductDto & { uploadedImages?: string[] },
+  ): string[] {
+    if (data.uploadedImages && data.uploadedImages.length > 0) {
+      return data.uploadedImages;
+    }
+
+    return data.image ? [data.image] : [];
+  }
+
+  private validateCreateProductInput(
+    data: CreateProductDto & { uploadedImages?: string[] },
+    finalImages: string[],
+  ) {
     if (!data.name || !data.category) {
       throw new BadRequestException('Nombre y categoria son obligatorios');
     }
 
-    const finalImages: string[] =
-      data.uploadedImages && data.uploadedImages.length > 0
-        ? data.uploadedImages
-        : data.image
-          ? [data.image]
-          : [];
-
     this.validateCommonFields(data, finalImages);
     this.validateCategoryFields(data.category, data);
+  }
 
+  private buildCreateProductPayload(
+    data: CreateProductDto & { uploadedImages?: string[] },
+    finalImages: string[],
+  ) {
     const productData: any = {
       name: String(data.name).trim(),
       description: String(data.description || '').trim(),
@@ -1023,28 +1045,33 @@ export class ProductsService {
         throw new BadRequestException(`Categoria no soportada: ${data.category}`);
     }
 
-    const product = await this.prisma.product.create({ data: productData });
-
-    if (actorId) {
-      await this.audit.log({
-        actorId,
-        action: 'CREATE_PRODUCT',
-        module: 'PRODUCTS',
-        entityType: 'PRODUCT',
-        entityId: product.id,
-        entityName: product.name,
-        description: `Se creo el producto ${product.name}.`,
-        metadata: {
-          category: product.category,
-          price: String(product.price),
-          stock: product.stock,
-        },
-      });
-    }
-
-    return product;
+    return productData;
   }
 
+  private persistCreatedProduct(productData: any) {
+    return this.prisma.product.create({ data: productData });
+  }
+
+  private async logProductCreationIfNeeded(actorId: string | undefined, product: any) {
+    if (!actorId) {
+      return;
+    }
+
+    await this.audit.log({
+      actorId,
+      action: 'CREATE_PRODUCT',
+      module: 'PRODUCTS',
+      entityType: 'PRODUCT',
+      entityId: product.id,
+      entityName: product.name,
+      description: `Se creo el producto ${product.name}.`,
+      metadata: {
+        category: product.category,
+        price: String(product.price),
+        stock: product.stock,
+      },
+    });
+  }
   private firstQueryValue(value: string | string[] | undefined): string | undefined {
     return Array.isArray(value) ? value[0] : value;
   }
