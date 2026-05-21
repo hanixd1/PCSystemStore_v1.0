@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+﻿import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -54,8 +54,8 @@ export class ProductsService {
     backpackSpecs: true,
   } satisfies Prisma.ProductInclude;
 
-  private readonly nameRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,+\-/%\s]{10,120}$/;
-  private readonly descriptionRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,;:+\-/%\s]{20,1200}$/;
+  private readonly nameRegex = /^[A-Za-zÃÃ‰ÃÃ“ÃšÃ¡Ã©Ã­Ã³ÃºÃ‘Ã±0-9().,+\-/%\s]{10,120}$/;
+  private readonly descriptionRegex = /^[A-Za-zÃÃ‰ÃÃ“ÃšÃ¡Ã©Ã­Ã³ÃºÃ‘Ã±0-9().,;:+\-/%\s]{20,1200}$/;
 
   private toInt(val: unknown): number {
     const n = Number.parseInt(String(val ?? ''), 10);
@@ -96,12 +96,12 @@ export class ProductsService {
     return [];
   }
 
-  private normalizeCoolerType(val: any): 'Torre' | 'Líquida' {
+  private normalizeCoolerType(val: any): 'Torre' | 'LÃ­quida' {
     const value = String(val || '')
       .trim()
       .toLowerCase();
-    if (value === 'aio' || value.includes('liqu') || value.includes('líqu')) {
-      return 'Líquida';
+    if (value === 'aio' || value.includes('liqu') || value.includes('lÃ­qu')) {
+      return 'LÃ­quida';
     }
     return 'Torre';
   }
@@ -111,7 +111,7 @@ export class ProductsService {
     const variants =
       normalized === 'Torre'
         ? ['Torre', 'AIR', 'Air', 'aire', 'Aire (Torre)']
-        : ['Líquida', 'Liquida', 'AIO', 'aio', 'Liquida (AIO)', 'Líquida (AIO)'];
+        : ['LÃ­quida', 'Liquida', 'AIO', 'aio', 'Liquida (AIO)', 'LÃ­quida (AIO)'];
     return {
       OR: variants.map((variant) => ({
         type: { equals: variant, mode: 'insensitive' as const },
@@ -392,8 +392,8 @@ export class ProductsService {
       throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
     }
 
-    if (coolerType === 'Líquida' && this.toInt(data.radiatorSize) <= 0) {
-      throw new BadRequestException('Selecciona el tamaño de radiador del cooler líquido');
+    if (coolerType === 'LÃ­quida' && this.toInt(data.radiatorSize) <= 0) {
+      throw new BadRequestException('Selecciona el tamaÃ±o de radiador del cooler lÃ­quido');
     }
   }
 
@@ -401,7 +401,9 @@ export class ProductsService {
     const storageType = String(data.type || '').toUpperCase();
     const isM2 = storageType.includes('M.2') || storageType.includes('NVME');
     if (isM2 && !data.m2FormFactor) {
-      throw new BadRequestException('El tamaño fisico M.2 es obligatorio para almacenamientos M.2');
+      throw new BadRequestException(
+        'El tamaÃ±o fisico M.2 es obligatorio para almacenamientos M.2',
+      );
     }
   }
 
@@ -672,7 +674,17 @@ export class ProductsService {
     data: CreateProductDto & { uploadedImages?: string[] },
     finalImages: string[],
   ) {
-    const productData: any = {
+    return {
+      ...this.buildCreateProductBasePayload(data, finalImages),
+      ...this.buildCreateProductSpecsPayload(data),
+    };
+  }
+
+  private buildCreateProductBasePayload(
+    data: CreateProductDto & { uploadedImages?: string[] },
+    finalImages: string[],
+  ) {
+    return {
       name: String(data.name).trim(),
       description: String(data.description || '').trim(),
       price: this.toFloat(data.price),
@@ -684,370 +696,465 @@ export class ProductsService {
       slug: this.buildSlug(data.name),
       sku: `${data.category}-${Date.now()}`,
     };
+  }
 
+  private buildCreateProductSpecsPayload(data: CreateProductDto & { uploadedImages?: string[] }) {
     switch (data.category) {
       case 'CPU':
-        productData.cpuSpecs = {
-          create: {
-            brand: data.cpuBrand || 'AMD',
-            socket: data.socket || 'N/A',
-            cores: this.toInt(data.cores),
-            threads: this.toInt(data.threads),
-            frequency: data.frequency || '',
-            ...(data.baseTdpWatts !== undefined
-              ? { baseTdpWatts: this.toInt(data.baseTdpWatts) }
-              : {}),
-            tdp: this.toInt(data.tdp),
-            integratedGraphics: this.toBool(data.integratedGraphics),
-            includesCooler: this.toBool(data.includesCooler),
-          },
-        };
-        break;
-
+        return this.buildCreateCpuSpecs(data);
       case 'MOTHERBOARD':
-        productData.motherboardSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            socket: data.socket || 'N/A',
-            formFactor: data.formFactor || 'ATX',
-            memoryType: data.memoryType || 'DDR4',
-            memorySlots: this.toInt(data.memorySlots),
-            m2Slots: this.toInt(data.m2Slots),
-            supportedM2FormFactors: this.toStringArray(data.supportedM2FormFactors),
-          },
-        };
-        break;
-
+        return this.buildCreateMotherboardSpecs(data);
       case 'RAM':
-        productData.ramSpecs = {
-          create: {
-            memoryType: data.memoryType || 'DDR4',
-            capacity: this.toInt(data.capacity),
-            speed: this.toInt(data.speed),
-            modules: this.toInt(data.modules),
-            hasRGB: this.toBool(data.hasRGB),
-          },
-        };
-        break;
-
-      case 'GPU': {
-        const gpuPowerWatts = this.hasValue(data.gpuPowerWatts)
-          ? this.toInt(data.gpuPowerWatts)
-          : this.toInt(data.tdp);
-        productData.gpuSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            chipset: data.chipset || 'N/A',
-            vram: this.toInt(data.vram),
-            length: this.toInt(data.length),
-            tdp: gpuPowerWatts,
-            gpuPowerWatts,
-            ...(this.hasValue(data.recommendedPsuWatts)
-              ? { recommendedPsuWatts: this.toInt(data.recommendedPsuWatts) }
-              : {}),
-            fans: this.hasValue(data.fans) ? this.toInt(data.fans) : 0,
-          },
-        };
-        break;
-      }
-
+        return this.buildCreateRamSpecs(data);
+      case 'GPU':
+        return this.buildCreateGpuSpecs(data);
       case 'PSU':
-        productData.psuSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            wattage: this.toInt(data.wattage),
-            certification: data.certification || 'None',
-            modular: data.modular || 'No',
-            formFactor: data.formFactor || 'ATX',
-          },
-        };
-        break;
-
+        return this.buildCreatePsuSpecs(data);
       case 'CASE':
-        productData.caseSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            formFactor: data.formFactor || 'ATX',
-            maxGpuLength: this.toInt(data.maxGpuLength),
-            includesPsu: this.toBool(data.includesPsu),
-            includedFans: this.toInt(data.includedFans),
-            ...(data.radiatorSupportMm !== undefined
-              ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) }
-              : {}),
-          },
-        };
-        break;
-
+        return this.buildCreateCaseSpecs(data);
       case 'COOLER':
-        productData.coolerSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            type: this.normalizeCoolerType(data.type),
-            socketSupport: this.toStringArray(data.compatibleSockets).join(', '),
-            compatibleSockets: this.toStringArray(data.compatibleSockets),
-            fanCount: this.toInt(data.fanCount),
-            radiatorSize:
-              this.normalizeCoolerType(data.type) === 'Líquida'
-                ? this.toInt(data.radiatorSize)
-                : null,
-            hasScreen: this.toBool(data.hasScreen),
-            hasRGB: this.toBool(data.hasRGB),
-            tdpCapacity: this.toInt(data.tdpCapacity),
-            coolerHeight:
-              this.normalizeCoolerType(data.type) === 'Torre'
-                ? this.toInt(data.coolerHeight)
-                : null,
-          },
-        };
-        break;
-
+        return this.buildCreateCoolerSpecs(data);
       case 'STORAGE':
-        productData.storageSpecs = {
-          create: {
-            type: data.type || 'SSD',
-            capacity: this.toInt(data.capacity),
-            interface: data.interface || 'SATA',
-            readSpeed: this.toInt(data.readSpeed),
-            writeSpeed: this.toInt(data.writeSpeed),
-            m2FormFactor: data.m2FormFactor || null,
-          },
-        };
-        break;
-
+        return this.buildCreateStorageSpecs(data);
       case 'LAPTOP':
-        productData.laptopSpecs = {
-          create: {
-            brand: data.brand || 'Otra',
-            processor: data.processor || 'N/A',
-            ram: data.ram || 'N/A',
-            storage: data.storage || 'N/A',
-            screenSize: data.screenSize || '15.6"',
-            refreshRate: this.toInt(data.refreshRate),
-            panelType: data.panelType || 'IPS',
-            hasDedicatedGpu: this.toBool(data.hasDedicatedGpu),
-            gpuBrand: data.gpuBrand || '',
-            gpuModel: data.gpuModel || '',
-            includesWindows: this.toBool(data.includesWindows),
-          },
-        };
-        break;
-
+        return this.buildCreateLaptopSpecs(data);
       case 'PC_DESKTOP':
-        productData.desktopSpecs = {
-          create: {
-            processor: data.processor || 'N/A',
-            ram: data.ram || 'N/A',
-            storage: data.storage || 'N/A',
-            hasDedicatedGpu: this.toBool(data.hasDedicatedGpu),
-            gpuBrand: data.gpuBrand || '',
-            gpuModel: data.gpuModel || '',
-            coolerType: data.coolerType || 'No especificado',
-            psuWatts: data.psuWatts !== undefined ? this.toInt(data.psuWatts) : null,
-            caseModel: data.caseModel || '',
-          },
-        };
-        break;
-
+        return this.buildCreateDesktopSpecs(data);
       case 'SOFTWARE':
-        productData.softwareSpecs = {
-          create: {
-            licenseType: data.licenseType || 'Permanente',
-            platform: data.platform || 'Windows',
-          },
-        };
-        break;
-
+        return this.buildCreateSoftwareSpecs(data);
       case 'MONITOR':
-        productData.monitorSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            screenSize: data.screenSize || '24"',
-            resolution: data.resolution || 'FHD (1920x1080)',
-            panelType: data.panelType || 'IPS',
-            refreshRate: this.toInt(data.refreshRate),
-            responseTimeMs:
-              data.responseTimeMs !== undefined ? this.toFloat(data.responseTimeMs) : null,
-            ports: this.toStringArray(data.ports),
-            hasSpeakers: this.toBool(data.hasSpeakers),
-          },
-        };
-        break;
-
+        return this.buildCreateMonitorSpecs(data);
       case 'KEYBOARD':
-        productData.keyboardSpecs = {
-          create: {
-            connection:
-              data.connection || this.toStringArray(data.connections).join(', ') || 'Cableado',
-            switchType: data.switchType || '',
-            layout: data.layoutLanguage || data.layout || 'Español',
-            hasRGB: this.toBool(data.hasRGB || data.hasLighting),
-            brand: data.brand || '',
-            keyboardType: data.keyboardType || 'Membrana',
-            connections: this.toStringArray(data.connections),
-            layoutLanguage: data.layoutLanguage || 'Español',
-            hasLighting: this.toBool(data.hasLighting),
-            keyboardFormFactor: data.keyboardFormFactor || 'Completo',
-            weightGrams: null,
-          },
-        };
-        break;
-
+        return this.buildCreateKeyboardSpecs(data);
       case 'MOUSE':
-        const mouseType = data.mouseType || 'Oficina';
-        const isGamerMouse = mouseType === 'Gamer';
-        productData.mouseSpecs = {
-          create: {
-            connection:
-              data.connection || this.toStringArray(data.connections).join(', ') || 'Cableado',
-            dpi: isGamerMouse ? this.toInt(data.dpi) : 0,
-            sensor: data.sensor || 'Optico',
-            hasRGB: this.toBool(data.hasRGB),
-            brand: data.brand || '',
-            mouseType,
-            connections: this.toStringArray(data.connections),
-            buttonCount:
-              isGamerMouse && data.buttonCount !== undefined ? this.toInt(data.buttonCount) : null,
-            pollingRateHz:
-              isGamerMouse && data.pollingRateHz !== undefined
-                ? this.toInt(data.pollingRateHz)
-                : null,
-            weightGrams: data.weightGrams !== undefined ? this.toInt(data.weightGrams) : null,
-            powerType: data.powerType || 'Ninguno',
-          },
-        };
-        break;
-
+        return this.buildCreateMouseSpecs(data);
       case 'MOUSEPAD':
-        productData.mousepadSpecs = {
-          create: {
-            brand: data.brand || '',
-            widthCm: data.widthCm !== undefined ? this.toInt(data.widthCm) : null,
-            lengthCm: data.lengthCm !== undefined ? this.toInt(data.lengthCm) : null,
-            hasLed: this.toBool(data.hasLed),
-          },
-        };
-        break;
-
+        return this.buildCreateMousepadSpecs(data);
       case 'CHAIR':
-        productData.chairSpecs = {
-          create: {
-            brand: data.brand || '',
-            color: data.color || '',
-            material: data.material || '',
-            maxWeightKg: data.maxWeightKg !== undefined ? this.toInt(data.maxWeightKg) : null,
-          },
-        };
-        break;
-
+        return this.buildCreateChairSpecs(data);
       case 'GAMING_DESK':
-        productData.gamingDeskSpecs = {
-          create: {
-            brand: data.brand || '',
-            color: data.color || '',
-            surface: data.surface || '',
-            weightKg: data.weightKg !== undefined ? this.toInt(data.weightKg) : null,
-          },
-        };
-        break;
-
+        return this.buildCreateGamingDeskSpecs(data);
       case 'HEADSET':
-        productData.headsetSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            connection: data.connection || 'Cableado',
-            supportedConnections: this.toStringArray(data.supportedConnections),
-            driverSize: this.toInt(data.driverSize) || 40,
-            impedance: this.toInt(data.impedance) || 32,
-            micType: data.micType || 'Estandar',
-            noiseCancel: this.toBool(data.noiseCancel),
-            hasRGB: this.toBool(data.hasRGB),
-          },
-        };
-        break;
-
+        return this.buildCreateHeadsetSpecs(data);
       case 'MICROPHONE':
-        productData.microphoneSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            connection: data.connection || 'USB',
-            micType: data.micType || 'Cardioide',
-            hasRGB: this.toBool(data.hasRGB),
-          },
-        };
-        break;
-
+        return this.buildCreateMicrophoneSpecs(data);
       case 'SPEAKER':
-        productData.speakerSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            connection: data.connection || 'Jack',
-            wattage: this.toInt(data.wattage),
-            hasRGB: this.toBool(data.hasRGB),
-          },
-        };
-        break;
-
+        return this.buildCreateSpeakerSpecs(data);
       case 'WEBCAM':
-        productData.webcamSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            resolution: data.resolution || 'FHD',
-            fps: this.toInt(data.fps) || 30,
-          },
-        };
-        break;
-
+        return this.buildCreateWebcamSpecs(data);
       case 'CAPTURE_CARD':
-        productData.captureCardSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            resolution: data.resolution || 'FHD',
-            fps: this.toInt(data.fps) || 60,
-          },
-        };
-        break;
-
+        return this.buildCreateCaptureCardSpecs(data);
       case 'CABLE_HUB':
-        const cableHubType = data.cableHubType || data.type || 'Cable';
-        productData.cableHubSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            type: cableHubType,
-            cableType: cableHubType === 'Cable' ? data.cableType || null : null,
-            cableLengthMeters: cableHubType === 'Cable' ? this.toInt(data.cableLengthMeters) : null,
-            hubInputType: cableHubType === 'Hub' ? data.hubInputType || null : null,
-            hasHdmiOutput: cableHubType === 'Hub' ? this.toBool(data.hasHdmiOutput) : null,
-            hasRj45Output: cableHubType === 'Hub' ? this.toBool(data.hasRj45Output) : null,
-          },
-        };
-        break;
-
+        return this.buildCreateCableHubSpecs(data);
       case 'LAPTOP_COOLING_BASE':
-        productData.laptopCoolingBaseSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            fanCount: this.toInt(data.fanCount) || 1,
-            connectivity: data.connectivity || 'USB-A',
-          },
-        };
-        break;
-
+        return this.buildCreateLaptopCoolingBaseSpecs(data);
       case 'BACKPACK':
-        productData.backpackSpecs = {
-          create: {
-            brand: data.brand || 'Otros',
-            color: data.color || '',
-          },
-        };
-        break;
-
+        return this.buildCreateBackpackSpecs(data);
       default:
         throw new BadRequestException(`Categoria no soportada: ${data.category}`);
     }
-
-    return productData;
   }
 
+  private buildCreateCpuSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      cpuSpecs: {
+        create: {
+          brand: data.cpuBrand || 'AMD',
+          socket: data.socket || 'N/A',
+          cores: this.toInt(data.cores),
+          threads: this.toInt(data.threads),
+          frequency: data.frequency || '',
+          ...(data.baseTdpWatts !== undefined
+            ? { baseTdpWatts: this.toInt(data.baseTdpWatts) }
+            : {}),
+          tdp: this.toInt(data.tdp),
+          integratedGraphics: this.toBool(data.integratedGraphics),
+          includesCooler: this.toBool(data.includesCooler),
+        },
+      },
+    };
+  }
+
+  private buildCreateMotherboardSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      motherboardSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          socket: data.socket || 'N/A',
+          formFactor: data.formFactor || 'ATX',
+          memoryType: data.memoryType || 'DDR4',
+          memorySlots: this.toInt(data.memorySlots),
+          m2Slots: this.toInt(data.m2Slots),
+          supportedM2FormFactors: this.toStringArray(data.supportedM2FormFactors),
+        },
+      },
+    };
+  }
+
+  private buildCreateRamSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      ramSpecs: {
+        create: {
+          memoryType: data.memoryType || 'DDR4',
+          capacity: this.toInt(data.capacity),
+          speed: this.toInt(data.speed),
+          modules: this.toInt(data.modules),
+          hasRGB: this.toBool(data.hasRGB),
+        },
+      },
+    };
+  }
+
+  private buildCreateGpuSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    const gpuPowerWatts = this.hasValue(data.gpuPowerWatts)
+      ? this.toInt(data.gpuPowerWatts)
+      : this.toInt(data.tdp);
+    return {
+      gpuSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          chipset: data.chipset || 'N/A',
+          vram: this.toInt(data.vram),
+          length: this.toInt(data.length),
+          tdp: gpuPowerWatts,
+          gpuPowerWatts,
+          ...(this.hasValue(data.recommendedPsuWatts)
+            ? { recommendedPsuWatts: this.toInt(data.recommendedPsuWatts) }
+            : {}),
+          fans: this.hasValue(data.fans) ? this.toInt(data.fans) : 0,
+        },
+      },
+    };
+  }
+
+  private buildCreatePsuSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      psuSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          wattage: this.toInt(data.wattage),
+          certification: data.certification || 'None',
+          modular: data.modular || 'No',
+          formFactor: data.formFactor || 'ATX',
+        },
+      },
+    };
+  }
+
+  private buildCreateCaseSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      caseSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          formFactor: data.formFactor || 'ATX',
+          maxGpuLength: this.toInt(data.maxGpuLength),
+          includesPsu: this.toBool(data.includesPsu),
+          includedFans: this.toInt(data.includedFans),
+          ...(data.radiatorSupportMm !== undefined
+            ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) }
+            : {}),
+        },
+      },
+    };
+  }
+
+  private buildCreateCoolerSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    const coolerType = this.normalizeCoolerType(data.type);
+    return {
+      coolerSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          type: coolerType,
+          socketSupport: this.toStringArray(data.compatibleSockets).join(', '),
+          compatibleSockets: this.toStringArray(data.compatibleSockets),
+          fanCount: this.toInt(data.fanCount),
+          radiatorSize: coolerType === 'LÃ­quida' ? this.toInt(data.radiatorSize) : null,
+          hasScreen: this.toBool(data.hasScreen),
+          hasRGB: this.toBool(data.hasRGB),
+          tdpCapacity: this.toInt(data.tdpCapacity),
+          coolerHeight: coolerType === 'Torre' ? this.toInt(data.coolerHeight) : null,
+        },
+      },
+    };
+  }
+
+  private buildCreateStorageSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      storageSpecs: {
+        create: {
+          type: data.type || 'SSD',
+          capacity: this.toInt(data.capacity),
+          interface: data.interface || 'SATA',
+          readSpeed: this.toInt(data.readSpeed),
+          writeSpeed: this.toInt(data.writeSpeed),
+          m2FormFactor: data.m2FormFactor || null,
+        },
+      },
+    };
+  }
+
+  private buildCreateLaptopSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      laptopSpecs: {
+        create: {
+          brand: data.brand || 'Otra',
+          processor: data.processor || 'N/A',
+          ram: data.ram || 'N/A',
+          storage: data.storage || 'N/A',
+          screenSize: data.screenSize || '15.6"',
+          refreshRate: this.toInt(data.refreshRate),
+          panelType: data.panelType || 'IPS',
+          hasDedicatedGpu: this.toBool(data.hasDedicatedGpu),
+          gpuBrand: data.gpuBrand || '',
+          gpuModel: data.gpuModel || '',
+          includesWindows: this.toBool(data.includesWindows),
+        },
+      },
+    };
+  }
+
+  private buildCreateDesktopSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      desktopSpecs: {
+        create: {
+          processor: data.processor || 'N/A',
+          ram: data.ram || 'N/A',
+          storage: data.storage || 'N/A',
+          hasDedicatedGpu: this.toBool(data.hasDedicatedGpu),
+          gpuBrand: data.gpuBrand || '',
+          gpuModel: data.gpuModel || '',
+          coolerType: data.coolerType || 'No especificado',
+          psuWatts: data.psuWatts !== undefined ? this.toInt(data.psuWatts) : null,
+          caseModel: data.caseModel || '',
+        },
+      },
+    };
+  }
+
+  private buildCreateSoftwareSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      softwareSpecs: {
+        create: {
+          licenseType: data.licenseType || 'Permanente',
+          platform: data.platform || 'Windows',
+        },
+      },
+    };
+  }
+
+  private buildCreateMonitorSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      monitorSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          screenSize: data.screenSize || '24"',
+          resolution: data.resolution || 'FHD (1920x1080)',
+          panelType: data.panelType || 'IPS',
+          refreshRate: this.toInt(data.refreshRate),
+          responseTimeMs:
+            data.responseTimeMs !== undefined ? this.toFloat(data.responseTimeMs) : null,
+          ports: this.toStringArray(data.ports),
+          hasSpeakers: this.toBool(data.hasSpeakers),
+        },
+      },
+    };
+  }
+
+  private buildCreateKeyboardSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      keyboardSpecs: {
+        create: {
+          connection:
+            data.connection || this.toStringArray(data.connections).join(', ') || 'Cableado',
+          switchType: data.switchType || '',
+          layout: data.layoutLanguage || data.layout || 'EspaÃ±ol',
+          hasRGB: this.toBool(data.hasRGB || data.hasLighting),
+          brand: data.brand || '',
+          keyboardType: data.keyboardType || 'Membrana',
+          connections: this.toStringArray(data.connections),
+          layoutLanguage: data.layoutLanguage || 'EspaÃ±ol',
+          hasLighting: this.toBool(data.hasLighting),
+          keyboardFormFactor: data.keyboardFormFactor || 'Completo',
+          weightGrams: null,
+        },
+      },
+    };
+  }
+
+  private buildCreateMouseSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    const mouseType = data.mouseType || 'Oficina';
+    const isGamerMouse = mouseType === 'Gamer';
+    return {
+      mouseSpecs: {
+        create: {
+          connection:
+            data.connection || this.toStringArray(data.connections).join(', ') || 'Cableado',
+          dpi: isGamerMouse ? this.toInt(data.dpi) : 0,
+          sensor: data.sensor || 'Optico',
+          hasRGB: this.toBool(data.hasRGB),
+          brand: data.brand || '',
+          mouseType,
+          connections: this.toStringArray(data.connections),
+          buttonCount:
+            isGamerMouse && data.buttonCount !== undefined ? this.toInt(data.buttonCount) : null,
+          pollingRateHz:
+            isGamerMouse && data.pollingRateHz !== undefined
+              ? this.toInt(data.pollingRateHz)
+              : null,
+          weightGrams: data.weightGrams !== undefined ? this.toInt(data.weightGrams) : null,
+          powerType: data.powerType || 'Ninguno',
+        },
+      },
+    };
+  }
+
+  private buildCreateMousepadSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      mousepadSpecs: {
+        create: {
+          brand: data.brand || '',
+          widthCm: data.widthCm !== undefined ? this.toInt(data.widthCm) : null,
+          lengthCm: data.lengthCm !== undefined ? this.toInt(data.lengthCm) : null,
+          hasLed: this.toBool(data.hasLed),
+        },
+      },
+    };
+  }
+
+  private buildCreateChairSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      chairSpecs: {
+        create: {
+          brand: data.brand || '',
+          color: data.color || '',
+          material: data.material || '',
+          maxWeightKg: data.maxWeightKg !== undefined ? this.toInt(data.maxWeightKg) : null,
+        },
+      },
+    };
+  }
+
+  private buildCreateGamingDeskSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      gamingDeskSpecs: {
+        create: {
+          brand: data.brand || '',
+          color: data.color || '',
+          surface: data.surface || '',
+          weightKg: data.weightKg !== undefined ? this.toInt(data.weightKg) : null,
+        },
+      },
+    };
+  }
+
+  private buildCreateHeadsetSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      headsetSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          connection: data.connection || 'Cableado',
+          supportedConnections: this.toStringArray(data.supportedConnections),
+          driverSize: this.toInt(data.driverSize) || 40,
+          impedance: this.toInt(data.impedance) || 32,
+          micType: data.micType || 'Estandar',
+          noiseCancel: this.toBool(data.noiseCancel),
+          hasRGB: this.toBool(data.hasRGB),
+        },
+      },
+    };
+  }
+
+  private buildCreateMicrophoneSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      microphoneSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          connection: data.connection || 'USB',
+          micType: data.micType || 'Cardioide',
+          hasRGB: this.toBool(data.hasRGB),
+        },
+      },
+    };
+  }
+
+  private buildCreateSpeakerSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      speakerSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          connection: data.connection || 'Jack',
+          wattage: this.toInt(data.wattage),
+          hasRGB: this.toBool(data.hasRGB),
+        },
+      },
+    };
+  }
+
+  private buildCreateWebcamSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      webcamSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          resolution: data.resolution || 'FHD',
+          fps: this.toInt(data.fps) || 30,
+        },
+      },
+    };
+  }
+
+  private buildCreateCaptureCardSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      captureCardSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          resolution: data.resolution || 'FHD',
+          fps: this.toInt(data.fps) || 60,
+        },
+      },
+    };
+  }
+
+  private buildCreateCableHubSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    const cableHubType = data.cableHubType || data.type || 'Cable';
+    return {
+      cableHubSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          type: cableHubType,
+          cableType: cableHubType === 'Cable' ? data.cableType || null : null,
+          cableLengthMeters: cableHubType === 'Cable' ? this.toInt(data.cableLengthMeters) : null,
+          hubInputType: cableHubType === 'Hub' ? data.hubInputType || null : null,
+          hasHdmiOutput: cableHubType === 'Hub' ? this.toBool(data.hasHdmiOutput) : null,
+          hasRj45Output: cableHubType === 'Hub' ? this.toBool(data.hasRj45Output) : null,
+        },
+      },
+    };
+  }
+
+  private buildCreateLaptopCoolingBaseSpecs(
+    data: CreateProductDto & { uploadedImages?: string[] },
+  ) {
+    return {
+      laptopCoolingBaseSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          fanCount: this.toInt(data.fanCount) || 1,
+          connectivity: data.connectivity || 'USB-A',
+        },
+      },
+    };
+  }
+
+  private buildCreateBackpackSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    return {
+      backpackSpecs: {
+        create: {
+          brand: data.brand || 'Otros',
+          color: data.color || '',
+        },
+      },
+    };
+  }
   private persistCreatedProduct(productData: any) {
     return this.prisma.product.create({ data: productData });
   }
@@ -1096,7 +1203,7 @@ export class ProductsService {
     if (value === undefined || value === 'all') {
       return undefined;
     }
-    if (['true', '1', 'yes', 'si', 'sí'].includes(value.toLowerCase())) {
+    if (['true', '1', 'yes', 'si', 'sÃ­'].includes(value.toLowerCase())) {
       return true;
     }
     if (['false', '0', 'no'].includes(value.toLowerCase())) {
@@ -2298,935 +2405,968 @@ export class ProductsService {
   }
 
   private buildSpecUpdate(currentProduct: any, data: UpdateProductDto) {
-    const category = currentProduct.category;
-    switch (category) {
+    return this.buildCategorySpecUpdate(currentProduct, data);
+  }
+
+  private buildCategorySpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    switch (currentProduct.category) {
       case 'CPU':
-        if (
-          data.cpuBrand === undefined &&
-          data.socket === undefined &&
-          data.cores === undefined &&
-          data.threads === undefined &&
-          data.frequency === undefined &&
-          data.baseTdpWatts === undefined &&
-          data.tdp === undefined &&
-          data.integratedGraphics === undefined &&
-          data.includesCooler === undefined
-        ) {
-          return {};
-        }
-
-        this.validateCpuBrandSocket(
-          String(data.cpuBrand ?? currentProduct.cpuSpecs?.brand ?? '').trim(),
-          String(data.socket ?? currentProduct.cpuSpecs?.socket ?? '').trim(),
-        );
-        return {
-          cpuSpecs: {
-            update: {
-              ...(data.cpuBrand !== undefined ? { brand: data.cpuBrand } : {}),
-              ...(data.socket !== undefined ? { socket: data.socket } : {}),
-              ...(data.cores !== undefined ? { cores: this.toInt(data.cores) } : {}),
-              ...(data.threads !== undefined ? { threads: this.toInt(data.threads) } : {}),
-              ...(data.frequency !== undefined ? { frequency: data.frequency } : {}),
-              ...(data.baseTdpWatts !== undefined
-                ? { baseTdpWatts: this.toInt(data.baseTdpWatts) }
-                : {}),
-              ...(data.tdp !== undefined ? { tdp: this.toInt(data.tdp) } : {}),
-              ...(data.integratedGraphics !== undefined
-                ? { integratedGraphics: this.toBool(data.integratedGraphics) }
-                : {}),
-              ...(data.includesCooler !== undefined
-                ? { includesCooler: this.toBool(data.includesCooler) }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildCpuSpecUpdate(currentProduct, data);
       case 'MOTHERBOARD':
-        if (
-          data.brand === undefined &&
-          data.socket === undefined &&
-          data.formFactor === undefined &&
-          data.memoryType === undefined &&
-          data.memorySlots === undefined &&
-          data.m2Slots === undefined &&
-          data.supportedM2FormFactors === undefined
-        ) {
-          return {};
-        }
-
-        const nextMotherboardBrand = String(
-          data.brand ?? currentProduct.motherboardSpecs?.brand ?? '',
-        ).trim();
-        if (!nextMotherboardBrand) {
-          throw new BadRequestException('Selecciona la marca de la placa madre.');
-        }
-
-        return {
-          motherboardSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.socket !== undefined ? { socket: data.socket } : {}),
-              ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
-              ...(data.memoryType !== undefined ? { memoryType: data.memoryType } : {}),
-              ...(data.memorySlots !== undefined
-                ? { memorySlots: this.toInt(data.memorySlots) }
-                : {}),
-              ...(data.m2Slots !== undefined ? { m2Slots: this.toInt(data.m2Slots) } : {}),
-              ...(data.supportedM2FormFactors !== undefined
-                ? {
-                    supportedM2FormFactors: this.toStringArray(data.supportedM2FormFactors),
-                  }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildMotherboardSpecUpdate(currentProduct, data);
       case 'GPU':
-        if (
-          data.brand === undefined &&
-          data.chipset === undefined &&
-          data.vram === undefined &&
-          data.length === undefined &&
-          data.gpuPowerWatts === undefined &&
-          data.tdp === undefined &&
-          data.recommendedPsuWatts === undefined &&
-          data.fans === undefined
-        ) {
-          return {};
-        }
-
-        const nextGpuBrand = String(data.brand ?? currentProduct.gpuSpecs?.brand ?? '').trim();
-        const nextGpuPower = this.hasValue(data.gpuPowerWatts)
-          ? this.toInt(data.gpuPowerWatts)
-          : this.toInt(
-              data.tdp ?? currentProduct.gpuSpecs?.gpuPowerWatts ?? currentProduct.gpuSpecs?.tdp,
-            );
-
-        if (!nextGpuBrand) {
-          throw new BadRequestException('Selecciona la marca ensambladora de la tarjeta grafica.');
-        }
-
-        if (nextGpuPower <= 0) {
-          throw new BadRequestException('El consumo real de la GPU debe ser mayor a 0');
-        }
-
-        if (this.hasValue(data.recommendedPsuWatts) && this.toInt(data.recommendedPsuWatts) <= 0) {
-          throw new BadRequestException('La PSU recomendada debe ser mayor a 0');
-        }
-
-        if (this.hasValue(data.fans) && this.toInt(data.fans) <= 0) {
-          throw new BadRequestException('La cantidad de ventiladores debe ser mayor a 0');
-        }
-
-        return {
-          gpuSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.chipset !== undefined ? { chipset: data.chipset } : {}),
-              ...(data.vram !== undefined ? { vram: this.toInt(data.vram) } : {}),
-              ...(data.length !== undefined ? { length: this.toInt(data.length) } : {}),
-              ...(data.gpuPowerWatts !== undefined || data.tdp !== undefined
-                ? { gpuPowerWatts: nextGpuPower, tdp: nextGpuPower }
-                : {}),
-              ...(data.recommendedPsuWatts !== undefined
-                ? {
-                    recommendedPsuWatts: !this.hasValue(data.recommendedPsuWatts)
-                      ? null
-                      : this.toInt(data.recommendedPsuWatts),
-                  }
-                : {}),
-              ...(data.fans !== undefined
-                ? {
-                    fans: !this.hasValue(data.fans) ? 0 : this.toInt(data.fans),
-                  }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildGpuSpecUpdate(currentProduct, data);
       case 'CASE':
-        if (
-          data.brand === undefined &&
-          data.formFactor === undefined &&
-          data.maxGpuLength === undefined &&
-          data.includesPsu === undefined &&
-          data.includedFans === undefined &&
-          data.radiatorSupportMm === undefined
-        ) {
-          return {};
-        }
-
-        const nextCaseBrand = String(data.brand ?? currentProduct.caseSpecs?.brand ?? '').trim();
-        if (!nextCaseBrand) {
-          throw new BadRequestException('Selecciona la marca del gabinete.');
-        }
-
-        return {
-          caseSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
-              ...(data.maxGpuLength !== undefined
-                ? { maxGpuLength: this.toInt(data.maxGpuLength) }
-                : {}),
-              ...(data.includesPsu !== undefined
-                ? { includesPsu: this.toBool(data.includesPsu) }
-                : {}),
-              ...(data.includedFans !== undefined
-                ? { includedFans: this.toInt(data.includedFans) }
-                : {}),
-              ...(data.radiatorSupportMm !== undefined
-                ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildCaseSpecUpdate(currentProduct, data);
       case 'COOLER':
-        if (
-          data.brand === undefined &&
-          data.type === undefined &&
-          data.compatibleSockets === undefined &&
-          data.tdpCapacity === undefined &&
-          data.coolerHeight === undefined &&
-          data.radiatorSize === undefined &&
-          data.hasRGB === undefined &&
-          data.hasScreen === undefined
-        ) {
-          return {};
-        }
-
-        const nextCoolerBrand = String(
-          data.brand ?? currentProduct.coolerSpecs?.brand ?? '',
-        ).trim();
-        const nextCoolerType = this.normalizeCoolerType(
-          data.type ?? currentProduct.coolerSpecs?.type,
-        );
-        const nextCompatibleSockets =
-          data.compatibleSockets !== undefined
-            ? this.toStringArray(data.compatibleSockets)
-            : this.toStringArray(
-                currentProduct.coolerSpecs?.compatibleSockets ??
-                  currentProduct.coolerSpecs?.socketSupport,
-              );
-        const nextTdpCapacity =
-          data.tdpCapacity !== undefined
-            ? this.toInt(data.tdpCapacity)
-            : this.toInt(currentProduct.coolerSpecs?.tdpCapacity);
-
-        if (!nextCoolerBrand) {
-          throw new BadRequestException('Selecciona la marca del cooler.');
-        }
-
-        if (nextCompatibleSockets.length === 0) {
-          throw new BadRequestException('Debes registrar sockets compatibles del cooler');
-        }
-
-        if (nextTdpCapacity <= 0) {
-          throw new BadRequestException('El TDP soportado del cooler debe ser mayor a 0');
-        }
-
-        const nextCoolerHeight =
-          data.coolerHeight !== undefined
-            ? this.toInt(data.coolerHeight)
-            : this.toInt(currentProduct.coolerSpecs?.coolerHeight);
-        const nextRadiatorSize =
-          data.radiatorSize !== undefined
-            ? this.toInt(data.radiatorSize)
-            : this.toInt(currentProduct.coolerSpecs?.radiatorSize);
-
-        if (nextCoolerType === 'Torre' && nextCoolerHeight <= 0) {
-          throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
-        }
-
-        if (nextCoolerType === 'Líquida' && nextRadiatorSize <= 0) {
-          throw new BadRequestException('Selecciona el tamaño de radiador del cooler líquido');
-        }
-
-        return {
-          coolerSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.type !== undefined ? { type: nextCoolerType } : {}),
-              ...(data.compatibleSockets !== undefined
-                ? {
-                    compatibleSockets: this.toStringArray(data.compatibleSockets),
-                    socketSupport: this.toStringArray(data.compatibleSockets).join(', '),
-                  }
-                : {}),
-              ...(data.tdpCapacity !== undefined
-                ? { tdpCapacity: this.toInt(data.tdpCapacity) }
-                : {}),
-              ...(data.coolerHeight !== undefined || data.type !== undefined
-                ? {
-                    coolerHeight: nextCoolerType === 'Torre' ? nextCoolerHeight : null,
-                  }
-                : {}),
-              ...(data.radiatorSize !== undefined || data.type !== undefined
-                ? {
-                    radiatorSize: nextCoolerType === 'Líquida' ? nextRadiatorSize : null,
-                  }
-                : {}),
-              ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
-              ...(data.hasScreen !== undefined ? { hasScreen: this.toBool(data.hasScreen) } : {}),
-            },
-          },
-        };
-
+        return this.buildCoolerSpecUpdate(currentProduct, data);
       case 'PSU':
-        if (
-          data.brand === undefined &&
-          data.wattage === undefined &&
-          data.certification === undefined &&
-          data.modular === undefined &&
-          data.formFactor === undefined
-        ) {
-          return {};
-        }
-
-        const nextPsuBrand = String(data.brand ?? currentProduct.psuSpecs?.brand ?? '').trim();
-        const nextWattage =
-          data.wattage !== undefined
-            ? this.toInt(data.wattage)
-            : this.toInt(currentProduct.psuSpecs?.wattage);
-
-        if (!nextPsuBrand) {
-          throw new BadRequestException('Selecciona la marca de la fuente de poder.');
-        }
-
-        if (nextWattage <= 0) {
-          throw new BadRequestException('La potencia de la fuente debe ser mayor a 0');
-        }
-
-        return {
-          psuSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.wattage !== undefined ? { wattage: this.toInt(data.wattage) } : {}),
-              ...(data.certification !== undefined ? { certification: data.certification } : {}),
-              ...(data.modular !== undefined ? { modular: data.modular } : {}),
-              ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
-            },
-          },
-        };
-
+        return this.buildPsuSpecUpdate(currentProduct, data);
       case 'STORAGE':
-        if (
-          data.type === undefined &&
-          data.capacity === undefined &&
-          data.interface === undefined &&
-          data.readSpeed === undefined &&
-          data.writeSpeed === undefined &&
-          data.m2FormFactor === undefined
-        ) {
-          return {};
-        }
-
-        const nextStorageType = String(
-          data.type ?? currentProduct.storageSpecs?.type ?? '',
-        ).toUpperCase();
-        const nextM2FormFactor = data.m2FormFactor ?? currentProduct.storageSpecs?.m2FormFactor;
-        const isM2 = nextStorageType.includes('M.2') || nextStorageType.includes('NVME');
-        if (isM2 && !nextM2FormFactor) {
-          throw new BadRequestException(
-            'El tamaño fisico M.2 es obligatorio para almacenamientos M.2',
-          );
-        }
-        return {
-          storageSpecs: {
-            update: {
-              ...(data.type !== undefined ? { type: data.type } : {}),
-              ...(data.capacity !== undefined ? { capacity: this.toInt(data.capacity) } : {}),
-              ...(data.interface !== undefined ? { interface: data.interface } : {}),
-              ...(data.readSpeed !== undefined ? { readSpeed: this.toInt(data.readSpeed) } : {}),
-              ...(data.writeSpeed !== undefined ? { writeSpeed: this.toInt(data.writeSpeed) } : {}),
-              ...(data.m2FormFactor !== undefined
-                ? { m2FormFactor: data.m2FormFactor || null }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildStorageSpecUpdate(currentProduct, data);
       case 'LAPTOP':
-        if (
-          data.brand === undefined &&
-          data.processor === undefined &&
-          data.ram === undefined &&
-          data.storage === undefined &&
-          data.screenSize === undefined &&
-          data.refreshRate === undefined &&
-          data.panelType === undefined &&
-          data.hasDedicatedGpu === undefined &&
-          data.gpuBrand === undefined &&
-          data.gpuModel === undefined &&
-          data.includesWindows === undefined
-        ) {
-          return {};
-        }
-
-        const nextLaptopBrand = String(
-          data.brand ?? currentProduct.laptopSpecs?.brand ?? '',
-        ).trim();
-        if (!nextLaptopBrand) {
-          throw new BadRequestException('Selecciona la marca de la laptop.');
-        }
-
-        this.ensureNonNegative('refreshRate', data.refreshRate);
-        return {
-          laptopSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.processor !== undefined ? { processor: data.processor } : {}),
-              ...(data.ram !== undefined ? { ram: data.ram } : {}),
-              ...(data.storage !== undefined ? { storage: data.storage } : {}),
-              ...(data.screenSize !== undefined ? { screenSize: data.screenSize } : {}),
-              ...(data.refreshRate !== undefined
-                ? { refreshRate: this.toInt(data.refreshRate) }
-                : {}),
-              ...(data.panelType !== undefined ? { panelType: data.panelType } : {}),
-              ...(data.hasDedicatedGpu !== undefined
-                ? { hasDedicatedGpu: this.toBool(data.hasDedicatedGpu) }
-                : {}),
-              ...(data.gpuBrand !== undefined ? { gpuBrand: data.gpuBrand } : {}),
-              ...(data.gpuModel !== undefined ? { gpuModel: data.gpuModel } : {}),
-              ...(data.includesWindows !== undefined
-                ? { includesWindows: this.toBool(data.includesWindows) }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildLaptopSpecUpdate(currentProduct, data);
       case 'PC_DESKTOP':
-        if (
-          data.processor === undefined &&
-          data.ram === undefined &&
-          data.storage === undefined &&
-          data.hasDedicatedGpu === undefined &&
-          data.gpuBrand === undefined &&
-          data.gpuModel === undefined &&
-          data.coolerType === undefined &&
-          data.psuWatts === undefined &&
-          data.caseModel === undefined
-        ) {
-          return {};
-        }
-
-        this.ensureNonNegative('psuWatts', data.psuWatts, false);
-        return {
-          desktopSpecs: {
-            update: {
-              ...(data.processor !== undefined ? { processor: data.processor } : {}),
-              ...(data.ram !== undefined ? { ram: data.ram } : {}),
-              ...(data.storage !== undefined ? { storage: data.storage } : {}),
-              ...(data.hasDedicatedGpu !== undefined
-                ? { hasDedicatedGpu: this.toBool(data.hasDedicatedGpu) }
-                : {}),
-              ...(data.gpuBrand !== undefined ? { gpuBrand: data.gpuBrand } : {}),
-              ...(data.gpuModel !== undefined ? { gpuModel: data.gpuModel } : {}),
-              ...(data.coolerType !== undefined ? { coolerType: data.coolerType } : {}),
-              ...(data.psuWatts !== undefined ? { psuWatts: this.toInt(data.psuWatts) } : {}),
-              ...(data.caseModel !== undefined ? { caseModel: data.caseModel } : {}),
-            },
-          },
-        };
-
+        return this.buildPcDesktopSpecUpdate(currentProduct, data);
       case 'MONITOR':
-        if (
-          data.brand === undefined &&
-          data.screenSize === undefined &&
-          data.resolution === undefined &&
-          data.panelType === undefined &&
-          data.refreshRate === undefined &&
-          data.responseTimeMs === undefined &&
-          data.ports === undefined &&
-          data.hasSpeakers === undefined
-        ) {
-          return {};
-        }
-
-        const nextMonitorBrand = String(
-          data.brand ?? currentProduct.monitorSpecs?.brand ?? '',
-        ).trim();
-        if (!nextMonitorBrand) {
-          throw new BadRequestException('Selecciona la marca del monitor.');
-        }
-
-        this.ensureNonNegative('refreshRate', data.refreshRate);
-        this.ensureNonNegative('responseTimeMs', data.responseTimeMs, false);
-        return {
-          monitorSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.screenSize !== undefined ? { screenSize: data.screenSize } : {}),
-              ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
-              ...(data.panelType !== undefined ? { panelType: data.panelType } : {}),
-              ...(data.refreshRate !== undefined
-                ? { refreshRate: this.toInt(data.refreshRate) }
-                : {}),
-              ...(data.responseTimeMs !== undefined
-                ? { responseTimeMs: this.toFloat(data.responseTimeMs) }
-                : {}),
-              ...(data.ports !== undefined ? { ports: this.toStringArray(data.ports) } : {}),
-              ...(data.hasSpeakers !== undefined
-                ? { hasSpeakers: this.toBool(data.hasSpeakers) }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildMonitorSpecUpdate(currentProduct, data);
       case 'KEYBOARD':
-        if (
-          data.brand === undefined &&
-          data.keyboardType === undefined &&
-          data.connections === undefined &&
-          data.layoutLanguage === undefined &&
-          data.hasLighting === undefined &&
-          data.switchType === undefined &&
-          data.keyboardFormFactor === undefined
-        ) {
-          return {};
-        }
-
-        const nextKeyboardBrand = String(
-          data.brand ?? currentProduct.keyboardSpecs?.brand ?? '',
-        ).trim();
-        if (!nextKeyboardBrand) {
-          throw new BadRequestException('Selecciona la marca del teclado.');
-        }
-
-        return {
-          keyboardSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.keyboardType !== undefined ? { keyboardType: data.keyboardType } : {}),
-              ...(data.connections !== undefined
-                ? {
-                    connections: this.toStringArray(data.connections),
-                    connection: this.toStringArray(data.connections).join(', '),
-                  }
-                : {}),
-              ...(data.layoutLanguage !== undefined
-                ? {
-                    layoutLanguage: data.layoutLanguage,
-                    layout: data.layoutLanguage,
-                  }
-                : {}),
-              ...(data.hasLighting !== undefined
-                ? {
-                    hasLighting: this.toBool(data.hasLighting),
-                    hasRGB: this.toBool(data.hasLighting),
-                  }
-                : {}),
-              ...(data.switchType !== undefined ? { switchType: data.switchType } : {}),
-              ...(data.keyboardFormFactor !== undefined
-                ? { keyboardFormFactor: data.keyboardFormFactor }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildKeyboardSpecUpdate(currentProduct, data);
       case 'MOUSE':
-        if (
-          data.brand === undefined &&
-          data.mouseType === undefined &&
-          data.connections === undefined &&
-          data.buttonCount === undefined &&
-          data.dpi === undefined &&
-          data.pollingRateHz === undefined &&
-          data.weightGrams === undefined &&
-          data.powerType === undefined
-        ) {
-          return {};
-        }
-
-        const isUpdatingGamerMouse = data.mouseType === 'Gamer';
-        if (data.brand !== undefined && !String(data.brand || '').trim()) {
-          throw new BadRequestException('Selecciona la marca del mouse.');
-        }
-        if (isUpdatingGamerMouse) {
-          this.ensureNonNegative('buttonCount', data.buttonCount, false);
-          this.ensureNonNegative('dpi', data.dpi, false);
-        }
-        this.ensureNonNegative('weightGrams', data.weightGrams, false);
-        return {
-          mouseSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.mouseType !== undefined ? { mouseType: data.mouseType } : {}),
-              ...(data.connections !== undefined
-                ? {
-                    connections: this.toStringArray(data.connections),
-                    connection: this.toStringArray(data.connections).join(', '),
-                  }
-                : {}),
-              ...(data.mouseType === 'Oficina'
-                ? { buttonCount: null, dpi: 0, pollingRateHz: null }
-                : {}),
-              ...(isUpdatingGamerMouse && data.buttonCount !== undefined
-                ? { buttonCount: this.toInt(data.buttonCount) }
-                : {}),
-              ...(isUpdatingGamerMouse && data.dpi !== undefined
-                ? { dpi: this.toInt(data.dpi) }
-                : {}),
-              ...(isUpdatingGamerMouse && data.pollingRateHz !== undefined
-                ? { pollingRateHz: this.toInt(data.pollingRateHz) }
-                : {}),
-              ...(data.weightGrams !== undefined
-                ? { weightGrams: this.toInt(data.weightGrams) }
-                : {}),
-              ...(data.powerType !== undefined ? { powerType: data.powerType } : {}),
-            },
-          },
-        };
-
+        return this.buildMouseSpecUpdate(currentProduct, data);
       case 'WEBCAM':
-        if (data.brand === undefined && data.resolution === undefined && data.fps === undefined) {
-          return {};
-        }
-        if (data.brand !== undefined && !String(data.brand || '').trim()) {
-          throw new BadRequestException('Selecciona la marca de la webcam.');
-        }
-        if (data.fps !== undefined && ![30, 60].includes(this.toInt(data.fps))) {
-          throw new BadRequestException('Selecciona FPS validos.');
-        }
-        return {
-          webcamSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
-              ...(data.fps !== undefined ? { fps: this.toInt(data.fps) } : {}),
-            },
-          },
-        };
-
+        return this.buildWebcamSpecUpdate(currentProduct, data);
       case 'CAPTURE_CARD':
-        if (data.brand === undefined && data.resolution === undefined && data.fps === undefined) {
-          return {};
-        }
-        if (data.brand !== undefined && !String(data.brand || '').trim()) {
-          throw new BadRequestException('Selecciona la marca de la capturadora.');
-        }
-        if (data.fps !== undefined && ![30, 60, 120].includes(this.toInt(data.fps))) {
-          throw new BadRequestException('Selecciona FPS validos.');
-        }
-        return {
-          captureCardSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
-              ...(data.fps !== undefined ? { fps: this.toInt(data.fps) } : {}),
-            },
-          },
-        };
-
+        return this.buildCaptureCardSpecUpdate(currentProduct, data);
       case 'CABLE_HUB':
-        if (
-          data.brand === undefined &&
-          data.cableHubType === undefined &&
-          data.type === undefined &&
-          data.cableType === undefined &&
-          data.cableLengthMeters === undefined &&
-          data.hubInputType === undefined &&
-          data.hasHdmiOutput === undefined &&
-          data.hasRj45Output === undefined
-        ) {
-          return {};
-        }
-        if (data.brand !== undefined && !String(data.brand || '').trim()) {
-          throw new BadRequestException('Selecciona la marca de Cables y Hub.');
-        }
-        const nextCableHubType = data.cableHubType || data.type;
-        if (nextCableHubType === 'Cable') {
-          if (
-            ![
-              'HDMI a HDMI',
-              'DisplayPort a DisplayPort',
-              'Tipo C a HDMI',
-              'Tipo C a DisplayPort',
-              'Tipo C a Tipo C',
-            ].includes(String(data.cableType || '').trim())
-          ) {
-            throw new BadRequestException('Selecciona el tipo de cable.');
-          }
-          if (![1, 2, 3].includes(this.toInt(data.cableLengthMeters))) {
-            throw new BadRequestException('Selecciona el largo del cable.');
-          }
-        }
-        if (nextCableHubType === 'Hub') {
-          if (!['USB-C', 'USB-A'].includes(String(data.hubInputType || '').trim())) {
-            throw new BadRequestException('Selecciona el tipo de entrada del hub.');
-          }
-          if (data.hasHdmiOutput === undefined || data.hasRj45Output === undefined) {
-            throw new BadRequestException('Selecciona las salidas HDMI y RJ45 del hub.');
-          }
-        }
-        return {
-          cableHubSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(nextCableHubType !== undefined
-                ? {
-                    type: nextCableHubType,
-                    cableType: nextCableHubType === 'Cable' ? data.cableType || null : null,
-                    cableLengthMeters:
-                      nextCableHubType === 'Cable' ? this.toInt(data.cableLengthMeters) : null,
-                    hubInputType: nextCableHubType === 'Hub' ? data.hubInputType || null : null,
-                    hasHdmiOutput:
-                      nextCableHubType === 'Hub' ? this.toBool(data.hasHdmiOutput) : null,
-                    hasRj45Output:
-                      nextCableHubType === 'Hub' ? this.toBool(data.hasRj45Output) : null,
-                  }
-                : {}),
-              ...(nextCableHubType === undefined && data.cableType !== undefined
-                ? { cableType: data.cableType }
-                : {}),
-              ...(nextCableHubType === undefined && data.cableLengthMeters !== undefined
-                ? { cableLengthMeters: this.toInt(data.cableLengthMeters) }
-                : {}),
-              ...(nextCableHubType === undefined && data.hubInputType !== undefined
-                ? { hubInputType: data.hubInputType }
-                : {}),
-              ...(nextCableHubType === undefined && data.hasHdmiOutput !== undefined
-                ? { hasHdmiOutput: this.toBool(data.hasHdmiOutput) }
-                : {}),
-              ...(nextCableHubType === undefined && data.hasRj45Output !== undefined
-                ? { hasRj45Output: this.toBool(data.hasRj45Output) }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildCableHubSpecUpdate(currentProduct, data);
       case 'LAPTOP_COOLING_BASE':
-        if (
-          data.brand === undefined &&
-          data.fanCount === undefined &&
-          data.connectivity === undefined
-        ) {
-          return {};
-        }
-        if (data.brand !== undefined && !String(data.brand || '').trim()) {
-          throw new BadRequestException('Selecciona la marca de la base refrigeradora.');
-        }
-        if (
-          data.fanCount !== undefined &&
-          ![1, 2, 3, 4, 5, 6].includes(this.toInt(data.fanCount))
-        ) {
-          throw new BadRequestException('Selecciona la cantidad de ventiladores.');
-        }
-        if (
-          data.connectivity !== undefined &&
-          !['USB-A', 'USB-C'].includes(String(data.connectivity))
-        ) {
-          throw new BadRequestException('Selecciona la conectividad de la base refrigeradora.');
-        }
-        return {
-          laptopCoolingBaseSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.fanCount !== undefined ? { fanCount: this.toInt(data.fanCount) } : {}),
-              ...(data.connectivity !== undefined ? { connectivity: data.connectivity } : {}),
-            },
-          },
-        };
-
+        return this.buildLaptopCoolingBaseSpecUpdate(currentProduct, data);
       case 'BACKPACK':
-        if (data.brand === undefined && data.color === undefined) {
-          return {};
-        }
-        if (data.brand !== undefined && !String(data.brand || '').trim()) {
-          throw new BadRequestException('Selecciona la marca de la mochila.');
-        }
-        return {
-          backpackSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.color !== undefined ? { color: data.color } : {}),
-            },
-          },
-        };
-
+        return this.buildBackpackSpecUpdate(currentProduct, data);
       case 'HEADSET':
-        if (
-          data.brand === undefined &&
-          data.connection === undefined &&
-          data.supportedConnections === undefined &&
-          data.driverSize === undefined &&
-          data.impedance === undefined &&
-          data.micType === undefined &&
-          data.noiseCancel === undefined &&
-          data.hasRGB === undefined
-        ) {
-          return {};
-        }
-        if (data.brand !== undefined && !String(data.brand || '').trim()) {
-          throw new BadRequestException('Selecciona la marca del audifono.');
-        }
-        const nextHeadsetConnection = data.connection;
-        if (
-          nextHeadsetConnection !== undefined &&
-          !['Cableado', 'Inalambrico'].includes(String(nextHeadsetConnection))
-        ) {
-          throw new BadRequestException('Selecciona la conexion del audifono.');
-        }
-        if (data.supportedConnections !== undefined) {
-          const supportedConnections = this.toStringArray(data.supportedConnections);
-          if (!supportedConnections.length) {
-            throw new BadRequestException('Selecciona al menos una conectividad soportada.');
-          }
-          const wiredOptions = ['Cable USB', 'Jack 3.5 mm'];
-          const wirelessOptions = [...wiredOptions, 'USB Dongle 2.4 GHz', 'Bluetooth'];
-          const allowedOptions =
-            nextHeadsetConnection === 'Cableado' ? wiredOptions : wirelessOptions;
-          const invalidOption = supportedConnections.find(
-            (option) => !allowedOptions.includes(option),
-          );
-          if (invalidOption) {
-            throw new BadRequestException(
-              'La conectividad soportada no corresponde al tipo de conexion.',
-            );
-          }
-        }
-        return {
-          headsetSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.connection !== undefined ? { connection: data.connection } : {}),
-              ...(data.supportedConnections !== undefined
-                ? {
-                    supportedConnections: this.toStringArray(data.supportedConnections),
-                  }
-                : {}),
-              ...(data.driverSize !== undefined ? { driverSize: this.toInt(data.driverSize) } : {}),
-              ...(data.impedance !== undefined ? { impedance: this.toInt(data.impedance) } : {}),
-              ...(data.micType !== undefined ? { micType: data.micType } : {}),
-              ...(data.noiseCancel !== undefined
-                ? { noiseCancel: this.toBool(data.noiseCancel) }
-                : {}),
-              ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
-            },
-          },
-        };
-
+        return this.buildHeadsetSpecUpdate(currentProduct, data);
       case 'MICROPHONE':
-        if (
-          data.brand === undefined &&
-          data.connection === undefined &&
-          data.micType === undefined &&
-          data.hasRGB === undefined
-        ) {
-          return {};
-        }
-        if (data.brand !== undefined && !String(data.brand || '').trim()) {
-          throw new BadRequestException('Selecciona la marca del microfono.');
-        }
-        return {
-          microphoneSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.connection !== undefined ? { connection: data.connection } : {}),
-              ...(data.micType !== undefined ? { micType: data.micType } : {}),
-              ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
-            },
-          },
-        };
-
+        return this.buildMicrophoneSpecUpdate(currentProduct, data);
       case 'SPEAKER':
-        if (
-          data.brand === undefined &&
-          data.connection === undefined &&
-          data.wattage === undefined &&
-          data.hasRGB === undefined
-        ) {
-          return {};
-        }
-        if (data.brand !== undefined && !String(data.brand || '').trim()) {
-          throw new BadRequestException('Selecciona la marca del parlante.');
-        }
-        return {
-          speakerSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.connection !== undefined ? { connection: data.connection } : {}),
-              ...(data.wattage !== undefined ? { wattage: this.toInt(data.wattage) } : {}),
-              ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
-            },
-          },
-        };
-
+        return this.buildSpeakerSpecUpdate(currentProduct, data);
       case 'MOUSEPAD':
-        if (
-          data.brand === undefined &&
-          data.widthCm === undefined &&
-          data.lengthCm === undefined &&
-          data.hasLed === undefined
-        ) {
-          return {};
-        }
-
-        this.ensureNonNegative('widthCm', data.widthCm, false);
-        this.ensureNonNegative('lengthCm', data.lengthCm, false);
-        return {
-          mousepadSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.widthCm !== undefined ? { widthCm: this.toInt(data.widthCm) } : {}),
-              ...(data.lengthCm !== undefined ? { lengthCm: this.toInt(data.lengthCm) } : {}),
-              ...(data.hasLed !== undefined ? { hasLed: this.toBool(data.hasLed) } : {}),
-            },
-          },
-        };
-
+        return this.buildMousepadSpecUpdate(currentProduct, data);
       case 'CHAIR':
-        if (
-          data.brand === undefined &&
-          data.color === undefined &&
-          data.material === undefined &&
-          data.maxWeightKg === undefined
-        ) {
-          return {};
-        }
-
-        this.ensureNonNegative('maxWeightKg', data.maxWeightKg, false);
-        return {
-          chairSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.color !== undefined ? { color: data.color } : {}),
-              ...(data.material !== undefined ? { material: data.material } : {}),
-              ...(data.maxWeightKg !== undefined
-                ? { maxWeightKg: this.toInt(data.maxWeightKg) }
-                : {}),
-            },
-          },
-        };
-
+        return this.buildChairSpecUpdate(currentProduct, data);
       case 'GAMING_DESK':
-        if (
-          data.brand === undefined &&
-          data.color === undefined &&
-          data.surface === undefined &&
-          data.weightKg === undefined
-        ) {
-          return {};
-        }
-
-        this.ensureNonNegative('weightKg', data.weightKg, false);
-        return {
-          gamingDeskSpecs: {
-            update: {
-              ...(data.brand !== undefined ? { brand: data.brand } : {}),
-              ...(data.color !== undefined ? { color: data.color } : {}),
-              ...(data.surface !== undefined ? { surface: data.surface } : {}),
-              ...(data.weightKg !== undefined ? { weightKg: this.toInt(data.weightKg) } : {}),
-            },
-          },
-        };
-
+        return this.buildGamingDeskSpecUpdate(currentProduct, data);
       default:
         return {};
     }
   }
 
+  private buildCpuSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.cpuBrand === undefined &&
+      data.socket === undefined &&
+      data.cores === undefined &&
+      data.threads === undefined &&
+      data.frequency === undefined &&
+      data.baseTdpWatts === undefined &&
+      data.tdp === undefined &&
+      data.integratedGraphics === undefined &&
+      data.includesCooler === undefined
+    ) {
+      return {};
+    }
+
+    this.validateCpuBrandSocket(
+      String(data.cpuBrand ?? currentProduct.cpuSpecs?.brand ?? '').trim(),
+      String(data.socket ?? currentProduct.cpuSpecs?.socket ?? '').trim(),
+    );
+    return {
+      cpuSpecs: {
+        update: {
+          ...(data.cpuBrand !== undefined ? { brand: data.cpuBrand } : {}),
+          ...(data.socket !== undefined ? { socket: data.socket } : {}),
+          ...(data.cores !== undefined ? { cores: this.toInt(data.cores) } : {}),
+          ...(data.threads !== undefined ? { threads: this.toInt(data.threads) } : {}),
+          ...(data.frequency !== undefined ? { frequency: data.frequency } : {}),
+          ...(data.baseTdpWatts !== undefined
+            ? { baseTdpWatts: this.toInt(data.baseTdpWatts) }
+            : {}),
+          ...(data.tdp !== undefined ? { tdp: this.toInt(data.tdp) } : {}),
+          ...(data.integratedGraphics !== undefined
+            ? { integratedGraphics: this.toBool(data.integratedGraphics) }
+            : {}),
+          ...(data.includesCooler !== undefined
+            ? { includesCooler: this.toBool(data.includesCooler) }
+            : {}),
+        },
+      },
+    };
+  }
+
+  private buildMotherboardSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.socket === undefined &&
+      data.formFactor === undefined &&
+      data.memoryType === undefined &&
+      data.memorySlots === undefined &&
+      data.m2Slots === undefined &&
+      data.supportedM2FormFactors === undefined
+    ) {
+      return {};
+    }
+
+    const nextMotherboardBrand = String(
+      data.brand ?? currentProduct.motherboardSpecs?.brand ?? '',
+    ).trim();
+    if (!nextMotherboardBrand) {
+      throw new BadRequestException('Selecciona la marca de la placa madre.');
+    }
+
+    return {
+      motherboardSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.socket !== undefined ? { socket: data.socket } : {}),
+          ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
+          ...(data.memoryType !== undefined ? { memoryType: data.memoryType } : {}),
+          ...(data.memorySlots !== undefined ? { memorySlots: this.toInt(data.memorySlots) } : {}),
+          ...(data.m2Slots !== undefined ? { m2Slots: this.toInt(data.m2Slots) } : {}),
+          ...(data.supportedM2FormFactors !== undefined
+            ? {
+                supportedM2FormFactors: this.toStringArray(data.supportedM2FormFactors),
+              }
+            : {}),
+        },
+      },
+    };
+  }
+
+  private buildGpuSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.chipset === undefined &&
+      data.vram === undefined &&
+      data.length === undefined &&
+      data.gpuPowerWatts === undefined &&
+      data.tdp === undefined &&
+      data.recommendedPsuWatts === undefined &&
+      data.fans === undefined
+    ) {
+      return {};
+    }
+
+    const nextGpuBrand = String(data.brand ?? currentProduct.gpuSpecs?.brand ?? '').trim();
+    const nextGpuPower = this.hasValue(data.gpuPowerWatts)
+      ? this.toInt(data.gpuPowerWatts)
+      : this.toInt(
+          data.tdp ?? currentProduct.gpuSpecs?.gpuPowerWatts ?? currentProduct.gpuSpecs?.tdp,
+        );
+
+    if (!nextGpuBrand) {
+      throw new BadRequestException('Selecciona la marca ensambladora de la tarjeta grafica.');
+    }
+
+    if (nextGpuPower <= 0) {
+      throw new BadRequestException('El consumo real de la GPU debe ser mayor a 0');
+    }
+
+    if (this.hasValue(data.recommendedPsuWatts) && this.toInt(data.recommendedPsuWatts) <= 0) {
+      throw new BadRequestException('La PSU recomendada debe ser mayor a 0');
+    }
+
+    if (this.hasValue(data.fans) && this.toInt(data.fans) <= 0) {
+      throw new BadRequestException('La cantidad de ventiladores debe ser mayor a 0');
+    }
+
+    return {
+      gpuSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.chipset !== undefined ? { chipset: data.chipset } : {}),
+          ...(data.vram !== undefined ? { vram: this.toInt(data.vram) } : {}),
+          ...(data.length !== undefined ? { length: this.toInt(data.length) } : {}),
+          ...(data.gpuPowerWatts !== undefined || data.tdp !== undefined
+            ? { gpuPowerWatts: nextGpuPower, tdp: nextGpuPower }
+            : {}),
+          ...(data.recommendedPsuWatts !== undefined
+            ? {
+                recommendedPsuWatts: !this.hasValue(data.recommendedPsuWatts)
+                  ? null
+                  : this.toInt(data.recommendedPsuWatts),
+              }
+            : {}),
+          ...(data.fans !== undefined
+            ? {
+                fans: !this.hasValue(data.fans) ? 0 : this.toInt(data.fans),
+              }
+            : {}),
+        },
+      },
+    };
+  }
+
+  private buildCaseSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.formFactor === undefined &&
+      data.maxGpuLength === undefined &&
+      data.includesPsu === undefined &&
+      data.includedFans === undefined &&
+      data.radiatorSupportMm === undefined
+    ) {
+      return {};
+    }
+
+    const nextCaseBrand = String(data.brand ?? currentProduct.caseSpecs?.brand ?? '').trim();
+    if (!nextCaseBrand) {
+      throw new BadRequestException('Selecciona la marca del gabinete.');
+    }
+
+    return {
+      caseSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
+          ...(data.maxGpuLength !== undefined
+            ? { maxGpuLength: this.toInt(data.maxGpuLength) }
+            : {}),
+          ...(data.includesPsu !== undefined ? { includesPsu: this.toBool(data.includesPsu) } : {}),
+          ...(data.includedFans !== undefined
+            ? { includedFans: this.toInt(data.includedFans) }
+            : {}),
+          ...(data.radiatorSupportMm !== undefined
+            ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) }
+            : {}),
+        },
+      },
+    };
+  }
+
+  private buildCoolerSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.type === undefined &&
+      data.compatibleSockets === undefined &&
+      data.tdpCapacity === undefined &&
+      data.coolerHeight === undefined &&
+      data.radiatorSize === undefined &&
+      data.hasRGB === undefined &&
+      data.hasScreen === undefined
+    ) {
+      return {};
+    }
+
+    const nextCoolerBrand = String(data.brand ?? currentProduct.coolerSpecs?.brand ?? '').trim();
+    const nextCoolerType = this.normalizeCoolerType(data.type ?? currentProduct.coolerSpecs?.type);
+    const nextCompatibleSockets =
+      data.compatibleSockets !== undefined
+        ? this.toStringArray(data.compatibleSockets)
+        : this.toStringArray(
+            currentProduct.coolerSpecs?.compatibleSockets ??
+              currentProduct.coolerSpecs?.socketSupport,
+          );
+    const nextTdpCapacity =
+      data.tdpCapacity !== undefined
+        ? this.toInt(data.tdpCapacity)
+        : this.toInt(currentProduct.coolerSpecs?.tdpCapacity);
+
+    if (!nextCoolerBrand) {
+      throw new BadRequestException('Selecciona la marca del cooler.');
+    }
+
+    if (nextCompatibleSockets.length === 0) {
+      throw new BadRequestException('Debes registrar sockets compatibles del cooler');
+    }
+
+    if (nextTdpCapacity <= 0) {
+      throw new BadRequestException('El TDP soportado del cooler debe ser mayor a 0');
+    }
+
+    const nextCoolerHeight =
+      data.coolerHeight !== undefined
+        ? this.toInt(data.coolerHeight)
+        : this.toInt(currentProduct.coolerSpecs?.coolerHeight);
+    const nextRadiatorSize =
+      data.radiatorSize !== undefined
+        ? this.toInt(data.radiatorSize)
+        : this.toInt(currentProduct.coolerSpecs?.radiatorSize);
+
+    if (nextCoolerType === 'Torre' && nextCoolerHeight <= 0) {
+      throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
+    }
+
+    if (nextCoolerType === 'LÃ­quida' && nextRadiatorSize <= 0) {
+      throw new BadRequestException('Selecciona el tamaÃ±o de radiador del cooler lÃ­quido');
+    }
+
+    return {
+      coolerSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.type !== undefined ? { type: nextCoolerType } : {}),
+          ...(data.compatibleSockets !== undefined
+            ? {
+                compatibleSockets: this.toStringArray(data.compatibleSockets),
+                socketSupport: this.toStringArray(data.compatibleSockets).join(', '),
+              }
+            : {}),
+          ...(data.tdpCapacity !== undefined ? { tdpCapacity: this.toInt(data.tdpCapacity) } : {}),
+          ...(data.coolerHeight !== undefined || data.type !== undefined
+            ? {
+                coolerHeight: nextCoolerType === 'Torre' ? nextCoolerHeight : null,
+              }
+            : {}),
+          ...(data.radiatorSize !== undefined || data.type !== undefined
+            ? {
+                radiatorSize: nextCoolerType === 'LÃ­quida' ? nextRadiatorSize : null,
+              }
+            : {}),
+          ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+          ...(data.hasScreen !== undefined ? { hasScreen: this.toBool(data.hasScreen) } : {}),
+        },
+      },
+    };
+  }
+
+  private buildPsuSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.wattage === undefined &&
+      data.certification === undefined &&
+      data.modular === undefined &&
+      data.formFactor === undefined
+    ) {
+      return {};
+    }
+
+    const nextPsuBrand = String(data.brand ?? currentProduct.psuSpecs?.brand ?? '').trim();
+    const nextWattage =
+      data.wattage !== undefined
+        ? this.toInt(data.wattage)
+        : this.toInt(currentProduct.psuSpecs?.wattage);
+
+    if (!nextPsuBrand) {
+      throw new BadRequestException('Selecciona la marca de la fuente de poder.');
+    }
+
+    if (nextWattage <= 0) {
+      throw new BadRequestException('La potencia de la fuente debe ser mayor a 0');
+    }
+
+    return {
+      psuSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.wattage !== undefined ? { wattage: this.toInt(data.wattage) } : {}),
+          ...(data.certification !== undefined ? { certification: data.certification } : {}),
+          ...(data.modular !== undefined ? { modular: data.modular } : {}),
+          ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
+        },
+      },
+    };
+  }
+
+  private buildStorageSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.type === undefined &&
+      data.capacity === undefined &&
+      data.interface === undefined &&
+      data.readSpeed === undefined &&
+      data.writeSpeed === undefined &&
+      data.m2FormFactor === undefined
+    ) {
+      return {};
+    }
+
+    const nextStorageType = String(
+      data.type ?? currentProduct.storageSpecs?.type ?? '',
+    ).toUpperCase();
+    const nextM2FormFactor = data.m2FormFactor ?? currentProduct.storageSpecs?.m2FormFactor;
+    const isM2 = nextStorageType.includes('M.2') || nextStorageType.includes('NVME');
+    if (isM2 && !nextM2FormFactor) {
+      throw new BadRequestException(
+        'El tamaÃ±o fisico M.2 es obligatorio para almacenamientos M.2',
+      );
+    }
+    return {
+      storageSpecs: {
+        update: {
+          ...(data.type !== undefined ? { type: data.type } : {}),
+          ...(data.capacity !== undefined ? { capacity: this.toInt(data.capacity) } : {}),
+          ...(data.interface !== undefined ? { interface: data.interface } : {}),
+          ...(data.readSpeed !== undefined ? { readSpeed: this.toInt(data.readSpeed) } : {}),
+          ...(data.writeSpeed !== undefined ? { writeSpeed: this.toInt(data.writeSpeed) } : {}),
+          ...(data.m2FormFactor !== undefined ? { m2FormFactor: data.m2FormFactor || null } : {}),
+        },
+      },
+    };
+  }
+
+  private buildLaptopSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.processor === undefined &&
+      data.ram === undefined &&
+      data.storage === undefined &&
+      data.screenSize === undefined &&
+      data.refreshRate === undefined &&
+      data.panelType === undefined &&
+      data.hasDedicatedGpu === undefined &&
+      data.gpuBrand === undefined &&
+      data.gpuModel === undefined &&
+      data.includesWindows === undefined
+    ) {
+      return {};
+    }
+
+    const nextLaptopBrand = String(data.brand ?? currentProduct.laptopSpecs?.brand ?? '').trim();
+    if (!nextLaptopBrand) {
+      throw new BadRequestException('Selecciona la marca de la laptop.');
+    }
+
+    this.ensureNonNegative('refreshRate', data.refreshRate);
+    return {
+      laptopSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.processor !== undefined ? { processor: data.processor } : {}),
+          ...(data.ram !== undefined ? { ram: data.ram } : {}),
+          ...(data.storage !== undefined ? { storage: data.storage } : {}),
+          ...(data.screenSize !== undefined ? { screenSize: data.screenSize } : {}),
+          ...(data.refreshRate !== undefined ? { refreshRate: this.toInt(data.refreshRate) } : {}),
+          ...(data.panelType !== undefined ? { panelType: data.panelType } : {}),
+          ...(data.hasDedicatedGpu !== undefined
+            ? { hasDedicatedGpu: this.toBool(data.hasDedicatedGpu) }
+            : {}),
+          ...(data.gpuBrand !== undefined ? { gpuBrand: data.gpuBrand } : {}),
+          ...(data.gpuModel !== undefined ? { gpuModel: data.gpuModel } : {}),
+          ...(data.includesWindows !== undefined
+            ? { includesWindows: this.toBool(data.includesWindows) }
+            : {}),
+        },
+      },
+    };
+  }
+
+  private buildPcDesktopSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.processor === undefined &&
+      data.ram === undefined &&
+      data.storage === undefined &&
+      data.hasDedicatedGpu === undefined &&
+      data.gpuBrand === undefined &&
+      data.gpuModel === undefined &&
+      data.coolerType === undefined &&
+      data.psuWatts === undefined &&
+      data.caseModel === undefined
+    ) {
+      return {};
+    }
+
+    this.ensureNonNegative('psuWatts', data.psuWatts, false);
+    return {
+      desktopSpecs: {
+        update: {
+          ...(data.processor !== undefined ? { processor: data.processor } : {}),
+          ...(data.ram !== undefined ? { ram: data.ram } : {}),
+          ...(data.storage !== undefined ? { storage: data.storage } : {}),
+          ...(data.hasDedicatedGpu !== undefined
+            ? { hasDedicatedGpu: this.toBool(data.hasDedicatedGpu) }
+            : {}),
+          ...(data.gpuBrand !== undefined ? { gpuBrand: data.gpuBrand } : {}),
+          ...(data.gpuModel !== undefined ? { gpuModel: data.gpuModel } : {}),
+          ...(data.coolerType !== undefined ? { coolerType: data.coolerType } : {}),
+          ...(data.psuWatts !== undefined ? { psuWatts: this.toInt(data.psuWatts) } : {}),
+          ...(data.caseModel !== undefined ? { caseModel: data.caseModel } : {}),
+        },
+      },
+    };
+  }
+
+  private buildMonitorSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.screenSize === undefined &&
+      data.resolution === undefined &&
+      data.panelType === undefined &&
+      data.refreshRate === undefined &&
+      data.responseTimeMs === undefined &&
+      data.ports === undefined &&
+      data.hasSpeakers === undefined
+    ) {
+      return {};
+    }
+
+    const nextMonitorBrand = String(data.brand ?? currentProduct.monitorSpecs?.brand ?? '').trim();
+    if (!nextMonitorBrand) {
+      throw new BadRequestException('Selecciona la marca del monitor.');
+    }
+
+    this.ensureNonNegative('refreshRate', data.refreshRate);
+    this.ensureNonNegative('responseTimeMs', data.responseTimeMs, false);
+    return {
+      monitorSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.screenSize !== undefined ? { screenSize: data.screenSize } : {}),
+          ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
+          ...(data.panelType !== undefined ? { panelType: data.panelType } : {}),
+          ...(data.refreshRate !== undefined ? { refreshRate: this.toInt(data.refreshRate) } : {}),
+          ...(data.responseTimeMs !== undefined
+            ? { responseTimeMs: this.toFloat(data.responseTimeMs) }
+            : {}),
+          ...(data.ports !== undefined ? { ports: this.toStringArray(data.ports) } : {}),
+          ...(data.hasSpeakers !== undefined ? { hasSpeakers: this.toBool(data.hasSpeakers) } : {}),
+        },
+      },
+    };
+  }
+
+  private buildKeyboardSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.keyboardType === undefined &&
+      data.connections === undefined &&
+      data.layoutLanguage === undefined &&
+      data.hasLighting === undefined &&
+      data.switchType === undefined &&
+      data.keyboardFormFactor === undefined
+    ) {
+      return {};
+    }
+
+    const nextKeyboardBrand = String(
+      data.brand ?? currentProduct.keyboardSpecs?.brand ?? '',
+    ).trim();
+    if (!nextKeyboardBrand) {
+      throw new BadRequestException('Selecciona la marca del teclado.');
+    }
+
+    return {
+      keyboardSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.keyboardType !== undefined ? { keyboardType: data.keyboardType } : {}),
+          ...(data.connections !== undefined
+            ? {
+                connections: this.toStringArray(data.connections),
+                connection: this.toStringArray(data.connections).join(', '),
+              }
+            : {}),
+          ...(data.layoutLanguage !== undefined
+            ? {
+                layoutLanguage: data.layoutLanguage,
+                layout: data.layoutLanguage,
+              }
+            : {}),
+          ...(data.hasLighting !== undefined
+            ? {
+                hasLighting: this.toBool(data.hasLighting),
+                hasRGB: this.toBool(data.hasLighting),
+              }
+            : {}),
+          ...(data.switchType !== undefined ? { switchType: data.switchType } : {}),
+          ...(data.keyboardFormFactor !== undefined
+            ? { keyboardFormFactor: data.keyboardFormFactor }
+            : {}),
+        },
+      },
+    };
+  }
+
+  private buildMouseSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.mouseType === undefined &&
+      data.connections === undefined &&
+      data.buttonCount === undefined &&
+      data.dpi === undefined &&
+      data.pollingRateHz === undefined &&
+      data.weightGrams === undefined &&
+      data.powerType === undefined
+    ) {
+      return {};
+    }
+
+    const isUpdatingGamerMouse = data.mouseType === 'Gamer';
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca del mouse.');
+    }
+    if (isUpdatingGamerMouse) {
+      this.ensureNonNegative('buttonCount', data.buttonCount, false);
+      this.ensureNonNegative('dpi', data.dpi, false);
+    }
+    this.ensureNonNegative('weightGrams', data.weightGrams, false);
+    return {
+      mouseSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.mouseType !== undefined ? { mouseType: data.mouseType } : {}),
+          ...(data.connections !== undefined
+            ? {
+                connections: this.toStringArray(data.connections),
+                connection: this.toStringArray(data.connections).join(', '),
+              }
+            : {}),
+          ...(data.mouseType === 'Oficina'
+            ? { buttonCount: null, dpi: 0, pollingRateHz: null }
+            : {}),
+          ...(isUpdatingGamerMouse && data.buttonCount !== undefined
+            ? { buttonCount: this.toInt(data.buttonCount) }
+            : {}),
+          ...(isUpdatingGamerMouse && data.dpi !== undefined ? { dpi: this.toInt(data.dpi) } : {}),
+          ...(isUpdatingGamerMouse && data.pollingRateHz !== undefined
+            ? { pollingRateHz: this.toInt(data.pollingRateHz) }
+            : {}),
+          ...(data.weightGrams !== undefined ? { weightGrams: this.toInt(data.weightGrams) } : {}),
+          ...(data.powerType !== undefined ? { powerType: data.powerType } : {}),
+        },
+      },
+    };
+  }
+
+  private buildWebcamSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (data.brand === undefined && data.resolution === undefined && data.fps === undefined) {
+      return {};
+    }
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca de la webcam.');
+    }
+    if (data.fps !== undefined && ![30, 60].includes(this.toInt(data.fps))) {
+      throw new BadRequestException('Selecciona FPS validos.');
+    }
+    return {
+      webcamSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
+          ...(data.fps !== undefined ? { fps: this.toInt(data.fps) } : {}),
+        },
+      },
+    };
+  }
+
+  private buildCaptureCardSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (data.brand === undefined && data.resolution === undefined && data.fps === undefined) {
+      return {};
+    }
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca de la capturadora.');
+    }
+    if (data.fps !== undefined && ![30, 60, 120].includes(this.toInt(data.fps))) {
+      throw new BadRequestException('Selecciona FPS validos.');
+    }
+    return {
+      captureCardSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
+          ...(data.fps !== undefined ? { fps: this.toInt(data.fps) } : {}),
+        },
+      },
+    };
+  }
+
+  private buildCableHubSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.cableHubType === undefined &&
+      data.type === undefined &&
+      data.cableType === undefined &&
+      data.cableLengthMeters === undefined &&
+      data.hubInputType === undefined &&
+      data.hasHdmiOutput === undefined &&
+      data.hasRj45Output === undefined
+    ) {
+      return {};
+    }
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca de Cables y Hub.');
+    }
+    const nextCableHubType = data.cableHubType || data.type;
+    if (nextCableHubType === 'Cable') {
+      if (
+        ![
+          'HDMI a HDMI',
+          'DisplayPort a DisplayPort',
+          'Tipo C a HDMI',
+          'Tipo C a DisplayPort',
+          'Tipo C a Tipo C',
+        ].includes(String(data.cableType || '').trim())
+      ) {
+        throw new BadRequestException('Selecciona el tipo de cable.');
+      }
+      if (![1, 2, 3].includes(this.toInt(data.cableLengthMeters))) {
+        throw new BadRequestException('Selecciona el largo del cable.');
+      }
+    }
+    if (nextCableHubType === 'Hub') {
+      if (!['USB-C', 'USB-A'].includes(String(data.hubInputType || '').trim())) {
+        throw new BadRequestException('Selecciona el tipo de entrada del hub.');
+      }
+      if (data.hasHdmiOutput === undefined || data.hasRj45Output === undefined) {
+        throw new BadRequestException('Selecciona las salidas HDMI y RJ45 del hub.');
+      }
+    }
+    return {
+      cableHubSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(nextCableHubType !== undefined
+            ? {
+                type: nextCableHubType,
+                cableType: nextCableHubType === 'Cable' ? data.cableType || null : null,
+                cableLengthMeters:
+                  nextCableHubType === 'Cable' ? this.toInt(data.cableLengthMeters) : null,
+                hubInputType: nextCableHubType === 'Hub' ? data.hubInputType || null : null,
+                hasHdmiOutput: nextCableHubType === 'Hub' ? this.toBool(data.hasHdmiOutput) : null,
+                hasRj45Output: nextCableHubType === 'Hub' ? this.toBool(data.hasRj45Output) : null,
+              }
+            : {}),
+          ...(nextCableHubType === undefined && data.cableType !== undefined
+            ? { cableType: data.cableType }
+            : {}),
+          ...(nextCableHubType === undefined && data.cableLengthMeters !== undefined
+            ? { cableLengthMeters: this.toInt(data.cableLengthMeters) }
+            : {}),
+          ...(nextCableHubType === undefined && data.hubInputType !== undefined
+            ? { hubInputType: data.hubInputType }
+            : {}),
+          ...(nextCableHubType === undefined && data.hasHdmiOutput !== undefined
+            ? { hasHdmiOutput: this.toBool(data.hasHdmiOutput) }
+            : {}),
+          ...(nextCableHubType === undefined && data.hasRj45Output !== undefined
+            ? { hasRj45Output: this.toBool(data.hasRj45Output) }
+            : {}),
+        },
+      },
+    };
+  }
+
+  private buildLaptopCoolingBaseSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.fanCount === undefined &&
+      data.connectivity === undefined
+    ) {
+      return {};
+    }
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca de la base refrigeradora.');
+    }
+    if (data.fanCount !== undefined && ![1, 2, 3, 4, 5, 6].includes(this.toInt(data.fanCount))) {
+      throw new BadRequestException('Selecciona la cantidad de ventiladores.');
+    }
+    if (
+      data.connectivity !== undefined &&
+      !['USB-A', 'USB-C'].includes(String(data.connectivity))
+    ) {
+      throw new BadRequestException('Selecciona la conectividad de la base refrigeradora.');
+    }
+    return {
+      laptopCoolingBaseSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.fanCount !== undefined ? { fanCount: this.toInt(data.fanCount) } : {}),
+          ...(data.connectivity !== undefined ? { connectivity: data.connectivity } : {}),
+        },
+      },
+    };
+  }
+
+  private buildBackpackSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (data.brand === undefined && data.color === undefined) {
+      return {};
+    }
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca de la mochila.');
+    }
+    return {
+      backpackSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.color !== undefined ? { color: data.color } : {}),
+        },
+      },
+    };
+  }
+
+  private buildHeadsetSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.connection === undefined &&
+      data.supportedConnections === undefined &&
+      data.driverSize === undefined &&
+      data.impedance === undefined &&
+      data.micType === undefined &&
+      data.noiseCancel === undefined &&
+      data.hasRGB === undefined
+    ) {
+      return {};
+    }
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca del audifono.');
+    }
+    const nextHeadsetConnection = data.connection;
+    if (
+      nextHeadsetConnection !== undefined &&
+      !['Cableado', 'Inalambrico'].includes(String(nextHeadsetConnection))
+    ) {
+      throw new BadRequestException('Selecciona la conexion del audifono.');
+    }
+    if (data.supportedConnections !== undefined) {
+      const supportedConnections = this.toStringArray(data.supportedConnections);
+      if (!supportedConnections.length) {
+        throw new BadRequestException('Selecciona al menos una conectividad soportada.');
+      }
+      const wiredOptions = ['Cable USB', 'Jack 3.5 mm'];
+      const wirelessOptions = [...wiredOptions, 'USB Dongle 2.4 GHz', 'Bluetooth'];
+      const allowedOptions = nextHeadsetConnection === 'Cableado' ? wiredOptions : wirelessOptions;
+      const invalidOption = supportedConnections.find((option) => !allowedOptions.includes(option));
+      if (invalidOption) {
+        throw new BadRequestException(
+          'La conectividad soportada no corresponde al tipo de conexion.',
+        );
+      }
+    }
+    return {
+      headsetSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.connection !== undefined ? { connection: data.connection } : {}),
+          ...(data.supportedConnections !== undefined
+            ? {
+                supportedConnections: this.toStringArray(data.supportedConnections),
+              }
+            : {}),
+          ...(data.driverSize !== undefined ? { driverSize: this.toInt(data.driverSize) } : {}),
+          ...(data.impedance !== undefined ? { impedance: this.toInt(data.impedance) } : {}),
+          ...(data.micType !== undefined ? { micType: data.micType } : {}),
+          ...(data.noiseCancel !== undefined ? { noiseCancel: this.toBool(data.noiseCancel) } : {}),
+          ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+        },
+      },
+    };
+  }
+
+  private buildMicrophoneSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.connection === undefined &&
+      data.micType === undefined &&
+      data.hasRGB === undefined
+    ) {
+      return {};
+    }
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca del microfono.');
+    }
+    return {
+      microphoneSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.connection !== undefined ? { connection: data.connection } : {}),
+          ...(data.micType !== undefined ? { micType: data.micType } : {}),
+          ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+        },
+      },
+    };
+  }
+
+  private buildSpeakerSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.connection === undefined &&
+      data.wattage === undefined &&
+      data.hasRGB === undefined
+    ) {
+      return {};
+    }
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca del parlante.');
+    }
+    return {
+      speakerSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.connection !== undefined ? { connection: data.connection } : {}),
+          ...(data.wattage !== undefined ? { wattage: this.toInt(data.wattage) } : {}),
+          ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+        },
+      },
+    };
+  }
+
+  private buildMousepadSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.widthCm === undefined &&
+      data.lengthCm === undefined &&
+      data.hasLed === undefined
+    ) {
+      return {};
+    }
+
+    this.ensureNonNegative('widthCm', data.widthCm, false);
+    this.ensureNonNegative('lengthCm', data.lengthCm, false);
+    return {
+      mousepadSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.widthCm !== undefined ? { widthCm: this.toInt(data.widthCm) } : {}),
+          ...(data.lengthCm !== undefined ? { lengthCm: this.toInt(data.lengthCm) } : {}),
+          ...(data.hasLed !== undefined ? { hasLed: this.toBool(data.hasLed) } : {}),
+        },
+      },
+    };
+  }
+
+  private buildChairSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.color === undefined &&
+      data.material === undefined &&
+      data.maxWeightKg === undefined
+    ) {
+      return {};
+    }
+
+    this.ensureNonNegative('maxWeightKg', data.maxWeightKg, false);
+    return {
+      chairSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.color !== undefined ? { color: data.color } : {}),
+          ...(data.material !== undefined ? { material: data.material } : {}),
+          ...(data.maxWeightKg !== undefined ? { maxWeightKg: this.toInt(data.maxWeightKg) } : {}),
+        },
+      },
+    };
+  }
+
+  private buildGamingDeskSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.color === undefined &&
+      data.surface === undefined &&
+      data.weightKg === undefined
+    ) {
+      return {};
+    }
+
+    this.ensureNonNegative('weightKg', data.weightKg, false);
+    return {
+      gamingDeskSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.color !== undefined ? { color: data.color } : {}),
+          ...(data.surface !== undefined ? { surface: data.surface } : {}),
+          ...(data.weightKg !== undefined ? { weightKg: this.toInt(data.weightKg) } : {}),
+        },
+      },
+    };
+  }
   async remove(id: string, actorId?: string) {
     const product = await this.prisma.product.findUnique({ where: { id } });
     if (!product) {

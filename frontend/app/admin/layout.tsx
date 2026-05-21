@@ -40,16 +40,19 @@ function readSessionUser(): SessionUser | null {
   }
 }
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+function isPublicAdminPath(pathname: string | null) {
+  return (
+    pathname?.startsWith('/admin/login') ||
+    pathname?.startsWith('/admin/forgot-password') ||
+    pathname?.startsWith('/admin/reset-password')
+  );
+}
+
+function useAdminSessionGuard(pathname: string | null) {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-
-  const isPublicAdminRoute =
-    pathname?.startsWith('/admin/login') ||
-    pathname?.startsWith('/admin/forgot-password') ||
-    pathname?.startsWith('/admin/reset-password');
+  const isPublicAdminRoute = isPublicAdminPath(pathname);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +111,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setCurrentUser(null);
     router.replace('/admin/login');
   };
+
+  return {
+    currentUser,
+    handleLogout,
+    isCheckingSession,
+    isPublicAdminRoute,
+  };
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const { currentUser, handleLogout, isCheckingSession, isPublicAdminRoute } =
+    useAdminSessionGuard(pathname);
 
   if (isPublicAdminRoute) {
     return <>{children}</>;

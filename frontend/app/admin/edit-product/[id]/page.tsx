@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -487,6 +487,278 @@ function arrayFromSpecs(value: unknown, fallback: string[] = []) {
   return fallback;
 }
 
+function getLoadedFormFactor(product: any, caseSpecs: any, psu: any, motherboard: any) {
+  if (product.category === 'CASE') return caseSpecs.formFactor ?? 'ATX';
+  if (product.category === 'PSU') return psu.formFactor ?? 'ATX';
+  return motherboard.formFactor ?? 'ATX';
+}
+
+function getLoadedMemoryType(product: any, ramSpecs: any, motherboard: any) {
+  return product.category === 'RAM'
+    ? (ramSpecs.memoryType ?? 'DDR5')
+    : (motherboard.memoryType ?? 'DDR5');
+}
+
+function getLoadedWattage(product: any, speaker: any, psu: any) {
+  return String(product.category === 'SPEAKER' ? (speaker.wattage ?? '') : (psu.wattage ?? ''));
+}
+
+function getLoadedType(product: any, cooler: any, storage: any) {
+  if (product.category === 'COOLER') return normalizeCoolerType(cooler.type);
+  return storage.type ?? 'SSD 2.5';
+}
+
+function getLoadedHasRgb(product: any, ramSpecs: any, headset: any, cooler: any) {
+  if (product.category === 'RAM') return boolToString(ramSpecs.hasRGB);
+  if (product.category === 'HEADSET') return boolToString(headset.hasRGB);
+  return boolToString(cooler.hasRGB);
+}
+
+function getLoadedCapacity(product: any, ramSpecs: any, storage: any) {
+  return String(
+    product.category === 'RAM' ? (ramSpecs.capacity ?? '16') : (storage.capacity ?? ''),
+  );
+}
+
+function getLoadedRam(product: any, laptop: any, desktop: any) {
+  if (product.category === 'LAPTOP') return normalizeLaptopRam(laptop.ram) || '8GB';
+  return desktop.ram ?? '';
+}
+
+function getLoadedStorage(product: any, laptop: any, desktop: any) {
+  if (product.category === 'LAPTOP') {
+    return normalizeLaptopStorage(laptop.storage) || '512GB SSD';
+  }
+  return desktop.storage ?? '';
+}
+
+function getLoadedScreenSize(product: any, laptop: any, monitor: any) {
+  if (product.category === 'LAPTOP') {
+    return normalizeLaptopScreen(laptop.screenSize ?? '15.6') || '15.6';
+  }
+  return monitor.screenSize ?? '15.6';
+}
+
+function getLoadedRefreshRate(product: any, laptop: any, monitor: any) {
+  if (product.category === 'LAPTOP') {
+    return normalizeLaptopRefresh(laptop.refreshRate ?? '60') || '60';
+  }
+  return normalizeLaptopRefresh(monitor.refreshRate ?? '60') || '60';
+}
+
+function getLoadedResolution(product: any, monitor: any, webcam: any, captureCard: any) {
+  if (product.category === 'MONITOR') {
+    return normalizeMonitorResolution(monitor.resolution ?? 'FHD (1920x1080)') || 'FHD (1920x1080)';
+  }
+  return webcam.resolution ?? captureCard.resolution ?? monitor.resolution ?? 'FHD';
+}
+
+function getLoadedBrand(product: any, specs: Record<string, any>) {
+  const {
+    motherboard,
+    gpu,
+    caseSpecs,
+    cooler,
+    psu,
+    laptop,
+    monitor,
+    keyboard,
+    mouse,
+    headset,
+    microphone,
+    speaker,
+    webcam,
+    captureCard,
+    cableHub,
+    laptopCoolingBase,
+    backpack,
+    mousepad,
+    chair,
+    desk,
+  } = specs;
+
+  if (product.category === 'MOTHERBOARD') return motherboard.brand ?? 'Otros';
+  if (product.category === 'GPU') return gpu.brand ?? 'Otros';
+  if (product.category === 'CASE') return caseSpecs.brand ?? '';
+  if (product.category === 'COOLER') return cooler.brand ?? '';
+  if (product.category === 'PSU') return psu.brand ?? '';
+  if (product.category === 'LAPTOP') return laptop.brand ?? '';
+  if (product.category === 'MONITOR') return monitor.brand ?? '';
+
+  return (
+    keyboard.brand ??
+    mouse.brand ??
+    headset.brand ??
+    microphone.brand ??
+    speaker.brand ??
+    webcam.brand ??
+    captureCard.brand ??
+    cableHub.brand ??
+    laptopCoolingBase.brand ??
+    backpack.brand ??
+    mousepad.brand ??
+    chair.brand ??
+    desk.brand ??
+    ''
+  );
+}
+
+function mapProductToFormData(product: any): EditableForm {
+  const cpu = product.cpuSpecs ?? {};
+  const motherboard = product.motherboardSpecs ?? {};
+  const ramSpecs = product.ramSpecs ?? {};
+  const gpu = product.gpuSpecs ?? {};
+  const psu = product.psuSpecs ?? {};
+  const caseSpecs = product.caseSpecs ?? {};
+  const cooler = product.coolerSpecs ?? {};
+  const storage = product.storageSpecs ?? {};
+  const laptop = product.laptopSpecs ?? {};
+  const desktop = product.desktopSpecs ?? {};
+  const monitor = product.monitorSpecs ?? {};
+  const keyboard = product.keyboardSpecs ?? {};
+  const mouse = product.mouseSpecs ?? {};
+  const mousepad = product.mousepadSpecs ?? {};
+  const chair = product.chairSpecs ?? {};
+  const desk = product.gamingDeskSpecs ?? {};
+  const webcam = product.webcamSpecs ?? {};
+  const captureCard = product.captureCardSpecs ?? {};
+  const cableHub = product.cableHubSpecs ?? {};
+  const headset = product.headsetSpecs ?? {};
+  const microphone = product.microphoneSpecs ?? {};
+  const speaker = product.speakerSpecs ?? {};
+  const laptopCoolingBase = product.laptopCoolingBaseSpecs ?? {};
+  const backpack = product.backpackSpecs ?? {};
+
+  return {
+    ...INITIAL_FORM,
+    name: product.name ?? '',
+    description: product.description ?? '',
+    category: product.category ?? '',
+    price: String(product.price ?? ''),
+    isOnSale: boolToString(product.isOnSale),
+    salePrice: String(product.salePrice ?? ''),
+    stock: String(product.stock ?? ''),
+    cpuBrand: cpu.brand ?? (String(cpu.socket ?? '').startsWith('LGA') ? 'Intel' : 'AMD'),
+    socket: cpu.socket ?? motherboard.socket ?? 'AM5',
+    cores: String(cpu.cores ?? ''),
+    threads: String(cpu.threads ?? ''),
+    frequency: cpu.frequency ?? '',
+    baseTdpWatts: String(cpu.baseTdpWatts ?? ''),
+    tdp: String(cpu.tdp ?? ''),
+    integratedGraphics: boolToString(cpu.integratedGraphics),
+    includesCooler: boolToString(cpu.includesCooler),
+    formFactor: getLoadedFormFactor(product, caseSpecs, psu, motherboard),
+    maxGpuLength: String(caseSpecs.maxGpuLength ?? ''),
+    includesPsu: boolToString(caseSpecs.includesPsu),
+    includedFans: String(caseSpecs.includedFans ?? '0'),
+    radiatorSupportMm: String(caseSpecs.radiatorSupportMm ?? '0'),
+    memoryType: getLoadedMemoryType(product, ramSpecs, motherboard),
+    memorySlots: String(motherboard.memorySlots ?? '4'),
+    m2Slots: String(motherboard.m2Slots ?? '2'),
+    supportedM2FormFactors: arrayFromSpecs(motherboard.supportedM2FormFactors, ['2280']),
+    chipset: gpu.chipset ?? 'NVIDIA GeForce',
+    vram: String(gpu.vram ?? '8'),
+    length: String(gpu.length ?? ''),
+    gpuPowerWatts: String(gpu.gpuPowerWatts ?? gpu.tdp ?? ''),
+    recommendedPsuWatts: String(gpu.recommendedPsuWatts ?? ''),
+    fans: String(gpu.fans ?? '2'),
+    wattage: getLoadedWattage(product, speaker, psu),
+    certification: psu.certification ?? '80+ Bronze',
+    modular: psu.modular ?? 'No Modular',
+    type: getLoadedType(product, cooler, storage),
+    compatibleSockets: arrayFromSpecs(cooler.compatibleSockets ?? cooler.socketSupport, [
+      'AM4',
+      'AM5',
+    ]),
+    tdpCapacity: String(cooler.tdpCapacity ?? ''),
+    coolerHeight: String(cooler.coolerHeight ?? ''),
+    radiatorSize: String(cooler.radiatorSize ?? '240'),
+    hasRGB: getLoadedHasRgb(product, ramSpecs, headset, cooler),
+    hasScreen: boolToString(cooler.hasScreen),
+    capacity: getLoadedCapacity(product, ramSpecs, storage),
+    speed: String(ramSpecs.speed ?? ''),
+    modules: String(ramSpecs.modules ?? '1'),
+    interface: storage.interface ?? 'PCIe 4.0',
+    readSpeed: String(storage.readSpeed ?? ''),
+    writeSpeed: String(storage.writeSpeed ?? ''),
+    m2FormFactor: storage.m2FormFactor ?? '2280',
+    processor: laptop.processor ?? desktop.processor ?? '',
+    ram: getLoadedRam(product, laptop, desktop),
+    storage: getLoadedStorage(product, laptop, desktop),
+    screenSize: getLoadedScreenSize(product, laptop, monitor),
+    refreshRate: getLoadedRefreshRate(product, laptop, monitor),
+    panelType: laptop.panelType ?? monitor.panelType ?? 'IPS',
+    resolution: getLoadedResolution(product, monitor, webcam, captureCard),
+    hasDedicatedGpu: boolToString(laptop.hasDedicatedGpu ?? desktop.hasDedicatedGpu),
+    gpuBrand: laptop.gpuBrand ?? desktop.gpuBrand ?? '',
+    gpuModel: laptop.gpuModel ?? desktop.gpuModel ?? '',
+    includesWindows: boolToString(laptop.includesWindows ?? true),
+    coolerType: desktop.coolerType ?? 'No especificado',
+    psuWatts: String(desktop.psuWatts ?? ''),
+    caseModel: desktop.caseModel ?? '',
+    responseTimeMs: String(monitor.responseTimeMs ?? ''),
+    ports: arrayFromSpecs(monitor.ports, []),
+    hasSpeakers: boolToString(monitor.hasSpeakers),
+    brand: getLoadedBrand(product, {
+      motherboard,
+      gpu,
+      caseSpecs,
+      cooler,
+      psu,
+      laptop,
+      monitor,
+      keyboard,
+      mouse,
+      headset,
+      microphone,
+      speaker,
+      webcam,
+      captureCard,
+      cableHub,
+      laptopCoolingBase,
+      backpack,
+      mousepad,
+      chair,
+      desk,
+    }),
+    keyboardType: keyboard.keyboardType ?? 'Membrana',
+    connections: arrayFromSpecs(keyboard.connections ?? mouse.connections, ['Cableado']),
+    supportedConnections: arrayFromSpecs(headset.supportedConnections, ['Cable USB']),
+    layoutLanguage: keyboard.layoutLanguage ?? keyboard.layout ?? 'Espanol',
+    hasLighting: boolToString(keyboard.hasLighting ?? keyboard.hasRGB),
+    switchType: keyboard.switchType ?? '',
+    keyboardFormFactor: normalizeKeyboardFormFactor(keyboard.keyboardFormFactor) || 'Completo',
+    weightGrams: String(mouse.weightGrams ?? ''),
+    mouseType: mouse.mouseType ?? 'Oficina',
+    buttonCount: String(mouse.buttonCount ?? ''),
+    dpi: String(mouse.dpi ?? ''),
+    pollingRateHz: String(mouse.pollingRateHz ?? '1000'),
+    powerType: mouse.powerType ?? 'Ninguno',
+    connection: headset.connection ?? microphone.connection ?? speaker.connection ?? 'Cableado',
+    driverSize: String(headset.driverSize ?? '50'),
+    impedance: String(headset.impedance ?? '32'),
+    micType: headset.micType ?? microphone.micType ?? 'Unidireccional',
+    noiseCancel: boolToString(headset.noiseCancel),
+    connectivity: laptopCoolingBase.connectivity ?? 'USB-A',
+    fps: String(webcam.fps ?? captureCard.fps ?? '30'),
+    fanCount: String(laptopCoolingBase.fanCount ?? '1'),
+    cableHubType: cableHub.type ?? 'Cable',
+    cableType: cableHub.cableType ?? 'HDMI a HDMI',
+    cableLengthMeters: String(cableHub.cableLengthMeters ?? '1'),
+    hubInputType: cableHub.hubInputType ?? 'USB-C',
+    hasHdmiOutput: boolToString(cableHub.hasHdmiOutput),
+    hasRj45Output: boolToString(cableHub.hasRj45Output),
+    widthCm: String(mousepad.widthCm ?? ''),
+    lengthCm: String(mousepad.lengthCm ?? ''),
+    hasLed: boolToString(mousepad.hasLed),
+    color: backpack.color ?? chair.color ?? desk.color ?? '',
+    material: chair.material ?? 'Cuero sintetico',
+    maxWeightKg: String(chair.maxWeightKg ?? ''),
+    surface: desk.surface ?? '',
+    weightKg: String(desk.weightKg ?? ''),
+  };
+}
+
 export default function EditProductPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -503,205 +775,7 @@ export default function EditProductPage() {
       .get(`/products/${id}`)
       .then((res) => {
         const product = res.data;
-        const cpu = product.cpuSpecs ?? {};
-        const motherboard = product.motherboardSpecs ?? {};
-        const ramSpecs = product.ramSpecs ?? {};
-        const gpu = product.gpuSpecs ?? {};
-        const psu = product.psuSpecs ?? {};
-        const caseSpecs = product.caseSpecs ?? {};
-        const cooler = product.coolerSpecs ?? {};
-        const storage = product.storageSpecs ?? {};
-        const laptop = product.laptopSpecs ?? {};
-        const desktop = product.desktopSpecs ?? {};
-        const monitor = product.monitorSpecs ?? {};
-        const keyboard = product.keyboardSpecs ?? {};
-        const mouse = product.mouseSpecs ?? {};
-        const mousepad = product.mousepadSpecs ?? {};
-        const chair = product.chairSpecs ?? {};
-        const desk = product.gamingDeskSpecs ?? {};
-        const webcam = product.webcamSpecs ?? {};
-        const captureCard = product.captureCardSpecs ?? {};
-        const cableHub = product.cableHubSpecs ?? {};
-        const headset = product.headsetSpecs ?? {};
-        const microphone = product.microphoneSpecs ?? {};
-        const speaker = product.speakerSpecs ?? {};
-        const laptopCoolingBase = product.laptopCoolingBaseSpecs ?? {};
-        const backpack = product.backpackSpecs ?? {};
-
-        setFormData({
-          ...INITIAL_FORM,
-          name: product.name ?? '',
-          description: product.description ?? '',
-          category: product.category ?? '',
-          price: String(product.price ?? ''),
-          isOnSale: boolToString(product.isOnSale),
-          salePrice: String(product.salePrice ?? ''),
-          stock: String(product.stock ?? ''),
-          cpuBrand: cpu.brand ?? (String(cpu.socket ?? '').startsWith('LGA') ? 'Intel' : 'AMD'),
-          socket: cpu.socket ?? motherboard.socket ?? 'AM5',
-          cores: String(cpu.cores ?? ''),
-          threads: String(cpu.threads ?? ''),
-          frequency: cpu.frequency ?? '',
-          baseTdpWatts: String(cpu.baseTdpWatts ?? ''),
-          tdp: String(cpu.tdp ?? ''),
-          integratedGraphics: boolToString(cpu.integratedGraphics),
-          includesCooler: boolToString(cpu.includesCooler),
-          formFactor:
-            product.category === 'CASE'
-              ? (caseSpecs.formFactor ?? 'ATX')
-              : product.category === 'PSU'
-                ? (psu.formFactor ?? 'ATX')
-                : (motherboard.formFactor ?? 'ATX'),
-          maxGpuLength: String(caseSpecs.maxGpuLength ?? ''),
-          includesPsu: boolToString(caseSpecs.includesPsu),
-          includedFans: String(caseSpecs.includedFans ?? '0'),
-          radiatorSupportMm: String(caseSpecs.radiatorSupportMm ?? '0'),
-          memoryType:
-            product.category === 'RAM'
-              ? (ramSpecs.memoryType ?? 'DDR5')
-              : (motherboard.memoryType ?? 'DDR5'),
-          memorySlots: String(motherboard.memorySlots ?? '4'),
-          m2Slots: String(motherboard.m2Slots ?? '2'),
-          supportedM2FormFactors: arrayFromSpecs(motherboard.supportedM2FormFactors, ['2280']),
-          chipset: gpu.chipset ?? 'NVIDIA GeForce',
-          vram: String(gpu.vram ?? '8'),
-          length: String(gpu.length ?? ''),
-          gpuPowerWatts: String(gpu.gpuPowerWatts ?? gpu.tdp ?? ''),
-          recommendedPsuWatts: String(gpu.recommendedPsuWatts ?? ''),
-          fans: String(gpu.fans ?? '2'),
-          wattage: String(
-            product.category === 'SPEAKER' ? (speaker.wattage ?? '') : (psu.wattage ?? ''),
-          ),
-          certification: psu.certification ?? '80+ Bronze',
-          modular: psu.modular ?? 'No Modular',
-          type:
-            product.category === 'COOLER'
-              ? normalizeCoolerType(cooler.type)
-              : (storage.type ?? 'SSD 2.5'),
-          compatibleSockets: arrayFromSpecs(cooler.compatibleSockets ?? cooler.socketSupport, [
-            'AM4',
-            'AM5',
-          ]),
-          tdpCapacity: String(cooler.tdpCapacity ?? ''),
-          coolerHeight: String(cooler.coolerHeight ?? ''),
-          radiatorSize: String(cooler.radiatorSize ?? '240'),
-          hasRGB: boolToString(
-            product.category === 'RAM'
-              ? ramSpecs.hasRGB
-              : product.category === 'HEADSET'
-                ? headset.hasRGB
-                : cooler.hasRGB,
-          ),
-          hasScreen: boolToString(cooler.hasScreen),
-          capacity: String(
-            product.category === 'RAM' ? (ramSpecs.capacity ?? '16') : (storage.capacity ?? ''),
-          ),
-          speed: String(ramSpecs.speed ?? ''),
-          modules: String(ramSpecs.modules ?? '1'),
-          interface: storage.interface ?? 'PCIe 4.0',
-          readSpeed: String(storage.readSpeed ?? ''),
-          writeSpeed: String(storage.writeSpeed ?? ''),
-          m2FormFactor: storage.m2FormFactor ?? '2280',
-          processor: laptop.processor ?? desktop.processor ?? '',
-          ram:
-            product.category === 'LAPTOP'
-              ? normalizeLaptopRam(laptop.ram) || '8GB'
-              : (desktop.ram ?? ''),
-          storage:
-            product.category === 'LAPTOP'
-              ? normalizeLaptopStorage(laptop.storage) || '512GB SSD'
-              : (desktop.storage ?? ''),
-          screenSize:
-            product.category === 'LAPTOP'
-              ? normalizeLaptopScreen(laptop.screenSize ?? '15.6') || '15.6'
-              : (monitor.screenSize ?? '15.6'),
-          refreshRate:
-            product.category === 'LAPTOP'
-              ? normalizeLaptopRefresh(laptop.refreshRate ?? '60') || '60'
-              : normalizeLaptopRefresh(monitor.refreshRate ?? '60') || '60',
-          panelType: laptop.panelType ?? monitor.panelType ?? 'IPS',
-          resolution:
-            product.category === 'MONITOR'
-              ? normalizeMonitorResolution(monitor.resolution ?? 'FHD (1920x1080)') ||
-                'FHD (1920x1080)'
-              : (webcam.resolution ?? captureCard.resolution ?? monitor.resolution ?? 'FHD'),
-          hasDedicatedGpu: boolToString(laptop.hasDedicatedGpu ?? desktop.hasDedicatedGpu),
-          gpuBrand: laptop.gpuBrand ?? desktop.gpuBrand ?? '',
-          gpuModel: laptop.gpuModel ?? desktop.gpuModel ?? '',
-          includesWindows: boolToString(laptop.includesWindows ?? true),
-          coolerType: desktop.coolerType ?? 'No especificado',
-          psuWatts: String(desktop.psuWatts ?? ''),
-          caseModel: desktop.caseModel ?? '',
-          responseTimeMs: String(monitor.responseTimeMs ?? ''),
-          ports: arrayFromSpecs(monitor.ports, []),
-          hasSpeakers: boolToString(monitor.hasSpeakers),
-          brand:
-            product.category === 'MOTHERBOARD'
-              ? (motherboard.brand ?? 'Otros')
-              : product.category === 'GPU'
-                ? (gpu.brand ?? 'Otros')
-                : product.category === 'CASE'
-                  ? (caseSpecs.brand ?? '')
-                  : product.category === 'COOLER'
-                    ? (cooler.brand ?? '')
-                    : product.category === 'PSU'
-                      ? (psu.brand ?? '')
-                      : product.category === 'LAPTOP'
-                        ? (laptop.brand ?? '')
-                        : product.category === 'MONITOR'
-                          ? (monitor.brand ?? '')
-                          : (keyboard.brand ??
-                            mouse.brand ??
-                            headset.brand ??
-                            microphone.brand ??
-                            speaker.brand ??
-                            webcam.brand ??
-                            captureCard.brand ??
-                            cableHub.brand ??
-                            laptopCoolingBase.brand ??
-                            backpack.brand ??
-                            mousepad.brand ??
-                            chair.brand ??
-                            desk.brand ??
-                            ''),
-          keyboardType: keyboard.keyboardType ?? 'Membrana',
-          connections: arrayFromSpecs(keyboard.connections ?? mouse.connections, ['Cableado']),
-          supportedConnections: arrayFromSpecs(headset.supportedConnections, ['Cable USB']),
-          layoutLanguage: keyboard.layoutLanguage ?? keyboard.layout ?? 'Espanol',
-          hasLighting: boolToString(keyboard.hasLighting ?? keyboard.hasRGB),
-          switchType: keyboard.switchType ?? '',
-          keyboardFormFactor:
-            normalizeKeyboardFormFactor(keyboard.keyboardFormFactor) || 'Completo',
-          weightGrams: String(mouse.weightGrams ?? ''),
-          mouseType: mouse.mouseType ?? 'Oficina',
-          buttonCount: String(mouse.buttonCount ?? ''),
-          dpi: String(mouse.dpi ?? ''),
-          pollingRateHz: String(mouse.pollingRateHz ?? '1000'),
-          powerType: mouse.powerType ?? 'Ninguno',
-          connection:
-            headset.connection ?? microphone.connection ?? speaker.connection ?? 'Cableado',
-          driverSize: String(headset.driverSize ?? '50'),
-          impedance: String(headset.impedance ?? '32'),
-          micType: headset.micType ?? microphone.micType ?? 'Unidireccional',
-          noiseCancel: boolToString(headset.noiseCancel),
-          connectivity: laptopCoolingBase.connectivity ?? 'USB-A',
-          fps: String(webcam.fps ?? captureCard.fps ?? '30'),
-          fanCount: String(laptopCoolingBase.fanCount ?? '1'),
-          cableHubType: cableHub.type ?? 'Cable',
-          cableType: cableHub.cableType ?? 'HDMI a HDMI',
-          cableLengthMeters: String(cableHub.cableLengthMeters ?? '1'),
-          hubInputType: cableHub.hubInputType ?? 'USB-C',
-          hasHdmiOutput: boolToString(cableHub.hasHdmiOutput),
-          hasRj45Output: boolToString(cableHub.hasRj45Output),
-          widthCm: String(mousepad.widthCm ?? ''),
-          lengthCm: String(mousepad.lengthCm ?? ''),
-          hasLed: boolToString(mousepad.hasLed),
-          color: backpack.color ?? chair.color ?? desk.color ?? '',
-          material: chair.material ?? 'Cuero sintetico',
-          maxWeightKg: String(chair.maxWeightKg ?? ''),
-          surface: desk.surface ?? '',
-          weightKg: String(desk.weightKg ?? ''),
-        });
+        setFormData(mapProductToFormData(product));
         setExistingImages(Array.isArray(product.images) ? product.images : []);
       })
       .catch((error: unknown) => {
@@ -1090,7 +1164,7 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('m2Slots', value)}
               />
               <MultiCheckField
-                label="Tamaños M.2 soportados"
+                label="TamaÃ±os M.2 soportados"
                 options={M2_FORM_FACTORS}
                 values={formData.supportedM2FormFactors}
                 onToggle={(value) => toggleArrayValue('supportedM2FormFactors', value)}
@@ -1375,7 +1449,7 @@ export default function EditProductPage() {
               />
               {(formData.type.includes('M.2') || formData.type.toUpperCase().includes('NVME')) && (
                 <SelectField
-                  label="Tamaño fisico M.2"
+                  label="TamaÃ±o fisico M.2"
                   value={formData.m2FormFactor}
                   onChange={(value) => updateField('m2FormFactor', value)}
                   options={M2_FORM_FACTORS}
@@ -1524,12 +1598,12 @@ export default function EditProductPage() {
                 options={MONITOR_BRANDS}
               />
               <TextField
-                label="Tamaño"
+                label="TamaÃ±o"
                 value={formData.screenSize}
                 onChange={(value) => updateField('screenSize', value)}
               />
               <SelectField
-                label="Resolución"
+                label="ResoluciÃ³n"
                 value={formData.resolution}
                 onChange={(value) => updateField('resolution', value)}
                 options={includeCurrentOption(MONITOR_RESOLUTION_OPTIONS, formData.resolution)}

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,7 +20,7 @@ import { api } from '@/lib/api';
 import { getEffectivePrice } from '@/lib/pricing';
 import { calculateRecommendedPsuWatts } from '@/lib/products/psuRecommendation';
 
-// Definición de los pasos del configurador
+// DefiniciÃ³n de los pasos del configurador
 const STEPS = [
   { id: 'platform', title: 'Plataforma', icon: FiCpu },
   { id: 'cpu', title: 'Procesador', category: 'CPU', icon: FiCpu },
@@ -44,6 +44,128 @@ type BuildValidationResponse = {
   };
 };
 
+function getCoolerSockets(product: any) {
+  const sockets = product.coolerSpecs?.compatibleSockets;
+  if (Array.isArray(sockets) && sockets.length > 0) return sockets;
+  return String(product.coolerSpecs?.socketSupport || '')
+    .split(',')
+    .map((socket) => socket.trim())
+    .filter(Boolean);
+}
+
+function isM2Storage(product: any) {
+  const type = String(product.storageSpecs?.type || '').toUpperCase();
+  return type.includes('M.2') || type.includes('NVME');
+}
+
+function normalizeCoolerType(product: any) {
+  const value = String(product.coolerSpecs?.type || '').toLowerCase();
+  if (value === 'aio' || value.includes('liqu') || value.includes('lÃ­qu')) return 'LÃ­quida';
+  return 'Torre';
+}
+
+function getCaseMaxCoolerHeight(product: any) {
+  const specs = product.caseSpecs || {};
+  return Number(specs.maxCoolerHeightMm ?? specs.coolerHeightMm ?? specs.alturaMaximaCoolerMm ?? 0);
+}
+
+function validateCpuMotherboardCompatibility(build: Record<string, any>) {
+  if (
+    build.cpu &&
+    build.motherboard &&
+    build.cpu.cpuSpecs?.socket !== build.motherboard.motherboardSpecs?.socket
+  ) {
+    return ['La placa madre no coincide con el socket del procesador.'];
+  }
+
+  return [];
+}
+
+function validateCoolerCompatibility(build: Record<string, any>) {
+  const errors: string[] = [];
+  const cpuSocket = build.cpu?.cpuSpecs?.socket;
+  const cpuTdp = Number(build.cpu?.cpuSpecs?.tdp || 0);
+
+  if (!build.cpu || !build.cooler) {
+    return errors;
+  }
+
+  if (!getCoolerSockets(build.cooler).includes(cpuSocket)) {
+    errors.push('El cooler seleccionado no es compatible con el socket del procesador.');
+  }
+
+  if (Number(build.cooler.coolerSpecs?.tdpCapacity || 0) < cpuTdp) {
+    errors.push('El cooler seleccionado no soporta el TDP del procesador.');
+  }
+
+  return errors;
+}
+
+function validateCoolerCaseCompatibility(build: Record<string, any>) {
+  if (!build.cooler || !build.case) {
+    return [];
+  }
+
+  const coolerType = normalizeCoolerType(build.cooler);
+  return coolerType === 'Torre'
+    ? validateTowerCoolerCaseCompatibility(build)
+    : validateLiquidCoolerCaseCompatibility(build);
+}
+
+function validateTowerCoolerCaseCompatibility(build: Record<string, any>) {
+  const coolerHeight = Number(build.cooler.coolerSpecs?.coolerHeight || 0);
+  const caseHeight = getCaseMaxCoolerHeight(build.case);
+  if (coolerHeight > 0 && caseHeight > 0 && coolerHeight > caseHeight) {
+    return [
+      `Este gabinete no soporta la altura del cooler seleccionado. El cooler requiere ${coolerHeight} mm y el gabinete soporta hasta ${caseHeight} mm.`,
+    ];
+  }
+
+  return [];
+}
+
+function validateLiquidCoolerCaseCompatibility(build: Record<string, any>) {
+  const radiatorSize = Number(build.cooler.coolerSpecs?.radiatorSize || 0);
+  const caseRadiator = Number(build.case.caseSpecs?.radiatorSupportMm || 0);
+  if (radiatorSize > 0 && caseRadiator > 0 && radiatorSize > caseRadiator) {
+    return [
+      `Este gabinete no soporta el radiador seleccionado. El cooler requiere radiador de ${radiatorSize} mm y el gabinete soporta hasta ${caseRadiator} mm.`,
+    ];
+  }
+
+  return [];
+}
+
+function validateStorageCompatibility(build: Record<string, any>) {
+  const errors: string[] = [];
+  if (!build.motherboard || !build.storage || !isM2Storage(build.storage)) {
+    return errors;
+  }
+
+  const m2Slots = Number(build.motherboard.motherboardSpecs?.m2Slots || 0);
+  const supportedSizes = build.motherboard.motherboardSpecs?.supportedM2FormFactors || [];
+  const storageSize = build.storage.storageSpecs?.m2FormFactor;
+
+  if (m2Slots <= 0) {
+    errors.push('La placa madre no tiene slots M.2 para el almacenamiento seleccionado.');
+  }
+
+  if (storageSize && supportedSizes.length > 0 && !supportedSizes.includes(storageSize)) {
+    errors.push('La placa madre no soporta el tamaÃ±o M.2 del almacenamiento seleccionado.');
+  }
+
+  return errors;
+}
+
+function validatePsuCompatibility(build: Record<string, any>, requiredWatts: number) {
+  if (build.psu && Number(build.psu.psuSpecs?.wattage || 0) < requiredWatts) {
+    return [
+      `La fuente seleccionada no cubre el consumo estimado con margen de seguridad (${requiredWatts}W).`,
+    ];
+  }
+
+  return [];
+}
 export default function PCBuilderPage() {
   const router = useRouter();
   const { addItem } = useCartStore();
@@ -64,33 +186,6 @@ export default function PCBuilderPage() {
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
-
-  const getCoolerSockets = (product: any) => {
-    const sockets = product.coolerSpecs?.compatibleSockets;
-    if (Array.isArray(sockets) && sockets.length > 0) return sockets;
-    return String(product.coolerSpecs?.socketSupport || '')
-      .split(',')
-      .map((socket) => socket.trim())
-      .filter(Boolean);
-  };
-
-  const isM2Storage = (product: any) => {
-    const type = String(product.storageSpecs?.type || '').toUpperCase();
-    return type.includes('M.2') || type.includes('NVME');
-  };
-
-  const normalizeCoolerType = (product: any) => {
-    const value = String(product.coolerSpecs?.type || '').toLowerCase();
-    if (value === 'aio' || value.includes('liqu') || value.includes('líqu')) return 'Líquida';
-    return 'Torre';
-  };
-
-  const getCaseMaxCoolerHeight = (product: any) => {
-    const specs = product.caseSpecs || {};
-    return Number(
-      specs.maxCoolerHeightMm ?? specs.coolerHeightMm ?? specs.alturaMaximaCoolerMm ?? 0,
-    );
-  };
 
   const getRequiredPsuWatts = () => calculateRecommendedPsuWatts(build);
 
@@ -158,79 +253,17 @@ export default function PCBuilderPage() {
   }, [build, currentStep]);
 
   const getCompatibilityErrors = () => {
-    const errors: string[] = [];
-    const cpuSocket = build.cpu?.cpuSpecs?.socket;
-    const cpuTdp = Number(build.cpu?.cpuSpecs?.tdp || 0);
-
-    if (
-      build.cpu &&
-      build.motherboard &&
-      cpuSocket !== build.motherboard.motherboardSpecs?.socket
-    ) {
-      errors.push('La placa madre no coincide con el socket del procesador.');
-    }
-
-    if (build.cpu && build.cooler) {
-      const coolerSockets = getCoolerSockets(build.cooler);
-      if (!coolerSockets.includes(cpuSocket)) {
-        errors.push('El cooler seleccionado no es compatible con el socket del procesador.');
-      }
-
-      if (Number(build.cooler.coolerSpecs?.tdpCapacity || 0) < cpuTdp) {
-        errors.push('El cooler seleccionado no soporta el TDP del procesador.');
-      }
-    }
-
-    if (build.cooler && build.case) {
-      const coolerType = normalizeCoolerType(build.cooler);
-      if (coolerType === 'Torre') {
-        const coolerHeight = Number(build.cooler.coolerSpecs?.coolerHeight || 0);
-        const caseHeight = getCaseMaxCoolerHeight(build.case);
-        if (coolerHeight > 0 && caseHeight > 0 && coolerHeight > caseHeight) {
-          errors.push(
-            `Este gabinete no soporta la altura del cooler seleccionado. El cooler requiere ${coolerHeight} mm y el gabinete soporta hasta ${caseHeight} mm.`,
-          );
-        }
-      }
-
-      if (coolerType === 'Líquida') {
-        const radiatorSize = Number(build.cooler.coolerSpecs?.radiatorSize || 0);
-        const caseRadiator = Number(build.case.caseSpecs?.radiatorSupportMm || 0);
-        if (radiatorSize > 0 && caseRadiator > 0 && radiatorSize > caseRadiator) {
-          errors.push(
-            `Este gabinete no soporta el radiador seleccionado. El cooler requiere radiador de ${radiatorSize} mm y el gabinete soporta hasta ${caseRadiator} mm.`,
-          );
-        }
-      }
-    }
-
-    if (build.motherboard && build.storage && isM2Storage(build.storage)) {
-      const m2Slots = Number(build.motherboard.motherboardSpecs?.m2Slots || 0);
-      const supportedSizes = build.motherboard.motherboardSpecs?.supportedM2FormFactors || [];
-      const storageSize = build.storage.storageSpecs?.m2FormFactor;
-
-      if (m2Slots <= 0) {
-        errors.push('La placa madre no tiene slots M.2 para el almacenamiento seleccionado.');
-      }
-
-      if (storageSize && supportedSizes.length > 0 && !supportedSizes.includes(storageSize)) {
-        errors.push('La placa madre no soporta el tamaño M.2 del almacenamiento seleccionado.');
-      }
-    }
-
-    if (build.psu) {
-      const requiredWatts = getRequiredPsuWatts();
-      if (Number(build.psu.psuSpecs?.wattage || 0) < requiredWatts) {
-        errors.push(
-          `La fuente seleccionada no cubre el consumo estimado con margen de seguridad (${requiredWatts}W).`,
-        );
-      }
-    }
-
-    return errors;
+    const requiredWatts = getRequiredPsuWatts();
+    return [
+      ...validateCpuMotherboardCompatibility(build),
+      ...validateCoolerCompatibility(build),
+      ...validateCoolerCaseCompatibility(build),
+      ...validateStorageCompatibility(build),
+      ...validatePsuCompatibility(build, requiredWatts),
+    ];
   };
 
-  // --- 1. LÓGICA DE FILTRADO MEJORADA (SOCKETS Y NOMBRES) ---
+  // --- 1. LÃ“GICA DE FILTRADO MEJORADA (SOCKETS Y NOMBRES) ---
   const getFilteredProducts = () => {
     const stepDef = STEPS[currentStep];
     if (!stepDef.category) return [];
@@ -317,7 +350,7 @@ export default function PCBuilderPage() {
     return filtered;
   };
 
-  // --- 2. NAVEGACIÓN Y SELECCIÓN ---
+  // --- 2. NAVEGACIÃ“N Y SELECCIÃ“N ---
   const handleSelectPlatform = (selected: 'Intel' | 'AMD') => {
     if (selected !== platform) {
       setBuild({}); // Si cambia de bando, limpiamos todo
@@ -388,12 +421,12 @@ export default function PCBuilderPage() {
     Object.values(build).forEach((product) => {
       if (product) addItem({ ...product, source: 'builder' });
     });
-    alert('¡PC completa añadida al carrito! 🚀');
+    alert('Â¡PC completa aÃ±adida al carrito! ðŸš€');
     router.push('/carrito');
   };
 
   const handleRestart = () => {
-    if (confirm('¿Estás seguro de querer reiniciar la configuración?')) {
+    if (confirm('Â¿EstÃ¡s seguro de querer reiniciar la configuraciÃ³n?')) {
       setPlatform(null);
       setBuild({});
       setBackendValidation(null);
@@ -457,7 +490,7 @@ export default function PCBuilderPage() {
           {/* PASO 0: ELEGIR PLATAFORMA */}
           {currentStep === 0 && (
             <div className="text-center animate-fade-in">
-              <h2 className="text-2xl font-bold text-gray-800 mb-8">¿Qué bando eliges?</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-8">Â¿QuÃ© bando eliges?</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
                 <button
                   onClick={() => handleSelectPlatform('Intel')}
@@ -480,7 +513,7 @@ export default function PCBuilderPage() {
             </div>
           )}
 
-          {/* PASOS DEL 1 AL 7: SELECCIÓN DE COMPONENTES */}
+          {/* PASOS DEL 1 AL 7: SELECCIÃ“N DE COMPONENTES */}
           {currentStep > 0 && currentStep < STEPS.length - 1 && (
             <div className="animate-fade-in">
               <div className="flex justify-between items-center mb-6 border-b pb-4">
@@ -501,7 +534,7 @@ export default function PCBuilderPage() {
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-20 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
                   <p className="text-lg text-gray-500 font-medium">
-                    No hay componentes compatibles en stock para esta selección.
+                    No hay componentes compatibles en stock para esta selecciÃ³n.
                   </p>
                   <button
                     onClick={() => setCurrentStep((prev) => prev - 1)}
@@ -535,20 +568,20 @@ export default function PCBuilderPage() {
                       <div className="text-xs text-gray-500 mb-4 space-y-1">
                         {product.category === 'CPU' && (
                           <p>
-                            🔌 Socket: {product.cpuSpecs?.socket} | ⚙️ {product.cpuSpecs?.cores}{' '}
-                            Núcleos
+                            ðŸ”Œ Socket: {product.cpuSpecs?.socket} | âš™ï¸{' '}
+                            {product.cpuSpecs?.cores} NÃºcleos
                           </p>
                         )}
                         {product.category === 'MOTHERBOARD' && (
                           <p>
-                            🔌 Socket: {product.motherboardSpecs?.socket} | ⚡{' '}
+                            ðŸ”Œ Socket: {product.motherboardSpecs?.socket} | âš¡{' '}
                             {product.motherboardSpecs?.memoryType}
                           </p>
                         )}
                         {product.category === 'RAM' && (
                           <p>
-                            ⚡ {product.ramSpecs?.memoryType} | 💽 {product.ramSpecs?.capacity}GB a{' '}
-                            {product.ramSpecs?.speed}MHz
+                            âš¡ {product.ramSpecs?.memoryType} | ðŸ’½ {product.ramSpecs?.capacity}GB
+                            a {product.ramSpecs?.speed}MHz
                           </p>
                         )}
                       </div>
@@ -578,8 +611,10 @@ export default function PCBuilderPage() {
                 <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 text-green-500 rounded-full mb-4">
                   <FiCheckCircle size={40} />
                 </div>
-                <h2 className="text-3xl font-black text-gray-800">¡Tu PC está lista! 🚀</h2>
-                <p className="text-gray-500 mt-2">Revisa tu configuración y procede a la compra.</p>
+                <h2 className="text-3xl font-black text-gray-800">Â¡Tu PC estÃ¡ lista! ðŸš€</h2>
+                <p className="text-gray-500 mt-2">
+                  Revisa tu configuraciÃ³n y procede a la compra.
+                </p>
               </div>
 
               <div className="bg-gray-50 rounded-2xl p-6 md:p-10 border border-gray-200 shadow-inner mb-8">
@@ -672,7 +707,7 @@ export default function PCBuilderPage() {
                   className="flex-1 bg-brand-cyan text-gray-900 py-4 rounded-xl font-black text-lg hover:bg-cyan-400 transition shadow-xl shadow-brand-cyan/30 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
                 >
                   <FiShoppingCart size={22} />{' '}
-                  {validatingBuild ? 'Validando...' : 'Añadir al carrito'}
+                  {validatingBuild ? 'Validando...' : 'AÃ±adir al carrito'}
                 </button>
               </div>
             </div>

@@ -48,6 +48,40 @@ function getFriendlyBrandingError(error: unknown, fallback: string) {
   return message;
 }
 
+function sortBannersByOrder(banners: Banner[]) {
+  return [...banners].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function buildBannerPayload(bannerForm: BannerForm, imageUrl: string) {
+  return {
+    title: bannerForm.title || 'Banner home',
+    subtitle: bannerForm.subtitle,
+    imageUrl,
+    linkUrl: bannerForm.linkUrl,
+    sortOrder: Number(bannerForm.sortOrder) || 0,
+    isActive: bannerForm.isActive,
+  };
+}
+
+async function saveBanner(
+  editingId: string | null,
+  payload: ReturnType<typeof buildBannerPayload>,
+) {
+  if (editingId) {
+    const res = await api.patch(`/admin/banners/${editingId}`, payload);
+    return {
+      banner: res.data as Banner,
+      message: 'Banner actualizado correctamente.',
+    };
+  }
+
+  const res = await api.post('/admin/banners', payload);
+  return {
+    banner: res.data as Banner,
+    message: 'Banner creado correctamente.',
+  };
+}
+
 export default function AdminBannersPage() {
   const [branding, setBranding] = useState<Branding>({
     storeName: 'PCSystemStore',
@@ -138,28 +172,16 @@ export default function AdminBannersPage() {
 
     try {
       const imageUrl = bannerFiles[0] ? await uploadImage(bannerFiles[0]) : existingImageUrl;
-      const payload = {
-        title: bannerForm.title || 'Banner home',
-        subtitle: bannerForm.subtitle,
-        imageUrl,
-        linkUrl: bannerForm.linkUrl,
-        sortOrder: Number(bannerForm.sortOrder) || 0,
-        isActive: bannerForm.isActive,
-      };
-
-      if (editingId) {
-        const res = await api.patch(`/admin/banners/${editingId}`, payload);
-        setBanners((current) =>
-          current
-            .map((banner) => (banner.id === editingId ? res.data : banner))
-            .sort((a, b) => a.sortOrder - b.sortOrder),
-        );
-        setMessage('Banner actualizado correctamente.');
-      } else {
-        const res = await api.post('/admin/banners', payload);
-        setBanners((current) => [res.data, ...current].sort((a, b) => a.sortOrder - b.sortOrder));
-        setMessage('Banner creado correctamente.');
-      }
+      const payload = buildBannerPayload(bannerForm, imageUrl);
+      const result = await saveBanner(editingId, payload);
+      setBanners((current) =>
+        sortBannersByOrder(
+          editingId
+            ? current.map((banner) => (banner.id === editingId ? result.banner : banner))
+            : [result.banner, ...current],
+        ),
+      );
+      setMessage(result.message);
 
       setBannerForm(emptyBannerForm);
       setBannerFiles([]);

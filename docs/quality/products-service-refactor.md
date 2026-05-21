@@ -19,12 +19,25 @@
 | `buildProductUpdateData`     | Separacion de campos basicos, precio, stock e imagenes   | `applyBasicProductUpdate`, `applyPricingProductUpdate`, `applyStockProductUpdate`, `applyImageProductUpdate`                                                                                                                                       | Actualizacion parcial y validacion de maximo 5 imagenes       | Corregido |
 | `collectProductChangeLogs`   | Separacion de cambios por grupo                          | `collectBasicProductChangeLogs`, `collectPricingProductChangeLogs`, `collectStockProductChangeLogs`, `collectImageProductChangeLogs`, `collectSpecProductChangeLogs`, `addChangeIfDifferent`, `pushChangeIfDifferent`, `getSpecRelationByCategory` | Eventos y descripciones de auditoria existentes               | Corregido |
 
+## Tercera pasada
+
+| Funcion                     | Estrategia aplicada                               | Helpers nuevos                                                                                                                                                                                                                                                                                                                                                      | Comportamiento preservado                                                                                   | Estado    |
+| --------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------- |
+| `buildCreateProductPayload` | Orquestador de payload base + specs por categoria | `buildCreateProductBasePayload`, `buildCreateProductSpecsPayload`, `buildCreateCpuSpecs`, `buildCreateMotherboardSpecs`, `buildCreateRamSpecs`, `buildCreateGpuSpecs`, `buildCreatePsuSpecs`, `buildCreateCaseSpecs`, `buildCreateCoolerSpecs`, `buildCreateStorageSpecs`, `buildCreateLaptopSpecs`, `buildCreateDesktopSpecs` y builders de perifericos/accesorios | Mismos campos base, `slug`, `sku`, imagenes, relaciones `*Specs.create`, defaults y conversiones existentes | Corregido |
+| `buildSpecUpdate`           | Wrapper + dispatcher por categoria                | `buildCategorySpecUpdate` y helpers `build*SpecUpdate` por relacion tecnica                                                                                                                                                                                                                                                                                         | Mismos `*Specs.update`, validaciones, errores y actualizacion parcial de specs                              | Corregido |
+
+### Verificacion de duplicidad
+
+- Se encontro una sola declaracion de `buildCreateProductPayload`.
+- La segunda ubicacion aproximada reportada corresponde a bloques internos complejos del archivo, no a una segunda funcion duplicada.
+
 ## Pruebas realizadas
 
 - `npm run build`
 - `npm test`
+- `npm test -- products`
 
 ## Riesgos pendientes
 
-- `create`, `addSpecFilters` y `buildSpecUpdate` siguen siendo candidatos a una iteracion especifica con tests por categoria antes de extraer mapas de builders/mergers.
+- `addSpecFilters` sigue siendo candidato a una iteracion especifica con tests por categoria antes de extraer mas filtros tecnicos.
 - Validar manualmente creacion/edicion de productos por categoria y filtros tecnicos antes de despliegue.
