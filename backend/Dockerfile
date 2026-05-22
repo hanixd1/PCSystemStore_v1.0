@@ -10,6 +10,7 @@ RUN npm ci
 
 FROM deps AS build
 COPY prisma ./prisma
+COPY prisma.config.ts ./
 COPY tsconfig*.json nest-cli.json ./
 COPY src ./src
 COPY requirements.txt ./
@@ -21,7 +22,7 @@ RUN npm prune --omit=dev
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-ENV PORT=3002
+ENV PORT=3000
 ENV PYTHON_EXECUTABLE=python3
 
 RUN apt-get update \
@@ -34,10 +35,11 @@ RUN groupadd --system --gid 1001 nodejs \
 COPY --from=build --chown=appuser:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=appuser:nodejs /app/dist ./dist
 COPY --from=build --chown=appuser:nodejs /app/prisma ./prisma
+COPY --from=build --chown=appuser:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build --chown=appuser:nodejs /app/package.json ./package.json
 COPY --from=build --chown=appuser:nodejs /app/requirements.txt ./requirements.txt
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt || true
 
 USER appuser
-EXPOSE 3002
-CMD ["node", "dist/main.js"]
+EXPOSE 3000
+CMD ["npm", "run", "start:prod"]
