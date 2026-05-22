@@ -15,6 +15,8 @@ COPY tsconfig*.json nest-cli.json ./
 COPY src ./src
 COPY requirements.txt ./
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt || true
+ENV DATABASE_URL="postgresql://user:password@localhost:5432/pcsystemstore"
+ENV DIRECT_URL="postgresql://user:password@localhost:5432/pcsystemstore"
 RUN npx prisma generate
 RUN npm run build
 RUN npm prune --omit=dev
