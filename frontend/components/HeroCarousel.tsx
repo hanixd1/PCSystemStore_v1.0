@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
@@ -54,7 +54,9 @@ const PrevArrow = (props: any) => {
 };
 
 export default function HeroCarousel() {
+  const sliderRef = useRef<Slider | null>(null);
   const [banners, setBanners] = useState<Banner[]>(fallbackBanners);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -77,16 +79,30 @@ export default function HeroCarousel() {
     };
   }, []);
 
+  useEffect(() => {
+    if (banners.length <= 1) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      sliderRef.current?.slickNext();
+    }, 10000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [banners.length, currentSlide]);
+
   const settings = {
     dots: true,
     infinite: banners.length > 1,
     speed: 500,
     slidesToShow: 1,
     slidesToScroll: 1,
-    autoplay: banners.length > 1,
-    autoplaySpeed: 5000,
+    autoplay: false,
     nextArrow: <NextArrow />,
     prevArrow: <PrevArrow />,
+    afterChange: (index: number) => setCurrentSlide(index),
     appendDots: (dots: any) => (
       <div style={{ bottom: '20px' }}>
         <ul style={{ margin: '0px' }}> {dots} </ul>
@@ -99,7 +115,7 @@ export default function HeroCarousel() {
 
   return (
     <div className="group relative h-[300px] w-full overflow-hidden bg-gray-900 md:h-[500px]">
-      <Slider {...settings}>
+      <Slider ref={sliderRef} {...settings}>
         {banners.map((banner) => (
           <div key={banner.id} className="relative h-[300px] outline-none md:h-[500px]">
             <BannerContent banner={banner} />

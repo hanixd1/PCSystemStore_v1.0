@@ -2044,6 +2044,116 @@ export class ProductsService {
     }
   }
 
+  private buildChatProductWhere(query: ProductQuery): Prisma.ProductWhereInput {
+    const where: Prisma.ProductWhereInput = {};
+    const category =
+      this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
+    const search = this.getQueryString(query, 'search');
+
+    if (category) {
+      where.category = category;
+    }
+
+    if (this.getQueryBoolean(query, 'inStock') !== false) {
+      where.stock = { gt: 0 };
+    }
+
+    if (search) {
+      where.OR = [
+        { name: this.textContains(search) },
+        { description: this.textContains(search) },
+        { sku: this.textContains(search) },
+        { category: this.textContains(search) },
+      ];
+    }
+
+    return where;
+  }
+
+  private mapChatProduct(product: any) {
+    return {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: product.price,
+      stock: product.stock,
+      imageUrl: Array.isArray(product.images) ? (product.images[0] ?? null) : null,
+      images: product.images,
+      category: product.category,
+      cpuSpecs: product.cpuSpecs,
+      gpuSpecs: product.gpuSpecs,
+      ramSpecs: product.ramSpecs,
+      motherboardSpecs: product.motherboardSpecs,
+      storageSpecs: product.storageSpecs,
+      psuSpecs: product.psuSpecs,
+      caseSpecs: product.caseSpecs,
+      coolerSpecs: product.coolerSpecs,
+    };
+  }
+
+  async chatSearch(query: ProductQuery = {}) {
+    const limit = Math.min(Math.max(this.toInt(this.firstQueryValue(query.limit)) || 5, 1), 5);
+    const where = this.buildChatProductWhere(query);
+
+    try {
+      const products = await this.prisma.product.findMany({
+        where,
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+          price: true,
+          stock: true,
+          images: true,
+          category: true,
+          updatedAt: true,
+          cpuSpecs: { select: { brand: true, socket: true, tdp: true } },
+          gpuSpecs: { select: { brand: true, chipset: true, vram: true } },
+          ramSpecs: { select: { memoryType: true, capacity: true, modules: true, speed: true } },
+          motherboardSpecs: {
+            select: { brand: true, socket: true, formFactor: true, memoryType: true },
+          },
+          storageSpecs: {
+            select: { type: true, capacity: true, interface: true, m2FormFactor: true },
+          },
+          psuSpecs: { select: { brand: true, wattage: true, certification: true } },
+          caseSpecs: { select: { brand: true, formFactor: true, includesPsu: true } },
+          coolerSpecs: {
+            select: {
+              brand: true,
+              type: true,
+              radiatorSize: true,
+              compatibleSockets: true,
+              tdpCapacity: true,
+            },
+          },
+        },
+        orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
+        take: limit,
+      });
+
+      return {
+        success: true,
+        items: products.map((product) => this.mapChatProduct(product)),
+        message:
+          products.length === 0
+            ? 'Por ahora no encontre productos disponibles con ese filtro. Puedes revisar el catalogo o cambiar el criterio.'
+            : undefined,
+      };
+    } catch (error) {
+      const errorInfo =
+        error instanceof Error ? `${error.name}: ${error.message}` : 'unknown search error';
+      console.warn(`[Products] Chat search unavailable: ${errorInfo}`);
+      return {
+        success: false,
+        searchAvailable: false,
+        items: [],
+        message: 'Por ahora no pude consultar el catalogo. Intenta nuevamente en unos segundos.',
+      };
+    }
+  }
+
   async findAll(query: ProductQuery = {}) {
     const hasFilters = Object.keys(query).length > 0;
 

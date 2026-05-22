@@ -49,12 +49,64 @@ type ConversationState = {
   awaiting: string | null;
 };
 
+type CatalogCategory =
+  | 'GPU'
+  | 'CPU'
+  | 'RAM'
+  | 'MOTHERBOARD'
+  | 'STORAGE'
+  | 'PSU'
+  | 'CASE'
+  | 'COOLER';
+
+type GuidedStep =
+  | 'gpuBrand'
+  | 'cpuBrand'
+  | 'ramType'
+  | 'ramCapacity'
+  | 'ramModules'
+  | 'motherboardPlatform'
+  | 'motherboardSocket'
+  | 'storageType'
+  | 'storageCapacity'
+  | 'psuWattage'
+  | 'caseFormFactor'
+  | 'caseIncludesPsu'
+  | 'coolerType'
+  | 'coolerRadiator';
+
+type GuidedSearchState = {
+  category: CatalogCategory;
+  step: GuidedStep;
+  filters: Record<string, string>;
+};
+
+type CatalogProduct = Record<string, any> & {
+  id: string;
+  name: string;
+  price: number | string;
+  stock: number;
+  images?: string[];
+  imageUrl?: string | null;
+  category?: string;
+};
+
+type CatalogSearchResponse = {
+  success: boolean;
+  searchAvailable?: boolean;
+  message?: string;
+  items: CatalogProduct[];
+};
+
 const STARTER_PROMPTS = [
   'Tengo 3000 soles y quiero una PC para jugar',
   'Busco una PC para oficina con monitor',
   'Quiero una PC para estudio, solo torre',
   'Tienes alguna RTX para gaming?',
 ];
+
+const AI_UNAVAILABLE_REPLY =
+  'Buenas, por el momento Alex no se encuentra disponible. Puedes revisar el catálogo o usar el armador de PCs mientras el servicio vuelve a estar operativo.';
 
 function ChatProductImage({ src, alt }: { src?: string | null; alt: string }) {
   const [hasError, setHasError] = useState(false);
@@ -81,6 +133,8 @@ export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isAiAvailable, setIsAiAvailable] = useState(true);
+  const [guidedSearch, setGuidedSearch] = useState<GuidedSearchState | null>(null);
   const addItem = useCartStore((state) => state.addItem);
   const [conversationState, setConversationState] = useState<ConversationState>({
     intent: null,
@@ -165,7 +219,7 @@ export default function Chatbot() {
     productId: string,
     responseProducts: ChatProduct[],
     state: ConversationState,
-  ) => {
+  ): ChatProduct | undefined => {
     return [
       ...responseProducts,
       ...state.lastRecommendedProducts,
@@ -232,6 +286,531 @@ export default function Chatbot() {
     appendAssistantMessage(addProductToCart(product, 1));
   };
 
+  const normalizeText = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
+
+  const normalizeCatalogReply = (value: string) =>
+    normalizeText(value)
+      .replace(/(\d+)\s*(gb|tb|w)\b/g, '$1 $2')
+      .replace('ver todas', 'todas')
+      .replace('ver todos', 'todas')
+      .replace('todos', 'todas');
+
+  const appendCatalogAssistantMessage = (text: string, products: ChatProduct[] = []) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: nextMessageId('assistant'),
+        text,
+        role: 'assistant',
+        products,
+      },
+    ]);
+  };
+
+  const getProductSpecs = (product: CatalogProduct) => ({
+    cpu: product.cpuSpecs ?? {},
+    gpu: product.gpuSpecs ?? {},
+    ram: product.ramSpecs ?? {},
+    motherboard: product.motherboardSpecs ?? {},
+    storage: product.storageSpecs ?? {},
+    psu: product.psuSpecs ?? {},
+    caseSpecs: product.caseSpecs ?? {},
+    cooler: product.coolerSpecs ?? {},
+  });
+
+  const mapCatalogProducts = (products: CatalogProduct[]): ChatProduct[] =>
+    products.slice(0, 5).map((product) => ({
+      id: String(product.id),
+      name: String(product.name),
+      price: Number(product.price) || 0,
+      stock: Number(product.stock) || 0,
+      imageUrl:
+        product.imageUrl ??
+        (Array.isArray(product.images) && product.images[0] ? product.images[0] : null),
+      productUrl: `/product/${product.id}`,
+    }));
+
+  const fetchCatalogProducts = async (
+    category: CatalogCategory,
+    search = '',
+  ): Promise<CatalogSearchResponse> => {
+    const res = await api.get('/products/chat-search', {
+      params: {
+        category,
+        search,
+        inStock: true,
+        limit: 5,
+      },
+    });
+    const rawProducts = Array.isArray(res.data) ? res.data : res.data?.items;
+    return {
+      success: res.data?.success !== false,
+      searchAvailable: res.data?.searchAvailable,
+      message: res.data?.message,
+      items: Array.isArray(rawProducts) ? rawProducts : [],
+    };
+  };
+
+  const productMatchesFilters = (
+    product: CatalogProduct,
+    category: CatalogCategory,
+    filters: Record<string, string>,
+  ) => {
+    const text = normalizeText(`${product.name} ${product.description ?? ''}`);
+    const specs = getProductSpecs(product);
+
+    if (category === 'GPU' && filters.brand) {
+      const brandText = normalizeText(
+        `${specs.gpu.brand ?? ''} ${specs.gpu.chipset ?? ''} ${text}`,
+      );
+      return filters.brand === 'NVIDIA'
+        ? ['nvidia', 'rtx', 'gtx'].some((token) => brandText.includes(token))
+        : ['amd', 'radeon', ' rx '].some((token) => ` ${brandText} `.includes(token));
+    }
+
+    if (category === 'CPU' && filters.brand) {
+      const brandText = normalizeText(`${specs.cpu.brand ?? ''} ${text}`);
+      return filters.brand === 'Intel'
+        ? ['intel', 'core i', 'core ultra', 'i3', 'i5', 'i7', 'i9'].some((token) =>
+            brandText.includes(token),
+          )
+        : ['amd', 'ryzen'].some((token) => brandText.includes(token));
+    }
+
+    if (category === 'RAM') {
+      const memoryType = normalizeText(String(specs.ram.memoryType ?? text));
+      const capacity = Number(specs.ram.capacity ?? 0);
+      const modules = Number(specs.ram.modules ?? 0);
+      return (
+        (!filters.memoryType || memoryType.includes(normalizeText(filters.memoryType))) &&
+        (!filters.capacity || capacity === Number(filters.capacity)) &&
+        (!filters.modules || modules === Number(filters.modules))
+      );
+    }
+
+    if (category === 'MOTHERBOARD') {
+      const socket = normalizeText(String(specs.motherboard.socket ?? ''));
+      return !filters.socket || socket.includes(normalizeText(filters.socket));
+    }
+
+    if (category === 'STORAGE') {
+      const storageText = normalizeText(
+        `${specs.storage.type ?? ''} ${specs.storage.interface ?? ''} ${text}`,
+      );
+      const capacity = Number(specs.storage.capacity ?? 0);
+      return (
+        (!filters.type || storageText.includes(normalizeText(filters.type))) &&
+        (!filters.capacity || capacity === Number(filters.capacity))
+      );
+    }
+
+    if (category === 'PSU') {
+      const wattage = Number(specs.psu.wattage ?? 0);
+      return !filters.wattage || wattage >= Number(filters.wattage);
+    }
+
+    if (category === 'CASE') {
+      const formFactor = normalizeText(String(specs.caseSpecs.formFactor ?? text));
+      const includesPsu = Boolean(specs.caseSpecs.includesPsu);
+      return (
+        (!filters.formFactor || formFactor.includes(normalizeText(filters.formFactor))) &&
+        (!filters.includesPsu ||
+          filters.includesPsu === 'any' ||
+          includesPsu === (filters.includesPsu === 'yes'))
+      );
+    }
+
+    if (category === 'COOLER') {
+      const coolerType = normalizeText(String(specs.cooler.type ?? text));
+      const radiatorSize = Number(specs.cooler.radiatorSize ?? 0);
+      return (
+        (!filters.type || coolerType.includes(normalizeText(filters.type))) &&
+        (!filters.radiatorSize || radiatorSize === Number(filters.radiatorSize))
+      );
+    }
+
+    return true;
+  };
+
+  const showCatalogResults = async (
+    category: CatalogCategory,
+    filters: Record<string, string>,
+    intro: string,
+    search = '',
+  ) => {
+    setIsLoading(true);
+    try {
+      const response = await fetchCatalogProducts(category, search);
+
+      if (!response.success) {
+        appendCatalogAssistantMessage(
+          response.message ??
+            'Por ahora no pude consultar el catÃ¡logo. Intenta nuevamente en unos segundos.',
+        );
+        return false;
+      }
+
+      const filteredProducts = response.items
+        .filter((product) => productMatchesFilters(product, category, filters))
+        .sort((a, b) => Number(b.stock ?? 0) - Number(a.stock ?? 0));
+      const mappedProducts = mapCatalogProducts(filteredProducts);
+
+      if (mappedProducts.length === 0) {
+        appendCatalogAssistantMessage(
+          'Por ahora no encontré productos disponibles con ese filtro. Puedes revisar el catálogo o cambiar el criterio.',
+        );
+        return false;
+      }
+
+      const first = mappedProducts[0];
+      const message =
+        mappedProducts.length === 1
+          ? `Encontré una opción en la tienda: ${first.name} por S/. ${first.price.toFixed(2)}. Estado: ${first.stock > 0 ? 'en stock' : 'sin stock'}.`
+          : intro;
+      appendCatalogAssistantMessage(message, mappedProducts);
+      return true;
+    } catch {
+      appendCatalogAssistantMessage(
+        'Por ahora no pude consultar el catÃ¡logo. Intenta nuevamente en unos segundos.',
+      );
+      return false;
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const detectCatalogCategory = (text: string): CatalogCategory | null => {
+    const normalized = normalizeText(text);
+    if (/(tarjeta de video|tarjeta grafica|gpu|grafica|rtx|gtx|radeon|\brx\b)/.test(normalized)) {
+      return 'GPU';
+    }
+    if (/(procesador|cpu|ryzen|intel|core i|core ultra|\bi[3579]\b)/.test(normalized)) {
+      return 'CPU';
+    }
+    if (/(memoria ram|\bram\b|ddr4|ddr5)/.test(normalized)) {
+      return 'RAM';
+    }
+    if (/(placa madre|motherboard|mainboard)/.test(normalized)) {
+      return 'MOTHERBOARD';
+    }
+    if (/(almacenamiento|ssd|disco duro|hdd|m\.?2|nvme)/.test(normalized)) {
+      return 'STORAGE';
+    }
+    if (/(fuente de poder|\bpsu\b|\bfuente\b|\d{3,4}\s?w)/.test(normalized)) {
+      return 'PSU';
+    }
+    if (/(case|gabinete)/.test(normalized)) {
+      return 'CASE';
+    }
+    if (/(cooler|refrigeracion|disipador|aio|liquida)/.test(normalized)) {
+      return 'COOLER';
+    }
+    return null;
+  };
+
+  const isSpecificSearch = (text: string) => {
+    const normalized = normalizeText(text);
+    return /(rtx|gtx|radeon|\brx\b|ryzen|core i|i3|i5|i7|i9|ddr4|ddr5|\d+\s?gb|\d+\s?tb|\d+\s?w|nvme|m\.?2)/.test(
+      normalized,
+    );
+  };
+
+  const startGuidedCatalogFlow = (category: CatalogCategory) => {
+    const prompts: Record<CatalogCategory, { text: string; step: GuidedStep }> = {
+      GPU: {
+        text: 'Claro, ¿prefieres una tarjeta de video NVIDIA o AMD? También puedes escribir "todas".',
+        step: 'gpuBrand',
+      },
+      CPU: {
+        text: 'Claro, ¿prefieres procesador Intel o AMD? También puedes escribir "todos".',
+        step: 'cpuBrand',
+      },
+      RAM: {
+        text: 'Claro, ¿qué tipo de RAM necesitas: DDR4 o DDR5? También puedes escribir "todas".',
+        step: 'ramType',
+      },
+      MOTHERBOARD: {
+        text: 'Claro, ¿para qué plataforma la necesitas? Puedes escribir Intel, AMD o todas.',
+        step: 'motherboardPlatform',
+      },
+      STORAGE: {
+        text: 'Claro, ¿qué tipo de almacenamiento buscas? Puedes escribir NVMe, SATA, HDD o todos.',
+        step: 'storageType',
+      },
+      PSU: {
+        text: 'Claro, ¿qué potencia buscas? Puedes escribir 500W, 600W, 650W, 750W, 850W, 1000W o todas.',
+        step: 'psuWattage',
+      },
+      CASE: {
+        text: 'Claro, ¿qué formato de placa necesitas soportar? Puedes escribir ATX, Micro-ATX, Mini-ITX o todos.',
+        step: 'caseFormFactor',
+      },
+      COOLER: {
+        text: 'Claro, ¿buscas cooler de torre o refrigeración líquida? Puedes escribir Torre, Líquida o todos.',
+        step: 'coolerType',
+      },
+    };
+    const prompt = prompts[category];
+    setGuidedSearch({ category, step: prompt.step, filters: {} });
+    appendCatalogAssistantMessage(prompt.text);
+  };
+
+  const continueGuidedCatalogFlow = async (text: string) => {
+    if (!guidedSearch) {
+      return false;
+    }
+
+    const value = normalizeCatalogReply(text);
+    const nextFilters = { ...guidedSearch.filters };
+    const isAll = value.includes('todas');
+
+    if (['cancelar', 'reiniciar', 'empezar de nuevo'].includes(value)) {
+      setGuidedSearch(null);
+      appendCatalogAssistantMessage('Listo, reiniciÃ© la bÃºsqueda. Â¿QuÃ© componente necesitas?');
+      return true;
+    }
+
+    if (guidedSearch.step === 'gpuBrand') {
+      if (!isAll && value.includes('amd')) {
+        nextFilters.brand = 'AMD';
+      } else if (!isAll && ['nvidia', 'rtx', 'gtx'].some((token) => value.includes(token))) {
+        nextFilters.brand = 'NVIDIA';
+      } else if (!isAll) {
+        appendCatalogAssistantMessage('No entendÃ­ la marca. Escribe NVIDIA, AMD o todas.');
+        return true;
+      }
+
+      const found = await showCatalogResults(
+        'GPU',
+        nextFilters,
+        `Encontré estas tarjetas ${nextFilters.brand ?? 'de video'} disponibles:`,
+      );
+      if (found) setGuidedSearch(null);
+      return true;
+    }
+
+    if (guidedSearch.step === 'cpuBrand') {
+      if (
+        !isAll &&
+        ['intel', 'core', 'i3', 'i5', 'i7', 'i9'].some((token) => value.includes(token))
+      ) {
+        nextFilters.brand = 'Intel';
+      } else if (!isAll && ['amd', 'ryzen'].some((token) => value.includes(token))) {
+        nextFilters.brand = 'AMD';
+      } else if (!isAll) {
+        appendCatalogAssistantMessage('No entendÃ­ la marca. Escribe Intel, AMD o todos.');
+        return true;
+      }
+
+      const found = await showCatalogResults(
+        'CPU',
+        nextFilters,
+        `Encontré estos procesadores ${nextFilters.brand ?? ''} disponibles:`,
+      );
+      if (found) setGuidedSearch(null);
+      return true;
+    }
+
+    if (guidedSearch.step === 'ramType') {
+      if (!isAll && value.includes('ddr4')) {
+        nextFilters.memoryType = 'DDR4';
+      } else if (!isAll && value.includes('ddr5')) {
+        nextFilters.memoryType = 'DDR5';
+      } else if (!isAll) {
+        appendCatalogAssistantMessage('No entendÃ­ el tipo de RAM. Escribe DDR4, DDR5 o todas.');
+        return true;
+      }
+      setGuidedSearch({ category: 'RAM', step: 'ramCapacity', filters: nextFilters });
+      appendCatalogAssistantMessage('¿Qué capacidad buscas por módulo?');
+      return true;
+    }
+
+    if (guidedSearch.step === 'ramCapacity') {
+      const capacity = Number(value.match(/\d+/)?.[0] ?? 0);
+      if (!isAll && [8, 16, 24, 32].includes(capacity)) {
+        nextFilters.capacity = String(capacity);
+      } else if (!isAll) {
+        appendCatalogAssistantMessage(
+          'No entendÃ­ la capacidad. Escribe 8 GB, 16 GB, 24 GB, 32 GB o todas.',
+        );
+        return true;
+      }
+      setGuidedSearch({ category: 'RAM', step: 'ramModules', filters: nextFilters });
+      appendCatalogAssistantMessage('¿Prefieres 1 módulo, 2 módulos o 4 módulos?');
+      return true;
+    }
+
+    if (guidedSearch.step === 'ramModules') {
+      const modules = Number(value.match(/\d+/)?.[0] ?? 0);
+      if (!isAll && [1, 2, 4].includes(modules)) {
+        nextFilters.modules = String(modules);
+      } else if (!isAll) {
+        appendCatalogAssistantMessage('No entendÃ­ los mÃ³dulos. Escribe 1, 2, 4 o todas.');
+        return true;
+      }
+      const found = await showCatalogResults(
+        'RAM',
+        nextFilters,
+        'Encontré estas memorias disponibles:',
+      );
+      if (found) setGuidedSearch(null);
+      return true;
+    }
+
+    if (guidedSearch.step === 'motherboardPlatform') {
+      if (value.includes('intel')) {
+        setGuidedSearch({ category: 'MOTHERBOARD', step: 'motherboardSocket', filters: {} });
+        appendCatalogAssistantMessage('¿Qué socket Intel necesitas?');
+        return true;
+      }
+      if (value.includes('amd')) {
+        setGuidedSearch({ category: 'MOTHERBOARD', step: 'motherboardSocket', filters: {} });
+        appendCatalogAssistantMessage('¿Qué socket AMD necesitas?');
+        return true;
+      }
+      setGuidedSearch(null);
+      await showCatalogResults('MOTHERBOARD', {}, 'Encontré estas placas madre disponibles:');
+      return true;
+    }
+
+    if (guidedSearch.step === 'motherboardSocket') {
+      if (!isAll) nextFilters.socket = text.toUpperCase();
+      setGuidedSearch(null);
+      await showCatalogResults(
+        'MOTHERBOARD',
+        nextFilters,
+        'Encontré estas placas madre disponibles:',
+      );
+      return true;
+    }
+
+    if (guidedSearch.step === 'storageType') {
+      if (!isAll && value.includes('hdd')) {
+        nextFilters.type = 'HDD';
+      } else if (!isAll && value.includes('sata')) {
+        nextFilters.type = 'SATA';
+      } else if (!isAll && value.includes('nvme')) {
+        nextFilters.type = 'NVMe';
+      } else if (!isAll) {
+        appendCatalogAssistantMessage('No entendÃ­ el tipo. Escribe NVMe, SATA, HDD o todos.');
+        return true;
+      }
+      setGuidedSearch({ category: 'STORAGE', step: 'storageCapacity', filters: nextFilters });
+      appendCatalogAssistantMessage('¿Qué capacidad buscas?');
+      return true;
+    }
+
+    if (guidedSearch.step === 'storageCapacity') {
+      const rawCapacity = Number(value.match(/\d+/)?.[0] ?? 0);
+      if (!isAll && rawCapacity > 0) {
+        nextFilters.capacity = String(value.includes('tb') ? rawCapacity * 1000 : rawCapacity);
+      }
+      setGuidedSearch(null);
+      await showCatalogResults(
+        'STORAGE',
+        nextFilters,
+        'Encontré estos almacenamientos disponibles:',
+      );
+      return true;
+    }
+
+    if (guidedSearch.step === 'psuWattage') {
+      const wattage = Number(value.match(/\d+/)?.[0] ?? 0);
+      if (!isAll && [500, 600, 650, 750, 850, 1000].includes(wattage)) {
+        nextFilters.wattage = String(wattage);
+      } else if (!isAll) {
+        appendCatalogAssistantMessage(
+          'No entendÃ­ la potencia. Escribe 500W, 600W, 650W, 750W, 850W, 1000W o todas.',
+        );
+        return true;
+      }
+      setGuidedSearch(null);
+      await showCatalogResults('PSU', nextFilters, 'Encontré estas fuentes disponibles:');
+      return true;
+    }
+
+    if (guidedSearch.step === 'caseFormFactor') {
+      if (!isAll) nextFilters.formFactor = text;
+      setGuidedSearch({ category: 'CASE', step: 'caseIncludesPsu', filters: nextFilters });
+      appendCatalogAssistantMessage('¿Quieres que incluya fuente?');
+      return true;
+    }
+
+    if (guidedSearch.step === 'caseIncludesPsu') {
+      if (!value.includes('igual')) nextFilters.includesPsu = value.includes('si') ? 'yes' : 'no';
+      setGuidedSearch(null);
+      await showCatalogResults('CASE', nextFilters, 'Encontré estos gabinetes disponibles:');
+      return true;
+    }
+
+    if (guidedSearch.step === 'coolerType') {
+      if (!isAll) nextFilters.type = value.includes('liquida') ? 'Liquida' : 'Torre';
+      if (nextFilters.type === 'Liquida') {
+        setGuidedSearch({ category: 'COOLER', step: 'coolerRadiator', filters: nextFilters });
+        appendCatalogAssistantMessage('¿Qué tamaño de radiador buscas?');
+        return true;
+      }
+      setGuidedSearch(null);
+      await showCatalogResults('COOLER', nextFilters, 'Encontré estos coolers disponibles:');
+      return true;
+    }
+
+    if (guidedSearch.step === 'coolerRadiator') {
+      const radiatorSize = Number(value.match(/\d+/)?.[0] ?? 0);
+      if (!isAll && radiatorSize > 0) nextFilters.radiatorSize = String(radiatorSize);
+      setGuidedSearch(null);
+      await showCatalogResults(
+        'COOLER',
+        nextFilters,
+        'Encontré estas refrigeraciones disponibles:',
+      );
+      return true;
+    }
+
+    return false;
+  };
+
+  const handleCatalogAssistant = async (text: string) => {
+    const category = detectCatalogCategory(text);
+    const startsNewSearch = /\b(busco|buscar|quiero|necesito|recomienda|recomiendame)\b/.test(
+      normalizeText(text),
+    );
+
+    if (guidedSearch && category && startsNewSearch) {
+      setGuidedSearch(null);
+      if (isSpecificSearch(text)) {
+        await showCatalogResults(category, {}, 'EncontrÃ© estas opciones disponibles:', text);
+        return true;
+      }
+      startGuidedCatalogFlow(category);
+      return true;
+    }
+
+    if (await continueGuidedCatalogFlow(text)) {
+      return true;
+    }
+
+    if (!category) {
+      return false;
+    }
+
+    if (isSpecificSearch(text)) {
+      await showCatalogResults(category, {}, 'Encontré estas opciones disponibles:', text);
+      return true;
+    }
+
+    startGuidedCatalogFlow(category);
+    return true;
+  };
+
   const sendMessage = async (userText: string) => {
     const trimmed = userText.trim();
     if (!trimmed || isLoading) {
@@ -251,11 +830,17 @@ export default function Chatbot() {
 
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
+
+    if (await handleCatalogAssistant(trimmed)) {
+      return;
+    }
+
     setIsLoading(true);
 
     activeRequestControllerRef.current?.abort();
     const controller = new AbortController();
     activeRequestControllerRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 5000);
 
     try {
       const res = await api.post(
@@ -271,6 +856,24 @@ export default function Chatbot() {
       if (!isMountedRef.current) {
         return;
       }
+
+      if (res.data?.aiAvailable === false || res.data?.success === false) {
+        setIsAiAvailable(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: nextMessageId('assistant'),
+            text:
+              typeof res.data?.message === 'string' && res.data.message.trim()
+                ? res.data.message
+                : AI_UNAVAILABLE_REPLY,
+            role: 'assistant',
+          },
+        ]);
+        return;
+      }
+
+      setIsAiAvailable(true);
 
       const responseState = res.data?.conversationState ?? {};
       const nextState: ConversationState = {
@@ -334,22 +937,27 @@ export default function Chatbot() {
       setMessages((prev) => [...prev, botMessage, ...actionMessages]);
     } catch {
       if (controller.signal.aborted) {
-        return;
+        if (!isMountedRef.current) {
+          return;
+        }
       }
 
       if (!isMountedRef.current) {
         return;
       }
 
+      setIsAiAvailable(false);
       setMessages((prev) => [
         ...prev,
         {
           id: nextMessageId('assistant'),
-          text: 'Se corto la conexion con el asistente. Intentalo de nuevo en un momento.',
+          text: AI_UNAVAILABLE_REPLY,
           role: 'assistant',
         },
       ]);
     } finally {
+      window.clearTimeout(timeout);
+
       if (activeRequestControllerRef.current === controller) {
         activeRequestControllerRef.current = null;
       }
@@ -388,12 +996,18 @@ export default function Chatbot() {
               </div>
               <div>
                 <h3 className="font-bold text-sm tracking-wide">Alex</h3>
-                <div className="flex items-center gap-2 text-[10px] font-medium text-green-400">
+                <div
+                  className={`flex items-center gap-2 text-[10px] font-medium ${
+                    isAiAvailable ? 'text-green-400' : 'text-yellow-300'
+                  }`}
+                >
                   <span
                     aria-hidden="true"
-                    className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400"
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      isAiAvailable ? 'animate-pulse bg-green-400' : 'bg-yellow-300'
+                    }`}
                   />
-                  <span>En linea</span>
+                  <span>{isAiAvailable ? 'En linea' : 'Temporalmente fuera de linea'}</span>
                 </div>
               </div>
             </div>

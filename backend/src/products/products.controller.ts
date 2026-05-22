@@ -77,6 +77,12 @@ export class ProductsController {
   }
 
   @Public()
+  @Get('chat-search')
+  chatSearch(@Query() query: Record<string, string | string[]>) {
+    return this.productsService.chatSearch(query);
+  }
+
+  @Public()
   @Get('related/:id')
   findRelated(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findRelated(id);

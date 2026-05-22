@@ -223,7 +223,7 @@ const FALLBACK_PREDICTION: AiPrediction = {
 };
 
 const AI_UNAVAILABLE_REPLY =
-  'Por el momento el asistente no esta disponible. Puedes seguir navegando por la tienda o usar el buscador para encontrar productos.';
+  'Buenas, por el momento Alex no se encuentra disponible. Puedes revisar el catálogo o usar el armador de PCs mientras el servicio vuelve a estar operativo.';
 
 const MAX_CHAT_MESSAGE_LENGTH = 500;
 const MAX_BUDGET_TEXT_LENGTH = 300;
@@ -433,21 +433,7 @@ export class AiService {
     const aiServiceUrl = this.getAiServiceUrl();
     if (!aiServiceUrl) {
       this.logger.warn('[AI] AI_SERVICE_URL no configurado para chat.');
-      return {
-        reply: AI_UNAVAILABLE_REPLY,
-        intent: conversationState?.intent ?? 'unknown',
-        conversationState: conversationState ?? {
-          intent: null,
-          budget: null,
-          usage: null,
-          includesPeripherals: null,
-          mentionedProducts: [],
-        },
-        products: [],
-        actions: [],
-        totals: null,
-        status: 'degraded',
-      };
+      return this.buildAiUnavailableResponse(conversationState);
     }
 
     const catalog = await this.getChatCatalog(message);
@@ -467,6 +453,7 @@ export class AiService {
       });
 
       if (!response.ok) {
+        this.logger.warn(`[AI] Chat respondio con estado HTTP ${response.status}.`);
         throw new Error(`AI chat respondio ${response.status}`);
       }
 
@@ -474,6 +461,27 @@ export class AiService {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private buildAiUnavailableResponse(conversationState?: ChatConversationState) {
+    return {
+      success: false,
+      aiAvailable: false,
+      message: AI_UNAVAILABLE_REPLY,
+      reply: AI_UNAVAILABLE_REPLY,
+      intent: conversationState?.intent ?? 'unknown',
+      conversationState: conversationState ?? {
+        intent: null,
+        budget: null,
+        usage: null,
+        includesPeripherals: null,
+        mentionedProducts: [],
+      },
+      products: [],
+      actions: [],
+      totals: null,
+      status: 'degraded' as const,
+    };
   }
 
   private mapRiskToEstado(risk: AiServicePrediction['risk']) {
@@ -1713,78 +1721,9 @@ export class AiService {
     }
   }
 
-  private async processCustomerChatFallback(
-    cleanMessage: string,
-    history: ChatMessageInput[],
-  ): Promise<unknown> {
-    const sanitizedHistory = history
-      .filter(
-        (message) =>
-          (message.role === 'user' || message.role === 'assistant') &&
-          typeof message.content === 'string',
-      )
-      .slice(-12);
-
-    const slots = this.extractConversationSlots(sanitizedHistory, cleanMessage);
-    const intent = this.detectIntent(sanitizedHistory, cleanMessage, slots);
-
-    if (intent === 'build_pc') {
-      const missingFields = this.getMissingBuildFields(slots);
-
-      if (missingFields.length > 0) {
-        return {
-          reply: this.buildQuestionForMissingField(slots, missingFields[0]),
-          detectedIntent: intent,
-          conversationState: {
-            slots,
-            missingFields,
-            readyForRecommendation: false,
-          },
-        };
-      }
-
-      const recommendation = await this.generateBuildRecommendation(slots);
-      const buildReply = await this.createBuildReply(slots, recommendation);
-
-      return {
-        ...buildReply,
-        detectedIntent: intent,
-        conversationState: {
-          slots,
-          missingFields: [],
-          readyForRecommendation: true,
-        },
-      };
-    }
-
-    if (intent === 'compatibility') {
-      return {
-        reply:
-          'Puedo ayudarte con compatibilidad, pero necesito al menos dos piezas claras. Por ejemplo: "este Ryzen 5 con que placa va?" o "quiero una RAM para una B650 DDR5".',
-        detectedIntent: intent,
-      };
-    }
-
-    const matchedProducts = await this.findMatchingProducts(cleanMessage);
-    const predictions = await this.getAiPredictions(matchedProducts);
-
-    if (intent === 'product_search' || matchedProducts.length > 0) {
-      return {
-        ...this.buildProductSearchReply(cleanMessage, matchedProducts, predictions),
-        detectedIntent: matchedProducts.length > 0 ? 'product_search' : intent,
-      };
-    }
-
-    return {
-      reply:
-        'Te puedo ayudar de dos formas: encontrar un componente puntual o armarte una PC por presupuesto. Si quieres, dime algo como "busco una RTX 4060" o "tengo 3000 soles y quiero una PC para oficina".',
-      detectedIntent: 'unknown',
-    };
-  }
-
   async processCustomerChat(
     userMessage: string,
-    history: ChatMessageInput[] = [],
+    _history: ChatMessageInput[] = [],
     conversationState?: ChatConversationState,
   ): Promise<unknown> {
     const cleanMessage = userMessage.slice(0, MAX_CHAT_MESSAGE_LENGTH).trim();
@@ -1811,34 +1750,14 @@ export class AiService {
       const response = await this.requestCommercialChat(cleanMessage, conversationState);
 
       if (response.status === 'degraded') {
-        return await this.processCustomerChatFallback(cleanMessage, history);
+        return this.buildAiUnavailableResponse(conversationState);
       }
 
       return response;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`[AI] Servicio no disponible: ${message}`);
-      try {
-        return await this.processCustomerChatFallback(cleanMessage, history);
-      } catch (fallbackError: unknown) {
-        const fallbackMessage =
-          fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        this.logger.warn(`[AI] Fallback local no disponible: ${fallbackMessage}`);
-        return {
-          reply: AI_UNAVAILABLE_REPLY,
-          products: [],
-          actions: [],
-          totals: null,
-          status: 'degraded',
-          conversationState: conversationState ?? {
-            intent: null,
-            budget: null,
-            usage: null,
-            includesPeripherals: null,
-            mentionedProducts: [],
-          },
-        };
-      }
+      return this.buildAiUnavailableResponse(conversationState);
     }
   }
 }
