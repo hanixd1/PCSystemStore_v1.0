@@ -21,13 +21,16 @@ import { Public } from '../auth/public.decorator';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { uploadToCloudinary } from '../utils/cloudinary.util';
+import { CLOUDINARY_UPLOAD_FOLDERS, CloudinaryService } from '../uploads/cloudinary.service';
 import { MulterUploadExceptionFilter } from '../uploads/multer-upload-exception.filter';
 import { PRODUCT_IMAGE_UPLOAD_OPTIONS } from '../uploads/multer-options';
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Roles('ADMIN', 'EDITOR')
   @Post()
@@ -41,7 +44,16 @@ export class ProductsController {
     @Req() request: Request & { user: JwtUserPayload },
   ) {
     const imageUrls = files?.length
-      ? await Promise.all(files.map((file) => uploadToCloudinary(file)))
+      ? await Promise.all(
+          files.map(async (file) => {
+            const uploaded = await this.cloudinaryService.uploadImage(
+              file,
+              CLOUDINARY_UPLOAD_FOLDERS.products,
+            );
+
+            return uploaded.secureUrl;
+          }),
+        )
       : [];
 
     const payload = {

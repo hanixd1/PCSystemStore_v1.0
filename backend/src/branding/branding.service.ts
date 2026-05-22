@@ -16,7 +16,7 @@ export class BrandingService {
     if (!value) {
       return true;
     }
-    return value.startsWith('/uploads/') || /^https?:\/\/[^\s<>"']+$/i.test(value);
+    return /^https?:\/\/[^\s<>"']+$/i.test(value);
   }
 
   private isValidLink(value?: string) {

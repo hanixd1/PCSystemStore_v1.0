@@ -124,10 +124,12 @@ export default function AdminBannersPage() {
     void loadData();
   }, []);
 
-  const uploadImage = async (file: File) => {
+  const uploadImage = async (file: File, type: 'branding' | 'banners') => {
     const formData = new FormData();
     formData.append('image', file);
-    const res = await api.post('/admin/uploads/image', formData);
+    const uploadPath =
+      type === 'banners' ? '/admin/uploads/banner-image' : `/admin/uploads/image?type=${type}`;
+    const res = await api.post(uploadPath, formData);
     return String(res.data.url);
   };
 
@@ -138,7 +140,7 @@ export default function AdminBannersPage() {
     setSavingBranding(true);
 
     try {
-      const logoUrl = logoFiles[0] ? await uploadImage(logoFiles[0]) : branding.logoUrl;
+      const logoUrl = logoFiles[0] ? await uploadImage(logoFiles[0], 'branding') : branding.logoUrl;
       const res = await api.patch('/admin/branding', {
         ...branding,
         logoUrl,
@@ -171,7 +173,9 @@ export default function AdminBannersPage() {
     setSavingBanner(true);
 
     try {
-      const imageUrl = bannerFiles[0] ? await uploadImage(bannerFiles[0]) : existingImageUrl;
+      const imageUrl = bannerFiles[0]
+        ? await uploadImage(bannerFiles[0], 'banners')
+        : existingImageUrl;
       const payload = buildBannerPayload(bannerForm, imageUrl);
       const result = await saveBanner(editingId, payload);
       setBanners((current) =>
@@ -386,7 +390,7 @@ export default function AdminBannersPage() {
                 existingImages={bannerFiles.length === 0 ? bannerExistingImages : []}
                 onExistingImagesChange={setBannerExistingImages}
                 maxFiles={1}
-                helperText="Recomendacion: sube una imagen horizontal de 1920 x 500 px para el banner principal. El sistema la adaptara automaticamente en dispositivos moviles. Evita colocar texto importante muy cerca de los bordes."
+                helperText="Recomendacion: sube una imagen horizontal de 1800 x 600 px para el banner principal. El sistema la adaptara automaticamente en dispositivos moviles. Evita colocar texto importante muy cerca de los bordes."
               />
             </div>
             <Field

@@ -26,7 +26,7 @@ const MODE_CONFIG: Record<
   }
 > = {
   logo: { width: 400, height: 200, ratio: 2, maxSizeMb: 2 },
-  banner: { width: 1920, height: 500, ratio: 3.84, maxSizeMb: 5, hardRatioRange: [3.5, 4.2] },
+  banner: { width: 1800, height: 600, ratio: 3, maxSizeMb: 10, hardRatioRange: [2.7, 3.3] },
   product: { width: 550, height: 550, ratio: 1, maxSizeMb: 5 },
 };
 
@@ -71,7 +71,7 @@ function buildWarnings(mode: UploaderMode, width: number, height: number) {
 
     if (width !== config.width || height !== config.height) {
       warnings.push(
-        'La imagen no tiene el tamano recomendado de 1920 x 500 px; podria recortarse o verse mal en algunas pantallas.',
+        'La imagen no tiene el tamano recomendado de 1800 x 600 px; podria recortarse o verse mal en algunas pantallas.',
       );
     }
   }

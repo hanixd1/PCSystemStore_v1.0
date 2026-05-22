@@ -875,7 +875,7 @@ export default function EditProductPage() {
   const uploadImage = async (file: File) => {
     const formDataToSend = new FormData();
     formDataToSend.append('image', file);
-    const res = await api.post('/admin/uploads/image', formDataToSend, {
+    const res = await api.post('/admin/uploads/image?type=products', formDataToSend, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return String(res.data.url);
