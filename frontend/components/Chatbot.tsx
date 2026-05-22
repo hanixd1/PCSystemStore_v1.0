@@ -108,6 +108,11 @@ const STARTER_PROMPTS = [
 const AI_UNAVAILABLE_REPLY =
   'Buenas, por el momento Alex no se encuentra disponible. Puedes revisar el catálogo o usar el armador de PCs mientras el servicio vuelve a estar operativo.';
 
+const CHATBOT_MAX_INPUT_LENGTH = 300;
+const UNIT_TOKENS = ['gb', 'tb', 'w'] as const;
+
+type UnitToken = (typeof UNIT_TOKENS)[number];
+
 function ChatProductImage({ src, alt }: { src?: string | null; alt: string }) {
   const [hasError, setHasError] = useState(false);
 
@@ -294,9 +299,100 @@ export default function Chatbot() {
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/\s+/g, ' ');
 
+  const splitByWhitespace = (text: string): string[] => {
+    const tokens: string[] = [];
+    let current = '';
+
+    for (const char of text) {
+      if (char === ' ' || char === '\n' || char === '\t' || char === '\r') {
+        if (current) {
+          tokens.push(current);
+          current = '';
+        }
+        continue;
+      }
+
+      current += char;
+    }
+
+    if (current) {
+      tokens.push(current);
+    }
+
+    return tokens;
+  };
+
+  const isDigitString = (value: string) =>
+    value.length > 0 &&
+    value.length <= 5 &&
+    Array.from(value).every((char) => char >= '0' && char <= '9');
+
+  const normalizeUnitSpacing = (text: string): string =>
+    splitByWhitespace(text)
+      .map((token) => {
+        const lower = token.toLowerCase();
+
+        for (const unit of UNIT_TOKENS) {
+          if (lower.endsWith(unit)) {
+            const numberPart = lower.slice(0, -unit.length);
+            if (isDigitString(numberPart)) {
+              return `${numberPart} ${unit}`;
+            }
+          }
+        }
+
+        return lower;
+      })
+      .join(' ');
+
+  const hasStandaloneToken = (text: string, token: string): boolean =>
+    splitByWhitespace(text).includes(token);
+
+  const hasNumberWithUnit = (text: string, unit: UnitToken): boolean => {
+    const tokens = splitByWhitespace(text);
+
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index].toLowerCase();
+
+      if (token.endsWith(unit)) {
+        const numberPart = token.slice(0, -unit.length);
+        if (isDigitString(numberPart)) {
+          return true;
+        }
+      }
+
+      if (
+        index + 1 < tokens.length &&
+        tokens[index + 1].toLowerCase() === unit &&
+        isDigitString(token)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const hasM2Token = (text: string): boolean =>
+    text.includes('m.2') || hasStandaloneToken(text, 'm2');
+
+  const getFirstInteger = (text: string): number => {
+    for (const token of splitByWhitespace(text)) {
+      const numberPart = UNIT_TOKENS.reduce(
+        (current, unit) => (current.endsWith(unit) ? current.slice(0, -unit.length) : current),
+        token.toLowerCase(),
+      );
+
+      if (isDigitString(numberPart)) {
+        return Number(numberPart);
+      }
+    }
+
+    return 0;
+  };
+
   const normalizeCatalogReply = (value: string) =>
-    normalizeText(value)
-      .replace(/(\d+)\s*(gb|tb|w)\b/g, '$1 $2')
+    normalizeUnitSpacing(normalizeText(value.slice(0, CHATBOT_MAX_INPUT_LENGTH)))
       .replace('ver todas', 'todas')
       .replace('ver todos', 'todas')
       .replace('todos', 'todas');
@@ -517,9 +613,32 @@ export default function Chatbot() {
   };
 
   const isSpecificSearch = (text: string) => {
-    const normalized = normalizeText(text);
-    return /(rtx|gtx|radeon|\brx\b|ryzen|core i|i3|i5|i7|i9|ddr4|ddr5|\d+\s?gb|\d+\s?tb|\d+\s?w|nvme|m\.?2)/.test(
-      normalized,
+    const normalized = normalizeText(text.slice(0, CHATBOT_MAX_INPUT_LENGTH));
+    const directTerms = [
+      'rtx',
+      'gtx',
+      'radeon',
+      'ryzen',
+      'core i',
+      'i3',
+      'i5',
+      'i7',
+      'i9',
+      'ddr4',
+      'ddr5',
+      'nvme',
+    ];
+
+    if (directTerms.some((term) => normalized.includes(term))) {
+      return true;
+    }
+
+    return (
+      hasStandaloneToken(normalized, 'rx') ||
+      hasNumberWithUnit(normalized, 'gb') ||
+      hasNumberWithUnit(normalized, 'tb') ||
+      hasNumberWithUnit(normalized, 'w') ||
+      hasM2Token(normalized)
     );
   };
 
@@ -634,7 +753,7 @@ export default function Chatbot() {
     }
 
     if (guidedSearch.step === 'ramCapacity') {
-      const capacity = Number(value.match(/\d+/)?.[0] ?? 0);
+      const capacity = getFirstInteger(value);
       if (!isAll && [8, 16, 24, 32].includes(capacity)) {
         nextFilters.capacity = String(capacity);
       } else if (!isAll) {
@@ -649,7 +768,7 @@ export default function Chatbot() {
     }
 
     if (guidedSearch.step === 'ramModules') {
-      const modules = Number(value.match(/\d+/)?.[0] ?? 0);
+      const modules = getFirstInteger(value);
       if (!isAll && [1, 2, 4].includes(modules)) {
         nextFilters.modules = String(modules);
       } else if (!isAll) {
@@ -709,7 +828,7 @@ export default function Chatbot() {
     }
 
     if (guidedSearch.step === 'storageCapacity') {
-      const rawCapacity = Number(value.match(/\d+/)?.[0] ?? 0);
+      const rawCapacity = getFirstInteger(value);
       if (!isAll && rawCapacity > 0) {
         nextFilters.capacity = String(value.includes('tb') ? rawCapacity * 1000 : rawCapacity);
       }
@@ -723,7 +842,7 @@ export default function Chatbot() {
     }
 
     if (guidedSearch.step === 'psuWattage') {
-      const wattage = Number(value.match(/\d+/)?.[0] ?? 0);
+      const wattage = getFirstInteger(value);
       if (!isAll && [500, 600, 650, 750, 850, 1000].includes(wattage)) {
         nextFilters.wattage = String(wattage);
       } else if (!isAll) {
@@ -764,7 +883,7 @@ export default function Chatbot() {
     }
 
     if (guidedSearch.step === 'coolerRadiator') {
-      const radiatorSize = Number(value.match(/\d+/)?.[0] ?? 0);
+      const radiatorSize = getFirstInteger(value);
       if (!isAll && radiatorSize > 0) nextFilters.radiatorSize = String(radiatorSize);
       setGuidedSearch(null);
       await showCatalogResults(
