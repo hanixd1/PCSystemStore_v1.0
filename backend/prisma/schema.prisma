@@ -4,49 +4,48 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Product {
-  id               String            @id @default(uuid())
-  sku              String            @unique
-  slug             String            @unique
-  name             String
-  description      String?
-  price            Decimal           @db.Decimal(10, 2)
-  isOnSale         Boolean           @default(false)
-  salePrice        Decimal?          @db.Decimal(10, 2)
-  stock            Int
-  images           String[]
-  category         String
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  caseSpecs        CaseSpecs?
-  coolerSpecs      CoolerSpecs?
-  cpuSpecs         CpuSpecs?
-  desktopSpecs     DesktopSpecs?
-  gpuSpecs         GpuSpecs?
-  headsetSpecs     HeadsetSpecs?
-  keyboardSpecs    KeyboardSpecs?
-  laptopSpecs      LaptopSpecs?
-  microphoneSpecs  MicrophoneSpecs?
-  monitorSpecs     MonitorSpecs?
-  motherboardSpecs MotherboardSpecs?
-  mouseSpecs       MouseSpecs?
-  mousepadSpecs    MousepadSpecs?
-  chairSpecs       ChairSpecs?
-  gamingDeskSpecs  GamingDeskSpecs?
-  psuSpecs         PsuSpecs?
-  ramSpecs         RamSpecs?
-  softwareSpecs    SoftwareSpecs?
-  speakerSpecs     SpeakerSpecs?
-  webcamSpecs      WebcamSpecs?
-  captureCardSpecs CaptureCardSpecs?
-  cableHubSpecs    CableHubSpecs?
+  id                     String                  @id @default(uuid())
+  sku                    String                  @unique
+  slug                   String                  @unique
+  name                   String
+  description            String?
+  price                  Decimal                 @db.Decimal(10, 2)
+  isOnSale               Boolean                 @default(false)
+  salePrice              Decimal?                @db.Decimal(10, 2)
+  stock                  Int
+  images                 String[]
+  category               String
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  caseSpecs              CaseSpecs?
+  coolerSpecs            CoolerSpecs?
+  cpuSpecs               CpuSpecs?
+  desktopSpecs           DesktopSpecs?
+  gpuSpecs               GpuSpecs?
+  headsetSpecs           HeadsetSpecs?
+  keyboardSpecs          KeyboardSpecs?
+  laptopSpecs            LaptopSpecs?
+  microphoneSpecs        MicrophoneSpecs?
+  monitorSpecs           MonitorSpecs?
+  motherboardSpecs       MotherboardSpecs?
+  mouseSpecs             MouseSpecs?
+  mousepadSpecs          MousepadSpecs?
+  chairSpecs             ChairSpecs?
+  gamingDeskSpecs        GamingDeskSpecs?
+  psuSpecs               PsuSpecs?
+  ramSpecs               RamSpecs?
+  softwareSpecs          SoftwareSpecs?
+  speakerSpecs           SpeakerSpecs?
+  webcamSpecs            WebcamSpecs?
+  captureCardSpecs       CaptureCardSpecs?
+  cableHubSpecs          CableHubSpecs?
   laptopCoolingBaseSpecs LaptopCoolingBaseSpecs?
-  backpackSpecs    BackpackSpecs?
-  storageSpecs     StorageSpecs?
-  orderItems       OrderItem[]
+  backpackSpecs          BackpackSpecs?
+  storageSpecs           StorageSpecs?
+  orderItems             OrderItem[]
 }
 
 model CpuSpecs {
@@ -65,16 +64,16 @@ model CpuSpecs {
 }
 
 model MotherboardSpecs {
-  id          String  @id @default(uuid())
-  productId   String  @unique
-  brand       String?
-  socket      String
-  formFactor  String
-  memoryType  String
-  memorySlots Int
-  m2Slots     Int
+  id                     String   @id @default(uuid())
+  productId              String   @unique
+  brand                  String?
+  socket                 String
+  formFactor             String
+  memoryType             String
+  memorySlots            Int
+  m2Slots                Int
   supportedM2FormFactors String[] @default([])
-  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product                Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model RamSpecs {
@@ -89,17 +88,17 @@ model RamSpecs {
 }
 
 model GpuSpecs {
-  id                 String  @id @default(uuid())
-  productId          String  @unique
-  brand              String?
-  chipset            String
-  vram               Int
-  length             Int
-  tdp                Int
-  gpuPowerWatts      Int?
+  id                  String  @id @default(uuid())
+  productId           String  @unique
+  brand               String?
+  chipset             String
+  vram                Int
+  length              Int
+  tdp                 Int
+  gpuPowerWatts       Int?
   recommendedPsuWatts Int?
-  fans               Int
-  product            Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  fans                Int
+  product             Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model PsuSpecs {
@@ -114,48 +113,48 @@ model PsuSpecs {
 }
 
 model CaseSpecs {
-  id           String  @id @default(uuid())
-  productId    String  @unique
-  brand        String?
-  formFactor   String
-  maxGpuLength Int
-  includesPsu  Boolean
-  includedFans Int
+  id                String  @id @default(uuid())
+  productId         String  @unique
+  brand             String?
+  formFactor        String
+  maxGpuLength      Int
+  includesPsu       Boolean
+  includedFans      Int
   radiatorSupportMm Int?
-  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model CoolerSpecs {
-  id            String  @id @default(uuid())
-  productId     String  @unique
-  brand         String?
-  type          String
-  socketSupport String
+  id                String   @id @default(uuid())
+  productId         String   @unique
+  brand             String?
+  type              String
+  socketSupport     String
   compatibleSockets String[] @default([])
-  fanCount      Int
-  radiatorSize  Int?
-  hasRGB        Boolean
-  hasScreen     Boolean
-  tdpCapacity   Int?
-  coolerHeight  Int?
-  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  fanCount          Int
+  radiatorSize      Int?
+  hasRGB            Boolean
+  hasScreen         Boolean
+  tdpCapacity       Int?
+  coolerHeight      Int?
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model StorageSpecs {
-  id        String  @id @default(uuid())
-  productId String  @unique
-  type      String
-  capacity  Int
-  interface String
-  readSpeed Int?
-  writeSpeed Int?
+  id           String  @id @default(uuid())
+  productId    String  @unique
+  type         String
+  capacity     Int
+  interface    String
+  readSpeed    Int?
+  writeSpeed   Int?
   m2FormFactor String?
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model LaptopSpecs {
-  id              String  @id @default(uuid())
-  productId       String  @unique
+  id              String   @id @default(uuid())
+  productId       String   @unique
   brand           String?
   processor       String
   ram             String
@@ -163,11 +162,11 @@ model LaptopSpecs {
   screenSize      String
   refreshRate     Int
   panelType       String
-  hasDedicatedGpu Boolean @default(false)
+  hasDedicatedGpu Boolean  @default(false)
   gpuBrand        String?
   gpuModel        String?
   includesWindows Boolean?
-  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model DesktopSpecs {
@@ -194,22 +193,22 @@ model SoftwareSpecs {
 }
 
 model MonitorSpecs {
-  id          String  @id @default(uuid())
-  productId   String  @unique
-  brand       String?
-  screenSize  String
-  resolution  String
-  panelType   String
-  refreshRate Int
+  id             String   @id @default(uuid())
+  productId      String   @unique
+  brand          String?
+  screenSize     String
+  resolution     String
+  panelType      String
+  refreshRate    Int
   responseTimeMs Float?
-  ports       String[] @default([])
-  hasSpeakers Boolean?
-  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ports          String[] @default([])
+  hasSpeakers    Boolean?
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model KeyboardSpecs {
-  id                 String  @id @default(uuid())
-  productId          String  @unique
+  id                 String   @id @default(uuid())
+  productId          String   @unique
   connection         String
   switchType         String
   layout             String
@@ -221,12 +220,12 @@ model KeyboardSpecs {
   hasLighting        Boolean?
   keyboardFormFactor String?
   weightGrams        Int?
-  product            Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model MouseSpecs {
-  id            String  @id @default(uuid())
-  productId     String  @unique
+  id            String   @id @default(uuid())
+  productId     String   @unique
   connection    String
   dpi           Int
   sensor        String
@@ -238,17 +237,17 @@ model MouseSpecs {
   pollingRateHz Int?
   weightGrams   Int?
   powerType     String?
-  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model MousepadSpecs {
-  id        String  @id @default(uuid())
-  productId String  @unique
+  id        String   @id @default(uuid())
+  productId String   @unique
   brand     String?
   widthCm   Int?
   lengthCm  Int?
   hasLed    Boolean?
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model ChairSpecs {
@@ -324,16 +323,16 @@ model CaptureCardSpecs {
 }
 
 model CableHubSpecs {
-  id               String   @id @default(uuid())
-  productId        String   @unique
-  brand            String?
-  type             String
-  cableType        String?
+  id                String   @id @default(uuid())
+  productId         String   @unique
+  brand             String?
+  type              String
+  cableType         String?
   cableLengthMeters Int?
-  hubInputType     String?
-  hasHdmiOutput    Boolean?
-  hasRj45Output    Boolean?
-  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  hubInputType      String?
+  hasHdmiOutput     Boolean?
+  hasRj45Output     Boolean?
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model LaptopCoolingBaseSpecs {
@@ -472,15 +471,15 @@ model Order {
 }
 
 model OrderItem {
-  id                   String  @id @default(uuid())
-  orderId              String
-  productId            String
-  productNameSnapshot  String
-  unitPriceSnapshot    Decimal @db.Decimal(10, 2)
-  quantity             Int
-  subtotal             Decimal @db.Decimal(10, 2)
-  order                Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product              Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  id                  String  @id @default(uuid())
+  orderId             String
+  productId           String
+  productNameSnapshot String
+  unitPriceSnapshot   Decimal @db.Decimal(10, 2)
+  quantity            Int
+  subtotal            Decimal @db.Decimal(10, 2)
+  order               Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product             Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 }
 
 model Payment {

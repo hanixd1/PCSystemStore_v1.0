@@ -32,8 +32,13 @@ if (!process.env.DATABASE_URL_TEST || !process.env.DATABASE_URL_TEST.trim()) {
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = process.env.DATABASE_URL_TEST;
 
-const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const result = spawnSync(command, ['prisma', 'migrate', 'deploy'], {
+const command = resolve(
+  process.cwd(),
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'prisma.cmd' : 'prisma',
+);
+const result = spawnSync(command, ['migrate', 'deploy'], {
   stdio: 'inherit',
   env: process.env,
 });

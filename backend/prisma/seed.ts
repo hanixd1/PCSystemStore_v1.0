@@ -1,8 +1,18 @@
 import 'dotenv/config';
 import { PaymentMethod, PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL must be configured to run seed.');
+}
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({
+    connectionString: databaseUrl,
+  }),
+});
 
 async function cleanCatalogData() {
   await prisma.payment.deleteMany();
@@ -145,7 +155,9 @@ async function seedCatalog() {
       sku: 'CPU-RYZEN-7600X',
       slug: 'amd-ryzen-5-7600x',
       category: 'CPU',
-      images: ['https://www.amd.com/content/dam/amd/en/images/products/processors/ryzen/2505503-ryzen-5-7600x.jpg'],
+      images: [
+        'https://www.amd.com/content/dam/amd/en/images/products/processors/ryzen/2505503-ryzen-5-7600x.jpg',
+      ],
       isOnSale: false,
       salePrice: null,
       cpuSpecs: {
@@ -201,7 +213,9 @@ async function seedCatalog() {
       price: 320,
       stock: 20,
       category: 'RAM',
-      images: ['https://media.kingston.com/kingston/product/ktc-product-memory-beast-ddr5-rgb-dimm-1-lg.jpg'],
+      images: [
+        'https://media.kingston.com/kingston/product/ktc-product-memory-beast-ddr5-rgb-dimm-1-lg.jpg',
+      ],
       isOnSale: false,
       salePrice: null,
       ramSpecs: {
@@ -226,7 +240,9 @@ async function seedCatalog() {
       price: 680,
       stock: 6,
       category: 'COOLER',
-      images: ['https://assets.corsair.com/image/upload/c_pad,q_auto,h_1024,w_1024/products/Cooling/CPU-Coolers/base-icue-h100i-elite-capellix-xt-config/Gallery/CW-9060068-WW_01.webp'],
+      images: [
+        'https://assets.corsair.com/image/upload/c_pad,q_auto,h_1024,w_1024/products/Cooling/CPU-Coolers/base-icue-h100i-elite-capellix-xt-config/Gallery/CW-9060068-WW_01.webp',
+      ],
       isOnSale: false,
       salePrice: null,
       coolerSpecs: {
@@ -256,7 +272,9 @@ async function seedCatalog() {
       price: 1650,
       stock: 4,
       category: 'GPU',
-      images: ['https://static.bhphoto.com/images/images2500x2500/gigabyte_gv_n5060gaming_oc_8gd_geforce_rtx_5060_gaming_1895213.jpg'],
+      images: [
+        'https://static.bhphoto.com/images/images2500x2500/gigabyte_gv_n5060gaming_oc_8gd_geforce_rtx_5060_gaming_1895213.jpg',
+      ],
       isOnSale: false,
       salePrice: null,
       gpuSpecs: {
@@ -284,7 +302,9 @@ async function seedCatalog() {
       price: 310,
       stock: 8,
       category: 'PSU',
-      images: ['https://static.gigabyte.com/StaticFile/Image/Global/2a9c9b7821a936f3db64e2bb0c007ef0/Product/30338/png/1000'],
+      images: [
+        'https://static.gigabyte.com/StaticFile/Image/Global/2a9c9b7821a936f3db64e2bb0c007ef0/Product/30338/png/1000',
+      ],
       isOnSale: false,
       salePrice: null,
       psuSpecs: {
@@ -309,7 +329,9 @@ async function seedCatalog() {
       price: 520,
       stock: 5,
       category: 'CASE',
-      images: ['https://storage-asset.msi.com/global/picture/image/feature/PC-Case/MPG-SEKIRA-100R/kv-pd.png'],
+      images: [
+        'https://storage-asset.msi.com/global/picture/image/feature/PC-Case/MPG-SEKIRA-100R/kv-pd.png',
+      ],
       isOnSale: false,
       salePrice: null,
       caseSpecs: {

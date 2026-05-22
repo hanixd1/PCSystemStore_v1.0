@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { resetQaDatabase, seedQaDatabase } from '../test/fixtures/seed-qa';
@@ -38,7 +39,11 @@ async function main() {
   }
 
   process.env.DATABASE_URL = process.env.DATABASE_URL_TEST;
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({
+      connectionString: process.env.DATABASE_URL,
+    }),
+  });
 
   try {
     await resetQaDatabase(prisma);

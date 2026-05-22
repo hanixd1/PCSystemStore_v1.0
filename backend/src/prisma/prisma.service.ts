@@ -1,5 +1,6 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 function getDatabaseDiagnostics(databaseUrl?: string) {
   if (!databaseUrl?.trim()) {
@@ -32,9 +33,22 @@ function getDatabaseDiagnostics(databaseUrl?: string) {
 }
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit {
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
   private isDatabaseConnected = false;
+
+  constructor() {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error('DATABASE_URL must be configured for Prisma runtime.');
+    }
+
+    super({
+      adapter: new PrismaPg({
+        connectionString: databaseUrl,
+      }),
+    });
+  }
 
   async onModuleInit() {
     const databaseDiagnostics = getDatabaseDiagnostics(process.env.DATABASE_URL);
@@ -66,6 +80,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         throw new Error(message);
       }
     }
+  }
+
+  async onModuleDestroy() {
+    await this.$disconnect();
   }
 
   getConnectionState() {
