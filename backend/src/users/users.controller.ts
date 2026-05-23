@@ -10,6 +10,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import type { CookieOptions } from 'express';
 import type * as express from 'express';
 import { JwtUserPayload } from '../auth/auth.constants';
 import { Public } from '../auth/public.decorator';
@@ -38,28 +39,30 @@ function getSessionCookieName(scope: SessionScope) {
   return scope === 'admin' ? ADMIN_SESSION_COOKIE : CUSTOMER_SESSION_COOKIE;
 }
 
-function getCookieOptions(scope: SessionScope) {
+function getSessionCookieOptions(scope: SessionScope): CookieOptions {
   const isProduction = process.env.NODE_ENV === 'production';
   const maxAgeMs = scope === 'admin' ? ADMIN_SESSION_MAX_AGE_MS : CUSTOMER_SESSION_MAX_AGE_MS;
 
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'lax' as const,
+    sameSite: isProduction ? 'none' : 'lax',
     maxAge: maxAgeMs,
     path: '/',
   };
 }
 
+function getClearSessionCookieOptions(scope: SessionScope): CookieOptions {
+  const { maxAge, ...options } = getSessionCookieOptions(scope);
+  return options;
+}
+
 function setSessionCookie(response: express.Response, scope: SessionScope, token: string) {
-  response.cookie(getSessionCookieName(scope), token, getCookieOptions(scope));
+  response.cookie(getSessionCookieName(scope), token, getSessionCookieOptions(scope));
 }
 
 function clearSessionCookie(response: express.Response, scope: SessionScope) {
-  response.clearCookie(getSessionCookieName(scope), {
-    ...getCookieOptions(scope),
-    maxAge: undefined,
-  });
+  response.clearCookie(getSessionCookieName(scope), getClearSessionCookieOptions(scope));
 }
 
 @Controller('users')
