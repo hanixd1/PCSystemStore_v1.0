@@ -33,14 +33,9 @@ export class UploadsController {
 
   @Roles('ADMIN')
   @Post('image')
-  @UseFilters(
-    new MulterUploadExceptionFilter('La imagen supera el tamano maximo permitido de 3 MB.'),
-  )
+  @UseFilters(new MulterUploadExceptionFilter('La imagen debe pesar como maximo 5 MB.'))
   @UseInterceptors(FileInterceptor('image', ADMIN_IMAGE_UPLOAD_OPTIONS))
-  async uploadImage(
-    @UploadedFile() file?: Express.Multer.File,
-    @Query('type') type?: UploadType,
-  ) {
+  async uploadImage(@UploadedFile() file?: Express.Multer.File, @Query('type') type?: UploadType) {
     if (!file) {
       throw new BadRequestException('Debes enviar una imagen');
     }
@@ -58,9 +53,7 @@ export class UploadsController {
 
   @Roles('ADMIN')
   @Post('banner-image')
-  @UseFilters(
-    new MulterUploadExceptionFilter('La imagen supera el tamano maximo permitido de 10 MB.'),
-  )
+  @UseFilters(new MulterUploadExceptionFilter('El banner debe pesar como maximo 10 MB.'))
   @UseInterceptors(FileInterceptor('image', BANNER_IMAGE_UPLOAD_OPTIONS))
   async uploadBannerImage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {

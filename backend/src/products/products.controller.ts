@@ -35,7 +35,7 @@ export class ProductsController {
   @Roles('ADMIN', 'EDITOR')
   @Post()
   @UseFilters(
-    new MulterUploadExceptionFilter('La imagen supera el tamano maximo permitido de 2 MB.'),
+    new MulterUploadExceptionFilter('Cada imagen de producto debe pesar como maximo 4 MB.'),
   )
   @UseInterceptors(FilesInterceptor('images', 5, PRODUCT_IMAGE_UPLOAD_OPTIONS))
   async create(

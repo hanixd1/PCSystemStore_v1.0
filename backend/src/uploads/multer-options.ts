@@ -1,46 +1,59 @@
 import { memoryStorage } from 'multer';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { imageFileFilter } from './image-file.filter';
-import { MAX_BANNER_IMAGE_SIZE_BYTES } from './upload.constants';
+import {
+  MAX_ADMIN_IMAGE_SIZE_BYTES,
+  MAX_ADMIN_IMAGES,
+  MAX_ADMIN_UPLOAD_FIELDS,
+  MAX_ADMIN_UPLOAD_PARTS,
+  MAX_BANNER_IMAGE_SIZE_BYTES,
+  MAX_BANNER_IMAGES,
+  MAX_BANNER_UPLOAD_FIELDS,
+  MAX_BANNER_UPLOAD_PARTS,
+  MAX_PRODUCT_IMAGE_SIZE_BYTES,
+  MAX_PRODUCT_IMAGES,
+  MAX_PRODUCT_UPLOAD_FIELDS,
+  MAX_PRODUCT_UPLOAD_PARTS,
+  MAX_UPLOAD_FIELD_SIZE_BYTES,
+} from './upload.constants';
 
-// Security: Multer memoryStorage is bounded by limits.fileSize, limits.files,
-// limits.fields, limits.parts and limits.fieldSize. This avoids unbounded memory usage.
+// memoryStorage is intentionally used because files are immediately validated,
+// uploaded/processed, and bounded by strict fileSize/files/parts/fieldSize limits.
+// Do not remove limits while using memoryStorage.
 export const PRODUCT_IMAGE_UPLOAD_OPTIONS: MulterOptions = {
   limits: {
-    // 2 MB per image. Prevents unbounded memory usage with memoryStorage.
-    fileSize: 2 * 1024 * 1024,
-    files: 5,
-    fields: 20,
-    parts: 30,
-    fieldSize: 64 * 1024,
+    // 4 MB per image, max 5 images. Bounded because memoryStorage keeps files in RAM.
+    fileSize: MAX_PRODUCT_IMAGE_SIZE_BYTES,
+    files: MAX_PRODUCT_IMAGES,
+    fields: MAX_PRODUCT_UPLOAD_FIELDS,
+    parts: MAX_PRODUCT_UPLOAD_PARTS,
+    fieldSize: MAX_UPLOAD_FIELD_SIZE_BYTES,
   },
   fileFilter: imageFileFilter,
   storage: memoryStorage(),
 };
 
-// Security: used for admin logo/banner image uploads through a single-file endpoint.
 export const ADMIN_IMAGE_UPLOAD_OPTIONS: MulterOptions = {
   limits: {
-    // 3 MB per image. Prevents unbounded memory usage with memoryStorage.
-    fileSize: 3 * 1024 * 1024,
-    files: 1,
-    fields: 10,
-    parts: 15,
-    fieldSize: 64 * 1024,
+    // 5 MB per image, max 1 image. Bounded because memoryStorage keeps files in RAM.
+    fileSize: MAX_ADMIN_IMAGE_SIZE_BYTES,
+    files: MAX_ADMIN_IMAGES,
+    fields: MAX_ADMIN_UPLOAD_FIELDS,
+    parts: MAX_ADMIN_UPLOAD_PARTS,
+    fieldSize: MAX_UPLOAD_FIELD_SIZE_BYTES,
   },
   fileFilter: imageFileFilter,
   storage: memoryStorage(),
 };
 
-// Security: banner uploads can be larger because the recommended asset is 1800 x 600 px.
 export const BANNER_IMAGE_UPLOAD_OPTIONS: MulterOptions = {
   limits: {
-    // 10 MB per banner image. Still bounded to avoid unbounded memory usage with memoryStorage.
+    // 10 MB per banner image, max 1 image. Bounded because memoryStorage keeps files in RAM.
     fileSize: MAX_BANNER_IMAGE_SIZE_BYTES,
-    files: 1,
-    fields: 10,
-    parts: 15,
-    fieldSize: 64 * 1024,
+    files: MAX_BANNER_IMAGES,
+    fields: MAX_BANNER_UPLOAD_FIELDS,
+    parts: MAX_BANNER_UPLOAD_PARTS,
+    fieldSize: MAX_UPLOAD_FIELD_SIZE_BYTES,
   },
   fileFilter: imageFileFilter,
   storage: memoryStorage(),
