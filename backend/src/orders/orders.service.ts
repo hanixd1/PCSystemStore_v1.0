@@ -34,6 +34,7 @@ export class OrdersService {
 
   async create(data: CreateOrderDto, userId: string) {
     assertPaymentsEnabled();
+    await this.assertCustomerCanCheckout(userId);
 
     const normalizedItems = data.items.map((item) => ({
       productId: item.productId,
@@ -140,5 +141,29 @@ export class OrdersService {
       orderBy: { createdAt: 'desc' },
       include: this.orderInclude,
     });
+  }
+
+  private async assertCustomerCanCheckout(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        emailVerified: true,
+        documentType: true,
+        documentNumber: true,
+        mobilePhone: true,
+      },
+    });
+
+    if (
+      !user?.emailVerified ||
+      !user.documentType?.trim() ||
+      !user.documentNumber?.trim() ||
+      !user.mobilePhone?.trim()
+    ) {
+      throw new BadRequestException({
+        code: 'PROFILE_INCOMPLETE',
+        message: 'Completa tu tipo de documento, número de documento y celular antes de continuar.',
+      });
+    }
   }
 }

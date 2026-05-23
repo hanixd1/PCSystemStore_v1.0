@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { AccountTokenType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { Request } from 'express';
@@ -29,11 +30,19 @@ const ADMIN_RESET_ROLES = ['ADMIN', 'EDITOR'] as const;
 type ProfileUpdateData = {
   name?: string;
   email?: string;
+  emailVerified?: boolean;
+  emailVerifiedAt?: Date | null;
   birthDate?: Date | null;
   documentType?: string;
   documentNumber?: string;
   gender?: string;
   mobilePhone?: string;
+};
+
+type ProfileCurrentUser = {
+  email: string;
+  emailVerified: boolean;
+  documentNumber: string | null;
 };
 
 @Injectable()
@@ -57,6 +66,15 @@ export class UsersService {
     return process.env.FRONTEND_URL?.trim().replace(/\/$/, '') || '';
   }
 
+  private getRequiredFrontendUrl() {
+    const frontendUrl = this.getFrontendUrl();
+    if (!frontendUrl) {
+      throw new InternalServerErrorException('FRONTEND_URL no esta configurado en el backend.');
+    }
+
+    return frontendUrl;
+  }
+
   private getResetPasswordPath(flow: 'client' | 'admin') {
     if (flow === 'admin') {
       return process.env.ADMIN_RESET_PASSWORD_PATH?.trim() || '/admin/reset-password';
@@ -73,7 +91,56 @@ export class UsersService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private async buildSession(user: { id: string; name: string; email: string; role: string }) {
+  private async createAccountToken(userId: string, type: AccountTokenType) {
+    const plainToken = this.generateSecureResetToken();
+    const tokenHash = this.hashResetToken(plainToken);
+
+    await this.prisma.accountToken.create({
+      data: {
+        userId,
+        type,
+        tokenHash,
+        expiresAt: new Date(Date.now() + RESET_PASSWORD_TOKEN_EXPIRES_MS),
+      },
+    });
+
+    return plainToken;
+  }
+
+  private async consumeAccountToken(token: string, type: AccountTokenType) {
+    const tokenHash = this.hashResetToken(token);
+    const accountToken = await this.prisma.accountToken.findFirst({
+      where: {
+        tokenHash,
+        type,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      include: { user: true },
+    });
+
+    if (!accountToken) {
+      throw new BadRequestException('El enlace no es valido o ha expirado.');
+    }
+
+    await this.prisma.accountToken.update({
+      where: { id: accountToken.id },
+      data: { usedAt: new Date() },
+    });
+
+    return accountToken.user;
+  }
+
+  private async buildSession(user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    emailVerified?: boolean;
+    documentType?: string | null;
+    documentNumber?: string | null;
+    mobilePhone?: string | null;
+  }) {
     const payload: JwtUserPayload = {
       sub: user.id,
       email: user.email,
@@ -92,6 +159,8 @@ export class UsersService {
         name: user.name,
         email: user.email,
         role: user.role,
+        emailVerified: Boolean(user.emailVerified),
+        profileComplete: this.isCustomerProfileComplete(user),
       },
       token: await this.jwtService.signAsync(payload, { expiresIn }),
     };
@@ -292,6 +361,10 @@ export class UsersService {
   }
 
   async register(data: RegisterUserDto) {
+    if (data.password !== data.confirmPassword) {
+      throw new BadRequestException('Las contrasenas no coinciden.');
+    }
+
     const normalizedEmail = this.sanitizeEmail(data.email);
     const existingUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -311,21 +384,32 @@ export class UsersService {
         password: hashedPassword,
         role: 'CUSTOMER',
         status: 'ACTIVE',
+        emailVerified: false,
       },
     });
 
+    const token = await this.createAccountToken(user.id, AccountTokenType.EMAIL_VERIFICATION);
+    const verificationLink = `${this.getRequiredFrontendUrl()}/auth/verify-email?token=${token}`;
+    await this.emailService.sendEmailVerificationEmail({
+      to: user.email,
+      name: user.name,
+      link: verificationLink,
+    });
+
     return {
-      message: 'Cuenta creada correctamente',
+      message: 'Cuenta creada correctamente. Revisa tu correo para verificar tu cuenta.',
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
+        emailVerified: user.emailVerified,
+        profileComplete: this.isCustomerProfileComplete(user),
       },
     };
   }
 
-  async loginWithGoogle(idToken: string) {
+  private async verifyGoogleIdToken(idToken: string) {
     if (!idToken?.trim()) {
       throw new BadRequestException('Token de Google requerido');
     }
@@ -354,10 +438,23 @@ export class UsersService {
       throw new UnauthorizedException('La cuenta de Google no tiene un correo verificado');
     }
 
-    const normalizedEmail = this.sanitizeEmail(payload.email);
-    let user = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    return {
+      email: this.sanitizeEmail(payload.email),
+      name: payload.name?.trim() || payload.email.split('@')[0],
+    };
+  }
+
+  async loginWithGoogle(idToken: string) {
+    const googleProfile = await this.verifyGoogleIdToken(idToken);
+    const user = await this.prisma.user.findUnique({
+      where: { email: googleProfile.email },
     });
+
+    if (!user) {
+      throw new UnauthorizedException(
+        'No existe una cuenta asociada a este Google. Crea una cuenta para continuar.',
+      );
+    }
 
     if (user?.status === 'INACTIVE') {
       throw new UnauthorizedException('Cuenta suspendida. Contacte al administrador.');
@@ -369,24 +466,62 @@ export class UsersService {
       );
     }
 
-    if (!user) {
-      const generatedPassword = await bcrypt.hash(`${normalizedEmail}-${Date.now()}`, 10);
-      user = await this.prisma.user.create({
-        data: {
-          name: payload.name?.trim() || normalizedEmail.split('@')[0],
-          email: normalizedEmail,
-          password: generatedPassword,
-          role: 'CUSTOMER',
-          status: 'ACTIVE',
-        },
-      });
-    }
-
     await this.createLog(
       user.id,
       'LOGIN',
       'USER',
       `Inicio de sesion cliente con Google de ${user.email}`,
+    );
+
+    return this.buildSession(user);
+  }
+
+  async registerWithGoogle(idToken: string) {
+    const googleProfile = await this.verifyGoogleIdToken(idToken);
+    let user = await this.prisma.user.findUnique({
+      where: { email: googleProfile.email },
+    });
+
+    if (user?.status === 'INACTIVE') {
+      throw new UnauthorizedException('Cuenta suspendida. Contacte al administrador.');
+    }
+
+    if (user && user.role !== 'CUSTOMER') {
+      throw new UnauthorizedException('Esta cuenta no puede registrarse como cliente con Google');
+    }
+
+    let createdUser = false;
+    if (!user) {
+      const generatedPassword = await bcrypt.hash(`${googleProfile.email}-${Date.now()}`, 10);
+      user = await this.prisma.user.create({
+        data: {
+          name: googleProfile.name,
+          email: googleProfile.email,
+          password: generatedPassword,
+          role: 'CUSTOMER',
+          status: 'ACTIVE',
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+        },
+      });
+      createdUser = true;
+    }
+
+    if (createdUser) {
+      const token = await this.createAccountToken(user.id, AccountTokenType.SET_PASSWORD);
+      const setPasswordLink = `${this.getRequiredFrontendUrl()}/auth/set-password?token=${token}`;
+      await this.emailService.sendGoogleWelcomeSetPasswordEmail({
+        to: user.email,
+        name: user.name,
+        link: setPasswordLink,
+      });
+    }
+
+    await this.createLog(
+      user.id,
+      createdUser ? 'REGISTER' : 'LOGIN',
+      'USER',
+      `${createdUser ? 'Registro' : 'Inicio de sesion'} cliente con Google de ${user.email}`,
     );
 
     return this.buildSession(user);
@@ -409,24 +544,10 @@ export class UsersService {
       return genericResponse;
     }
 
-    const plainToken = this.generateSecureResetToken();
-    const tokenHash = this.hashResetToken(plainToken);
-
-    await this.prisma.user.update({
-      where: { email: normalizedEmail },
-      data: {
-        resetToken: tokenHash,
-        resetTokenExpiry: new Date(Date.now() + RESET_PASSWORD_TOKEN_EXPIRES_MS),
-      },
-    });
-
-    const frontendUrl = this.getFrontendUrl();
-    if (!frontendUrl) {
-      throw new InternalServerErrorException('FRONTEND_URL no esta configurado en el backend.');
-    }
+    const plainToken = await this.createAccountToken(user.id, AccountTokenType.PASSWORD_RESET);
 
     const resetPath = this.getResetPasswordPath(flow);
-    const resetLink = `${frontendUrl}${resetPath}?token=${plainToken}`;
+    const resetLink = `${this.getRequiredFrontendUrl()}${resetPath}?token=${plainToken}`;
     await this.emailService.sendPasswordResetEmail({
       to: user.email,
       name: user.name,
@@ -438,17 +559,7 @@ export class UsersService {
   }
 
   async resetPassword(token: string, newPassword: string, flow?: 'client' | 'admin') {
-    const tokenHash = this.hashResetToken(token);
-    const user = await this.prisma.user.findFirst({
-      where: {
-        resetToken: tokenHash,
-        resetTokenExpiry: { gt: new Date() },
-      },
-    });
-
-    if (!user) {
-      throw new BadRequestException('El enlace de recuperacion no es valido o ha expirado.');
-    }
+    const user = await this.consumeAccountToken(token, AccountTokenType.PASSWORD_RESET);
 
     if (flow && !this.canUsePasswordResetFlow(user.role, flow)) {
       throw new BadRequestException('El enlace de recuperacion no es valido o ha expirado.');
@@ -471,12 +582,131 @@ export class UsersService {
     return { message: 'Contrasena actualizada correctamente' };
   }
 
+  async setCustomerPassword(token: string, password: string, confirmPassword: string) {
+    if (password !== confirmPassword) {
+      throw new BadRequestException('Las contrasenas no coinciden.');
+    }
+
+    const user = await this.consumeAccountToken(token, AccountTokenType.SET_PASSWORD);
+    if (user.role !== 'CUSTOMER') {
+      throw new BadRequestException('El enlace no es valido o ha expirado.');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Contrasena creada correctamente' };
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.consumeAccountToken(token, AccountTokenType.EMAIL_VERIFICATION);
+    if (user.role !== 'CUSTOMER') {
+      throw new BadRequestException('El enlace no es valido o ha expirado.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+      },
+    });
+
+    return { message: 'Correo verificado correctamente' };
+  }
+
   private canUsePasswordResetFlow(role: string, flow: 'client' | 'admin'): boolean {
     if (flow === 'client') {
       return role === 'CUSTOMER';
     }
 
     return ADMIN_RESET_ROLES.includes(role as (typeof ADMIN_RESET_ROLES)[number]);
+  }
+
+  private isCustomerProfileComplete(user: {
+    role?: string;
+    documentType?: string | null;
+    documentNumber?: string | null;
+    mobilePhone?: string | null;
+    emailVerified?: boolean | null;
+  }): boolean {
+    if (user.role && user.role !== 'CUSTOMER') {
+      return true;
+    }
+
+    return Boolean(
+      user.emailVerified &&
+      user.documentType?.trim() &&
+      user.documentNumber?.trim() &&
+      user.mobilePhone?.trim(),
+    );
+  }
+
+  private assertValidCustomerProfileData(data: {
+    documentType?: string;
+    documentNumber?: string;
+    mobilePhone?: string;
+  }): void {
+    if (
+      data.documentType !== undefined &&
+      !['DNI', 'Carnet de extranjeria', 'Pasaporte'].includes(data.documentType)
+    ) {
+      throw new BadRequestException('Tipo de documento invalido');
+    }
+
+    if (data.documentNumber !== undefined && data.documentType) {
+      this.assertValidDocumentNumber(data.documentType, data.documentNumber);
+    }
+
+    if (data.mobilePhone !== undefined && !this.isValidPeruMobilePhone(data.mobilePhone)) {
+      throw new BadRequestException('El numero de celular debe tener 9 digitos');
+    }
+  }
+
+  private assertValidDocumentNumber(documentType: string, documentNumber: string): void {
+    const value = documentNumber.trim();
+
+    if (documentType === 'DNI' && !this.isNumericText(value, 8, 8)) {
+      throw new BadRequestException('El DNI debe tener 8 digitos numericos');
+    }
+
+    if (documentType === 'Carnet de extranjeria' && !this.isAlphaNumericText(value, 9, 12)) {
+      throw new BadRequestException('El carnet de extranjeria debe tener entre 9 y 12 caracteres');
+    }
+
+    if (documentType === 'Pasaporte' && !this.isAlphaNumericText(value, 6, 12)) {
+      throw new BadRequestException('El pasaporte debe tener entre 6 y 12 caracteres');
+    }
+  }
+
+  private isValidPeruMobilePhone(value: string): boolean {
+    const normalized = value.trim().startsWith('+51') ? value.trim().slice(3) : value.trim();
+    return this.isNumericText(normalized, 9, 9);
+  }
+
+  private isNumericText(value: string, min: number, max: number): boolean {
+    return (
+      value.length >= min &&
+      value.length <= max &&
+      Array.from(value).every((char) => char >= '0' && char <= '9')
+    );
+  }
+
+  private isAlphaNumericText(value: string, min: number, max: number): boolean {
+    return (
+      value.length >= min &&
+      value.length <= max &&
+      Array.from(value).every((char) => {
+        const code = char.codePointAt(0);
+        return (
+          code !== undefined &&
+          ((code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122))
+        );
+      })
+    );
   }
 
   async create(data: CreateUserDto) {
@@ -502,6 +732,8 @@ export class UsersService {
         password: hashedPassword,
         role,
         status: 'ACTIVE',
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
       },
       select: {
         id: true,
@@ -514,13 +746,18 @@ export class UsersService {
         mobilePhone: true,
         role: true,
         status: true,
+        emailVerified: true,
+        emailVerifiedAt: true,
         createdAt: true,
       },
     });
 
     await this.createLog(user.id, 'CREATE', 'USER', `Creacion de usuario ${user.email}`);
 
-    return user;
+    return {
+      ...user,
+      profileComplete: this.isCustomerProfileComplete(user),
+    };
   }
 
   async getMe(id: string) {
@@ -537,6 +774,8 @@ export class UsersService {
         mobilePhone: true,
         role: true,
         status: true,
+        emailVerified: true,
+        emailVerifiedAt: true,
         createdAt: true,
       },
     });
@@ -545,11 +784,19 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    return user;
+    return {
+      ...user,
+      profileComplete: this.isCustomerProfileComplete(user),
+    };
   }
 
   async updateProfile(id: string, data: UpdateProfileDto) {
     const existingCurrentUser = await this.findProfileUserOrThrow(id);
+    this.assertValidCustomerProfileData({
+      documentType: data.documentType,
+      documentNumber: data.documentNumber,
+      mobilePhone: data.mobilePhone,
+    });
     const updateData = await this.buildProfileUpdateData(id, data, existingCurrentUser);
 
     const user = await this.prisma.user.update({
@@ -565,19 +812,23 @@ export class UsersService {
         gender: true,
         mobilePhone: true,
         role: true,
+        emailVerified: true,
       },
     });
 
     return {
       message: 'Datos actualizados correctamente',
-      user,
+      user: {
+        ...user,
+        profileComplete: this.isCustomerProfileComplete(user),
+      },
     };
   }
 
-  private async findProfileUserOrThrow(id: string): Promise<{ documentNumber: string | null }> {
+  private async findProfileUserOrThrow(id: string): Promise<ProfileCurrentUser> {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { documentNumber: true },
+      select: { email: true, emailVerified: true, documentNumber: true },
     });
 
     if (!user) {
@@ -590,14 +841,14 @@ export class UsersService {
   private async buildProfileUpdateData(
     id: string,
     data: UpdateProfileDto,
-    currentUser: { documentNumber: string | null },
+    currentUser: ProfileCurrentUser,
   ): Promise<ProfileUpdateData> {
     const updateData: ProfileUpdateData = {};
 
     this.applyBasicProfileFields(updateData, data);
 
     if (data.email !== undefined) {
-      updateData.email = await this.getAvailableProfileEmail(data.email, id);
+      await this.applyProfileEmailUpdate(updateData, data.email, id, currentUser);
     }
 
     this.applyDocumentProfileFields(updateData, data, currentUser.documentNumber);
@@ -635,6 +886,30 @@ export class UsersService {
     }
 
     return normalizedEmail;
+  }
+
+  private async applyProfileEmailUpdate(
+    updateData: ProfileUpdateData,
+    email: string,
+    userId: string,
+    currentUser: ProfileCurrentUser,
+  ): Promise<void> {
+    const normalizedEmail = this.sanitizeEmail(email);
+
+    if (normalizedEmail === currentUser.email.toLowerCase()) {
+      updateData.email = normalizedEmail;
+      return;
+    }
+
+    if (currentUser.emailVerified) {
+      throw new BadRequestException(
+        'Para cambiar un correo verificado debes iniciar un proceso de verificacion.',
+      );
+    }
+
+    updateData.email = await this.getAvailableProfileEmail(normalizedEmail, userId);
+    updateData.emailVerified = false;
+    updateData.emailVerifiedAt = null;
   }
 
   private applyDocumentProfileFields(

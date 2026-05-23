@@ -1,16 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsString, Length, MinLength } from 'class-validator';
+import { IsString, MinLength } from 'class-validator';
 import { toTrimmedString } from '../../common/dto/transformers';
 
-export class RegisterUserDto {
+export class SetPasswordDto {
   @Transform(toTrimmedString)
   @IsString()
-  @Length(2, 120)
-  name!: string;
-
-  @Transform(toTrimmedString)
-  @IsEmail()
-  email!: string;
+  @MinLength(10)
+  token!: string;
 
   @Transform(toTrimmedString)
   @IsString()

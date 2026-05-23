@@ -7,6 +7,8 @@ export type CustomerSessionUser = {
   name: string;
   email: string;
   role: string;
+  emailVerified?: boolean;
+  profileComplete?: boolean;
 };
 
 const CUSTOMER_SESSION_EVENT = 'customer-session-changed';

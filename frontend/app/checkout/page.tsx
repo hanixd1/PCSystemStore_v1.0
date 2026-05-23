@@ -69,6 +69,12 @@ export default function CheckoutPage() {
   }, [customer, isCheckingCustomer, router]);
 
   useEffect(() => {
+    if (!isCheckingCustomer && customer && !customer.profileComplete) {
+      router.replace('/mi-cuenta/datos?reason=checkout-profile');
+    }
+  }, [customer, isCheckingCustomer, router]);
+
+  useEffect(() => {
     if (isWalletPaymentDisabled && isManual) {
       setMethod('CARD_CREDIT');
       setMessage('No disponible');

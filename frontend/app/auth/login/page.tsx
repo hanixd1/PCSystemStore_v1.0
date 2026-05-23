@@ -42,9 +42,10 @@ export default function LoginPage() {
     name: '',
     email: '',
     password: '',
+    confirmPassword: '',
   });
 
-  const persistSession = (user: { role: string }) => {
+  const persistSession = (user: { role: string }, redirectOverride?: string) => {
     if (user.role !== 'CUSTOMER') {
       setError('Esta cuenta no esta registrada como cliente.');
       return;
@@ -55,7 +56,7 @@ export default function LoginPage() {
 
     notifyCustomerSessionChanged();
     const redirectTo = new URLSearchParams(window.location.search).get('redirect');
-    window.location.href = redirectTo?.startsWith('/') ? redirectTo : '/';
+    window.location.href = redirectOverride || (redirectTo?.startsWith('/') ? redirectTo : '/');
   };
 
   const handleGoogleAuth = useEffectEvent(async (idToken?: string) => {
@@ -69,8 +70,9 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const res = await api.post('/users/google-login', { credential: idToken });
-      persistSession(res.data.user);
+      const endpoint = mode === 'register' ? '/users/google-register' : '/users/google-login';
+      const res = await api.post(endpoint, { credential: idToken });
+      persistSession(res.data.user, mode === 'register' ? '/mi-cuenta/datos' : undefined);
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, 'No se pudo iniciar sesion con Google'));
     } finally {
@@ -116,10 +118,16 @@ export default function LoginPage() {
         return;
       }
 
+      if (formData.password !== formData.confirmPassword) {
+        setError('Las contraseñas no coinciden.');
+        return;
+      }
+
       const res = await api.post('/users/register', {
         name: formData.name,
         email: formData.email,
         password: formData.password,
+        confirmPassword: formData.confirmPassword,
       });
 
       setSuccess(
@@ -129,6 +137,7 @@ export default function LoginPage() {
       setFormData((current) => ({
         ...current,
         password: '',
+        confirmPassword: '',
       }));
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, 'No se pudo completar la operacion'));
@@ -296,6 +305,20 @@ export default function LoginPage() {
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
+
+              {mode === 'register' && (
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Confirmar contrasena*"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 transition focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    minLength={6}
+                    required
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-end text-sm">
                 {mode === 'login' && (

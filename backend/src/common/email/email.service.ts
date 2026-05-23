@@ -8,6 +8,12 @@ type PasswordResetEmailInput = {
   flow: 'client' | 'admin';
 };
 
+type AccountLinkEmailInput = {
+  to: string;
+  name: string;
+  link: string;
+};
+
 @Injectable()
 export class EmailService {
   private transporter?: Transporter;
@@ -25,6 +31,30 @@ export class EmailService {
       subject,
       text: this.buildPasswordResetText(input),
       html: this.buildPasswordResetHtml(input),
+    });
+  }
+
+  async sendGoogleWelcomeSetPasswordEmail(input: AccountLinkEmailInput): Promise<void> {
+    const transporter = this.getTransporter();
+
+    await transporter.sendMail({
+      from: this.getMailFrom(),
+      to: input.to,
+      subject: 'Bienvenido a PCSystemStore',
+      text: this.buildGoogleWelcomeText(input),
+      html: this.buildGoogleWelcomeHtml(input),
+    });
+  }
+
+  async sendEmailVerificationEmail(input: AccountLinkEmailInput): Promise<void> {
+    const transporter = this.getTransporter();
+
+    await transporter.sendMail({
+      from: this.getMailFrom(),
+      to: input.to,
+      subject: 'Verifica tu correo - PCSystemStore',
+      text: this.buildEmailVerificationText(input),
+      html: this.buildEmailVerificationHtml(input),
     });
   }
 
@@ -82,6 +112,73 @@ export class EmailService {
         </p>
         <p>Este enlace expira en 30 minutos.</p>
         <p>Si no solicitaste este cambio, ignora este correo.</p>
+      </div>
+    `;
+  }
+
+  private buildGoogleWelcomeText(input: AccountLinkEmailInput): string {
+    return [
+      `Hola ${input.name},`,
+      '',
+      'Tu cuenta en PCSystemStore fue creada con Google.',
+      'Si tambien deseas ingresar con correo y contrasena, crea tu contrasena desde este enlace:',
+      input.link,
+      '',
+      'Este enlace expira en 30 minutos.',
+      'PCSystemStore',
+    ].join('\n');
+  }
+
+  private buildGoogleWelcomeHtml(input: AccountLinkEmailInput): string {
+    return this.buildActionEmailHtml({
+      title: 'Bienvenido a PCSystemStore',
+      greeting: `Hola ${input.name},`,
+      body: 'Tu cuenta fue creada con Google. Si tambien deseas ingresar con correo y contrasena, crea tu contrasena desde este enlace.',
+      buttonLabel: 'Crear contrasena',
+      link: input.link,
+    });
+  }
+
+  private buildEmailVerificationText(input: AccountLinkEmailInput): string {
+    return [
+      `Hola ${input.name},`,
+      '',
+      'Verifica tu correo para activar completamente tu cuenta en PCSystemStore:',
+      input.link,
+      '',
+      'Este enlace expira en 30 minutos.',
+      'PCSystemStore',
+    ].join('\n');
+  }
+
+  private buildEmailVerificationHtml(input: AccountLinkEmailInput): string {
+    return this.buildActionEmailHtml({
+      title: 'Verifica tu correo',
+      greeting: `Hola ${input.name},`,
+      body: 'Verifica tu correo para activar completamente tu cuenta en PCSystemStore.',
+      buttonLabel: 'Verificar correo',
+      link: input.link,
+    });
+  }
+
+  private buildActionEmailHtml(input: {
+    title: string;
+    greeting: string;
+    body: string;
+    buttonLabel: string;
+    link: string;
+  }): string {
+    return `
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+        <h1 style="font-size: 20px;">${this.escapeHtml(input.title)}</h1>
+        <p>${this.escapeHtml(input.greeting)}</p>
+        <p>${this.escapeHtml(input.body)}</p>
+        <p>
+          <a href="${this.escapeHtml(input.link)}" style="display: inline-block; padding: 12px 18px; background: #00d1ff; color: #111827; font-weight: 700; text-decoration: none; border-radius: 10px;">
+            ${this.escapeHtml(input.buttonLabel)}
+          </a>
+        </p>
+        <p>Este enlace expira en 30 minutos.</p>
       </div>
     `;
   }

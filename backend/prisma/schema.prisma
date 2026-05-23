@@ -363,14 +363,37 @@ model User {
   gender           String?
   mobilePhone      String?
   role             String      @default("EDITOR")
+  emailVerified    Boolean     @default(false)
+  emailVerifiedAt  DateTime?
   createdAt        DateTime    @default(now())
   resetToken       String?     @unique
   resetTokenExpiry DateTime?
   status           String      @default("ACTIVE")
   updatedAt        DateTime    @updatedAt
   addresses        Address[]
+  accountTokens    AccountToken[]
   logs             ActionLog[]
   orders           Order[]
+}
+
+enum AccountTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+  SET_PASSWORD
+}
+
+model AccountToken {
+  id        String           @id @default(cuid())
+  userId    String
+  tokenHash String           @unique
+  type      AccountTokenType
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([type, expiresAt])
 }
 
 model Address {

@@ -23,8 +23,10 @@ import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { UsersService } from './users.service';
 
 type AuthenticatedRequest = express.Request & { user: JwtUserPayload };
@@ -133,6 +135,19 @@ export class UsersController {
     return session;
   }
 
+  @Public()
+  @Post('google-register')
+  async googleRegister(
+    @Body() body: GoogleAuthDto,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const session = await this.usersService.registerWithGoogle(
+      body.credential || body.idToken || '',
+    );
+    setSessionCookie(response, 'customer', session.token);
+    return session;
+  }
+
   @Post('customer-logout')
   @Roles('CUSTOMER')
   async customerLogout(
@@ -189,6 +204,18 @@ export class UsersController {
   @Post('admin-reset-password')
   adminResetPassword(@Body() body: ResetPasswordDto) {
     return this.usersService.resetPassword(body.token, body.newPassword, 'admin');
+  }
+
+  @Public()
+  @Post('customer-set-password')
+  customerSetPassword(@Body() body: SetPasswordDto) {
+    return this.usersService.setCustomerPassword(body.token, body.password, body.confirmPassword);
+  }
+
+  @Public()
+  @Post('verify-email')
+  verifyEmail(@Body() body: VerifyEmailDto) {
+    return this.usersService.verifyEmail(body.token);
   }
 
   @Roles('CUSTOMER')

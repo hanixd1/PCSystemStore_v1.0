@@ -34,6 +34,53 @@ const initialForm: ProfileForm = {
   confirmEmail: '',
 };
 
+function isNumericText(value: string, length: number): boolean {
+  return value.length === length && Array.from(value).every((char) => char >= '0' && char <= '9');
+}
+
+function isAlphaNumericText(value: string, min: number, max: number): boolean {
+  return (
+    value.length >= min &&
+    value.length <= max &&
+    Array.from(value).every((char) => {
+      const code = char.codePointAt(0);
+      return (
+        code !== undefined &&
+        ((code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122))
+      );
+    })
+  );
+}
+
+function validateRequiredProfileData(form: ProfileForm): string | null {
+  const documentNumber = form.documentNumber.trim();
+  const mobilePhone = form.mobilePhone.trim().startsWith('+51')
+    ? form.mobilePhone.trim().slice(3)
+    : form.mobilePhone.trim();
+
+  if (!form.documentType || !documentNumber || !form.mobilePhone.trim()) {
+    return 'Completa tu tipo de documento, numero de documento y celular.';
+  }
+
+  if (form.documentType === 'DNI' && !isNumericText(documentNumber, 8)) {
+    return 'El DNI debe tener 8 digitos numericos.';
+  }
+
+  if (form.documentType === 'Carnet de extranjeria' && !isAlphaNumericText(documentNumber, 9, 12)) {
+    return 'El carnet de extranjeria debe tener entre 9 y 12 caracteres.';
+  }
+
+  if (form.documentType === 'Pasaporte' && !isAlphaNumericText(documentNumber, 6, 12)) {
+    return 'El pasaporte debe tener entre 6 y 12 caracteres.';
+  }
+
+  if (!isNumericText(mobilePhone, 9)) {
+    return 'El numero de celular debe tener 9 digitos.';
+  }
+
+  return null;
+}
+
 export default function AccountDataPage() {
   const [activeTab, setActiveTab] = useState<'account' | 'password'>('account');
   const [form, setForm] = useState<ProfileForm>(initialForm);
@@ -46,6 +93,7 @@ export default function AccountDataPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -70,6 +118,7 @@ export default function AccountDataPage() {
           email: res.data.email || '',
           confirmEmail: res.data.email || '',
         }));
+        setEmailVerified(Boolean(res.data.emailVerified));
         setHasLockedDocument(Boolean(res.data.documentNumber));
       } catch (error) {
         if (mounted) {
@@ -85,6 +134,13 @@ export default function AccountDataPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('reason') === 'checkout-profile') {
+      setMessage('Completa tus datos básicos para continuar con tu compra.');
+    }
+  }, []);
+
   const updateField = (field: keyof ProfileForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
@@ -96,6 +152,12 @@ export default function AccountDataPage() {
 
     if (form.email.trim().toLowerCase() !== form.confirmEmail.trim().toLowerCase()) {
       setError('El correo electronico y la confirmacion deben coincidir.');
+      return;
+    }
+
+    const profileError = validateRequiredProfileData(form);
+    if (profileError) {
+      setError(profileError);
       return;
     }
 
@@ -123,6 +185,7 @@ export default function AccountDataPage() {
       localStorage.setItem('user', JSON.stringify(res.data.user));
       notifyCustomerSessionChanged();
       setHasLockedDocument(Boolean(res.data.user.documentNumber));
+      setEmailVerified(Boolean(res.data.user.emailVerified));
       setMessage(res.data.message || 'Datos actualizados correctamente.');
     } catch (error) {
       setError(getApiErrorMessage(error, 'No se pudieron guardar tus datos.'));
@@ -191,6 +254,11 @@ export default function AccountDataPage() {
       ) : null}
       {error ? (
         <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>
+      ) : null}
+      {!emailVerified ? (
+        <p className="mt-5 rounded-xl bg-yellow-50 p-3 text-sm font-bold text-yellow-800">
+          Tu correo aún no está verificado. Revisa tu bandeja de entrada para activar tu cuenta.
+        </p>
       ) : null}
 
       {activeTab === 'password' ? (
@@ -283,6 +351,7 @@ export default function AccountDataPage() {
             <div className="grid gap-6 md:grid-cols-3">
               <Field
                 label="Numero de celular"
+                required
                 value={form.mobilePhone}
                 onChange={(value) => updateField('mobilePhone', value)}
               />
@@ -290,6 +359,7 @@ export default function AccountDataPage() {
                 label="Correo electronico"
                 required
                 type="email"
+                disabled={emailVerified}
                 value={form.email}
                 onChange={(value) => updateField('email', value)}
               />
@@ -297,10 +367,16 @@ export default function AccountDataPage() {
                 label="Confirmar correo electronico"
                 required
                 type="email"
+                disabled={emailVerified}
                 value={form.confirmEmail}
                 onChange={(value) => updateField('confirmEmail', value)}
               />
             </div>
+            {emailVerified ? (
+              <p className="mt-3 text-xs font-bold text-gray-500">
+                Tu correo esta verificado. Para cambiarlo se requiere un proceso de verificacion.
+              </p>
+            ) : null}
           </section>
 
           <SaveButton isSaving={isSaving} />
