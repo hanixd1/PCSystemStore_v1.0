@@ -412,7 +412,6 @@ const NON_NEGATIVE_FIELDS = new Set([
 const NO_NEGATIVE_TEXT_FIELDS = new Set(['frequency']);
 
 const NAME_REGEX = /^[\p{L}0-9().,+\-/%\s]{10,120}$/u;
-const DESCRIPTION_REGEX = /^[\p{L}0-9().,;:+\-/%\s]{20,1200}$/u;
 
 const fieldId = (name: string) => `add-product-${name}`;
 
@@ -463,7 +462,6 @@ export default function AddProductPage() {
       nonNegativeFields: NON_NEGATIVE_FIELDS,
       noNegativeTextFields: NO_NEGATIVE_TEXT_FIELDS,
       nameRegex: NAME_REGEX,
-      descriptionRegex: DESCRIPTION_REGEX,
       buildPayload: buildProductPayload,
       cpuSocketsByBrand: CPU_SOCKETS_BY_BRAND,
     });
@@ -766,10 +764,14 @@ export default function AddProductPage() {
                   id={fieldId('description')}
                   name="description"
                   rows={4}
+                  value={formData.description}
                   onChange={handleChange}
                   className="input-admin resize-none"
                   placeholder="Describe las caracteristicas principales del producto..."
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  {formData.description.length}/200 caracteres. Entre 10 y 200 caracteres.
+                </p>
               </div>
               <div className="col-span-2">
                 <span className="label-admin">Imagenes del Producto (Maximo 5)</span>

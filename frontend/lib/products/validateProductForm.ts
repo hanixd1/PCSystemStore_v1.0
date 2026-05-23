@@ -7,13 +7,22 @@ type ValidateProductFormOptions = {
   nonNegativeFields?: Set<string>;
   noNegativeTextFields?: Set<string>;
   nameRegex?: RegExp;
-  descriptionRegex?: RegExp;
   buildPayload?: (
     formData: ProductFormState,
     options?: { mode?: 'create' | 'edit' },
   ) => ProductFormState;
   cpuSocketsByBrand?: Record<string, string[]>;
 };
+
+const MIN_PRODUCT_DESCRIPTION_LENGTH = 10;
+const MAX_PRODUCT_DESCRIPTION_LENGTH = 200;
+
+function isSafeDescriptionText(value: string): boolean {
+  return Array.from(value).every((char) => {
+    const code = char.codePointAt(0);
+    return code !== undefined && (code === 9 || code === 10 || code === 13 || code >= 32);
+  });
+}
 
 export function validateProductForm(
   formData: ProductFormState,
@@ -26,8 +35,15 @@ export function validateProductForm(
     return 'El nombre debe tener entre 10 y 120 caracteres y solo usar letras, numeros y signos comunes.';
   }
 
-  if (options.descriptionRegex && !options.descriptionRegex.test(trimmedDescription)) {
-    return 'La descripcion debe tener entre 20 y 1200 caracteres y solo usar texto valido.';
+  if (
+    trimmedDescription.length < MIN_PRODUCT_DESCRIPTION_LENGTH ||
+    trimmedDescription.length > MAX_PRODUCT_DESCRIPTION_LENGTH
+  ) {
+    return 'La descripción debe tener entre 10 y 200 caracteres.';
+  }
+
+  if (!isSafeDescriptionText(trimmedDescription)) {
+    return 'La descripción debe tener entre 10 y 200 caracteres y solo usar texto válido.';
   }
 
   if (Number(formData.price) <= 0) {

@@ -55,7 +55,8 @@ export class ProductsService {
   } satisfies Prisma.ProductInclude;
 
   private readonly nameRegex = /^[A-Za-zÃÃ‰ÃÃ“ÃšÃ¡Ã©Ã­Ã³ÃºÃ‘Ã±0-9().,+\-/%\s]{10,120}$/;
-  private readonly descriptionRegex = /^[A-Za-zÃÃ‰ÃÃ“ÃšÃ¡Ã©Ã­Ã³ÃºÃ‘Ã±0-9().,;:+\-/%\s]{20,1200}$/;
+  private readonly minDescriptionLength = 10;
+  private readonly maxDescriptionLength = 200;
 
   private toInt(val: unknown): number {
     const n = Number.parseInt(String(val ?? ''), 10);
@@ -206,6 +207,28 @@ export class ProductsService {
     }
   }
 
+  private validateDescription(description: string) {
+    if (
+      description.length < this.minDescriptionLength ||
+      description.length > this.maxDescriptionLength
+    ) {
+      throw new BadRequestException('La descripción debe tener entre 10 y 200 caracteres');
+    }
+
+    if (!this.isSafeDescriptionText(description)) {
+      throw new BadRequestException(
+        'La descripción debe tener entre 10 y 200 caracteres y solo usar texto válido',
+      );
+    }
+  }
+
+  private isSafeDescriptionText(value: string): boolean {
+    return Array.from(value).every((char) => {
+      const code = char.codePointAt(0);
+      return code !== undefined && (code === 9 || code === 10 || code === 13 || code >= 32);
+    });
+  }
+
   private validateCommonFields(data: any, finalImages: string[]) {
     const trimmedName = String(data.name ?? '').trim();
     const trimmedDescription = String(data.description ?? '').trim();
@@ -216,11 +239,7 @@ export class ProductsService {
       );
     }
 
-    if (!this.descriptionRegex.test(trimmedDescription)) {
-      throw new BadRequestException(
-        'La descripcion debe tener entre 20 y 1200 caracteres y solo usar texto valido',
-      );
-    }
+    this.validateDescription(trimmedDescription);
 
     if (finalImages.length < 1 || finalImages.length > 5) {
       throw new BadRequestException('Debes subir entre 1 y 5 imagenes');
@@ -2450,7 +2469,9 @@ export class ProductsService {
     }
 
     if (data.description !== undefined) {
-      updateData.description = String(data.description).trim();
+      const description = String(data.description).trim();
+      this.validateDescription(description);
+      updateData.description = description;
     }
 
     if (data.category !== undefined) {

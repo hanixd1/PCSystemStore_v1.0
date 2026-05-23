@@ -43,8 +43,6 @@ function toKeyboardLayout({ value }: { value: unknown }) {
 }
 
 const NAME_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,+\-/%\s]{10,120}$/;
-const DESCRIPTION_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,;:+\-/%\s]{20,1200}$/;
-
 export const PRODUCT_CATEGORIES = [
   'CPU',
   'MOTHERBOARD',
@@ -82,8 +80,9 @@ export class CreateProductDto {
 
   @Transform(toTrimmedString)
   @IsString()
-  @Length(20, 1200)
-  @Matches(DESCRIPTION_REGEX)
+  @Length(10, 200, {
+    message: 'La descripción debe tener entre 10 y 200 caracteres.',
+  })
   description!: string;
 
   @Transform(toOptionalNumber)

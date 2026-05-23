@@ -1013,6 +1013,9 @@ export default function EditProductPage() {
             onChange={(e) => updateField('description', e.target.value)}
             className="w-full resize-none rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan"
           />
+          <p className="mt-1 text-xs text-gray-500">
+            {formData.description.length}/200 caracteres. Entre 10 y 200 caracteres.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-6">
