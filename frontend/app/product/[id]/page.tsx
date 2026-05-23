@@ -71,6 +71,13 @@ export default function ProductPage() {
   useEffect(() => {
     if (!id) return;
 
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    setActiveImage(0);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+
     Promise.all([api.get(`/products/${id}`), api.get(`/products/related/${id}`)])
       .then(([productRes, relatedRes]) => {
         const currentProduct = productRes.data;
