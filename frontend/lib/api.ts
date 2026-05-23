@@ -26,6 +26,40 @@ export const api = axios.create({
   timeout: 20000,
 });
 
+function toFriendlyValidationMessage(message: string): string {
+  if (message.includes('confirmPassword must be a string')) {
+    return 'La confirmacion de contrasena es obligatoria.';
+  }
+
+  if (message.includes('confirmPassword must be longer than or equal to 6 characters')) {
+    return 'La confirmacion debe tener al menos 6 caracteres.';
+  }
+
+  if (message.includes('password must be longer than or equal to 6 characters')) {
+    return 'La contrasena debe tener al menos 6 caracteres.';
+  }
+
+  if (message.includes('email must be an email')) {
+    return 'Ingresa un correo valido con dominio completo.';
+  }
+
+  return message;
+}
+
+function getFriendlyResponseMessage(responseMessage: unknown): string | null {
+  if (typeof responseMessage === 'string' && responseMessage.trim()) {
+    return toFriendlyValidationMessage(responseMessage);
+  }
+
+  if (Array.isArray(responseMessage) && responseMessage.length > 0) {
+    return responseMessage
+      .map((message) => toFriendlyValidationMessage(String(message)))
+      .join('\n');
+  }
+
+  return null;
+}
+
 api.interceptors.request.use((config) => {
   const configurationError = getApiConfigurationError();
   if (configurationError) {
@@ -47,11 +81,9 @@ api.interceptors.response.use(
         error.message =
           'No se pudo conectar con el backend. Verifica NEXT_PUBLIC_API_URL, CORS y que la API este publicada.';
       } else {
-        const responseMessage = error.response?.data?.message;
-        if (typeof responseMessage === 'string' && responseMessage.trim()) {
-          error.message = responseMessage;
-        } else if (Array.isArray(responseMessage) && responseMessage.length > 0) {
-          error.message = responseMessage.join('\n');
+        const friendlyMessage = getFriendlyResponseMessage(error.response?.data?.message);
+        if (friendlyMessage) {
+          error.message = friendlyMessage;
         }
       }
     }

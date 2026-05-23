@@ -29,9 +29,27 @@ declare global {
 
 type Mode = 'login' | 'register';
 
+const MIN_PASSWORD_LENGTH = 6;
+
+function isValidEmailFormat(value: string): boolean {
+  const email = value.trim();
+  const atIndex = email.indexOf('@');
+  const lastAtIndex = email.lastIndexOf('@');
+
+  if (!email || email.includes(' ') || atIndex <= 0 || atIndex !== lastAtIndex) {
+    return false;
+  }
+
+  const domain = email.slice(atIndex + 1);
+  const lastDotIndex = domain.lastIndexOf('.');
+
+  return lastDotIndex > 0 && domain.slice(lastDotIndex + 1).length >= 2;
+}
+
 export default function LoginPage() {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const modeRef = useRef<Mode>('login');
   const [mode, setMode] = useState<Mode>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
@@ -59,6 +77,10 @@ export default function LoginPage() {
     window.location.href = redirectOverride || (redirectTo?.startsWith('/') ? redirectTo : '/');
   };
 
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
   const handleGoogleAuth = useEffectEvent(async (idToken?: string) => {
     if (!idToken) {
       setError('Google no devolvio un token valido');
@@ -70,9 +92,11 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const endpoint = mode === 'register' ? '/users/google-register' : '/users/google-login';
+      const currentMode = modeRef.current;
+      const endpoint =
+        currentMode === 'register' ? '/users/google-register' : '/users/google-login';
       const res = await api.post(endpoint, { credential: idToken });
-      persistSession(res.data.user, mode === 'register' ? '/mi-cuenta/datos' : undefined);
+      persistSession(res.data.user, currentMode === 'register' ? '/mi-cuenta/datos' : undefined);
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, 'No se pudo iniciar sesion con Google'));
     } finally {
@@ -101,6 +125,30 @@ export default function LoginPage() {
     });
   }, [googleClientId, googleReady]);
 
+  const validateRegisterForm = (): string | null => {
+    if (!isValidEmailFormat(formData.email)) {
+      return 'Ingresa un correo valido con dominio completo.';
+    }
+
+    if (!formData.password || formData.password.length < MIN_PASSWORD_LENGTH) {
+      return 'La contrasena debe tener al menos 6 caracteres.';
+    }
+
+    if (!formData.confirmPassword) {
+      return 'Confirma tu contrasena.';
+    }
+
+    if (formData.confirmPassword.length < MIN_PASSWORD_LENGTH) {
+      return 'La confirmacion debe tener al menos 6 caracteres.';
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      return 'Las contrasenas no coinciden.';
+    }
+
+    return null;
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
@@ -118,8 +166,9 @@ export default function LoginPage() {
         return;
       }
 
-      if (formData.password !== formData.confirmPassword) {
-        setError('Las contraseñas no coinciden.');
+      const validationError = validateRegisterForm();
+      if (validationError) {
+        setError(validationError);
         return;
       }
 
@@ -197,6 +246,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
+                  modeRef.current = 'login';
                   setMode('login');
                   setError('');
                   setSuccess('');
@@ -212,6 +262,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
+                  modeRef.current = 'register';
                   setMode('register');
                   setError('');
                   setSuccess('');

@@ -9,16 +9,16 @@ export class RegisterUserDto {
   name!: string;
 
   @Transform(toTrimmedString)
-  @IsEmail()
+  @IsEmail({}, { message: 'Ingresa un correo valido con dominio completo.' })
   email!: string;
 
   @Transform(toTrimmedString)
-  @IsString()
-  @MinLength(6)
+  @IsString({ message: 'La contrasena es obligatoria.' })
+  @MinLength(6, { message: 'La contrasena debe tener al menos 6 caracteres.' })
   password!: string;
 
   @Transform(toTrimmedString)
-  @IsString()
-  @MinLength(6)
+  @IsString({ message: 'La confirmacion de contrasena es obligatoria.' })
+  @MinLength(6, { message: 'La confirmacion debe tener al menos 6 caracteres.' })
   confirmPassword!: string;
 }

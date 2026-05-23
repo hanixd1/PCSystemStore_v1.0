@@ -62,6 +62,22 @@ export class UsersService {
     return email.trim().toLowerCase();
   }
 
+  private assertValidEmailFormat(email: string): void {
+    const atIndex = email.indexOf('@');
+    const lastAtIndex = email.lastIndexOf('@');
+
+    if (!email || email.includes(' ') || atIndex <= 0 || atIndex !== lastAtIndex) {
+      throw new BadRequestException('Ingresa un correo valido con dominio completo.');
+    }
+
+    const domain = email.slice(atIndex + 1);
+    const lastDotIndex = domain.lastIndexOf('.');
+
+    if (lastDotIndex <= 0 || domain.slice(lastDotIndex + 1).length < 2) {
+      throw new BadRequestException('Ingresa un correo valido con dominio completo.');
+    }
+  }
+
   private getFrontendUrl() {
     return process.env.FRONTEND_URL?.trim().replace(/\/$/, '') || '';
   }
@@ -366,6 +382,8 @@ export class UsersService {
     }
 
     const normalizedEmail = this.sanitizeEmail(data.email);
+    this.assertValidEmailFormat(normalizedEmail);
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
@@ -390,14 +408,26 @@ export class UsersService {
 
     const token = await this.createAccountToken(user.id, AccountTokenType.EMAIL_VERIFICATION);
     const verificationLink = `${this.getRequiredFrontendUrl()}/auth/verify-email?token=${token}`;
-    await this.emailService.sendEmailVerificationEmail({
-      to: user.email,
-      name: user.name,
-      link: verificationLink,
-    });
+    let verificationEmailSent = true;
+
+    try {
+      await this.emailService.sendEmailVerificationEmail({
+        to: user.email,
+        name: user.name,
+        link: verificationLink,
+      });
+    } catch (error) {
+      verificationEmailSent = false;
+      console.warn('[AUTH] No se pudo enviar el correo de verificacion', {
+        userId: user.id,
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
 
     return {
-      message: 'Cuenta creada correctamente. Revisa tu correo para verificar tu cuenta.',
+      message: verificationEmailSent
+        ? 'Cuenta creada correctamente. Revisa tu correo para verificar tu cuenta.'
+        : 'La cuenta fue creada, pero no pudimos enviar el correo de verificacion. Intenta reenviarlo.',
       user: {
         id: user.id,
         name: user.name,
@@ -510,11 +540,18 @@ export class UsersService {
     if (createdUser) {
       const token = await this.createAccountToken(user.id, AccountTokenType.SET_PASSWORD);
       const setPasswordLink = `${this.getRequiredFrontendUrl()}/auth/set-password?token=${token}`;
-      await this.emailService.sendGoogleWelcomeSetPasswordEmail({
-        to: user.email,
-        name: user.name,
-        link: setPasswordLink,
-      });
+      try {
+        await this.emailService.sendGoogleWelcomeSetPasswordEmail({
+          to: user.email,
+          name: user.name,
+          link: setPasswordLink,
+        });
+      } catch (error) {
+        console.warn('[AUTH] No se pudo enviar el correo de bienvenida Google', {
+          userId: user.id,
+          error: error instanceof Error ? error.message : 'unknown',
+        });
+      }
     }
 
     await this.createLog(
