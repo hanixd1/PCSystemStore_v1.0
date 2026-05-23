@@ -22,6 +22,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 const CUSTOMER_SESSION_EXPIRES_IN = '12h';
 const ADMIN_SESSION_EXPIRES_IN = '3h';
 const RESET_PASSWORD_TOKEN_EXPIRES_MS = 30 * 60 * 1000;
+const INTERNAL_USER_ROLES = ['ADMIN', 'EDITOR', 'EMPLOYEE'] as const;
 
 type ProfileUpdateData = {
   name?: string;
@@ -457,6 +458,9 @@ export class UsersService {
   }
 
   async create(data: CreateUserDto) {
+    const role = data.role || 'EDITOR';
+    this.assertInternalUserRole(role);
+
     const normalizedEmail = this.sanitizeEmail(data.email);
     const existingUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -474,7 +478,7 @@ export class UsersService {
         name: data.name.trim(),
         email: normalizedEmail,
         password: hashedPassword,
-        role: data.role || 'EDITOR',
+        role,
         status: 'ACTIVE',
       },
       select: {
@@ -709,7 +713,16 @@ export class UsersService {
   }
 
   async findAll() {
+    return this.findStaffUsers();
+  }
+
+  async findStaffUsers() {
     return this.prisma.user.findMany({
+      where: {
+        role: {
+          in: [...INTERNAL_USER_ROLES],
+        },
+      },
       select: {
         id: true,
         name: true,
@@ -727,6 +740,7 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
+    this.assertInternalUser(user.role);
 
     const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
 
@@ -742,6 +756,16 @@ export class UsersService {
   }
 
   async updateUser(id: string, data: UpdateUserDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    this.assertInternalUser(user.role);
+
     const updateData: any = {};
 
     if (data.name !== undefined) {
@@ -749,6 +773,7 @@ export class UsersService {
     }
 
     if (data.role !== undefined) {
+      this.assertInternalUserRole(data.role);
       updateData.role = data.role;
     }
 
@@ -783,6 +808,22 @@ export class UsersService {
     await this.createLog(id, 'UPDATE', 'USER', `Actualizacion de usuario ${updatedUser.email}`);
 
     return updatedUser;
+  }
+
+  private assertInternalUser(role: string) {
+    if (!this.isInternalUserRole(role)) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+  }
+
+  private assertInternalUserRole(role: string) {
+    if (!this.isInternalUserRole(role)) {
+      throw new BadRequestException('Gestion de Personal solo permite roles internos');
+    }
+  }
+
+  private isInternalUserRole(role: string): boolean {
+    return INTERNAL_USER_ROLES.includes(role as (typeof INTERNAL_USER_ROLES)[number]);
   }
 
   async getAuditLogs() {

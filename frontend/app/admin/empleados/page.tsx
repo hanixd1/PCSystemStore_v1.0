@@ -12,6 +12,17 @@ type UserRow = {
   status: string;
 };
 
+const STAFF_ROLE_OPTIONS = [
+  { value: 'EDITOR', label: 'EDITOR' },
+  { value: 'EMPLOYEE', label: 'EMPLOYEE' },
+  { value: 'ADMIN', label: 'ADMIN' },
+] as const;
+
+type StaffRole = (typeof STAFF_ROLE_OPTIONS)[number]['value'];
+const STAFF_ROLES = STAFF_ROLE_OPTIONS.map((option) => option.value) as StaffRole[];
+
+const isStaffRole = (role: string): role is StaffRole => STAFF_ROLES.includes(role as StaffRole);
+
 export default function EmpleadosPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,8 +34,9 @@ export default function EmpleadosPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await api.get('/users');
-      setUsers(res.data);
+      const res = await api.get('/users/staff');
+      const staffUsers = res.data.filter((user: UserRow) => isStaffRole(user.role));
+      setUsers(staffUsers);
     } catch (error) {
       console.error(error);
     } finally {
@@ -273,8 +285,11 @@ export default function EmpleadosPage() {
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                 >
-                  <option value="EDITOR">EDITOR</option>
-                  <option value="ADMIN">ADMIN</option>
+                  {STAFF_ROLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <button

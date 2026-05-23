@@ -209,6 +209,12 @@ export class UsersController {
   }
 
   @Roles('ADMIN')
+  @Get('staff')
+  findStaff() {
+    return this.usersService.findStaffUsers();
+  }
+
+  @Roles('ADMIN')
   @Get()
   findAll() {
     return this.usersService.findAll();
