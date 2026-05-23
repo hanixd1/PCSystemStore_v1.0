@@ -26,6 +26,13 @@ pnpm-debug.log*
 
 frontend/public/uploads
 uploads
+!backend/src/uploads/
+!backend/src/uploads/**
+!backend/test/fixtures/
+!backend/test/fixtures/**
+!backend/prisma/seed-qa.ts
+!backend/prisma/fixtures/
+!backend/prisma/fixtures/**
 tmp
 temp
 

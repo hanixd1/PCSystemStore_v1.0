@@ -23,17 +23,29 @@ function parseOrigins(value?: string): string[] {
 }
 
 async function bootstrap() {
+  console.log('[BOOT] Starting PCSystemStore backend...');
+  console.log(`[BOOT] NODE_ENV=${process.env.NODE_ENV || 'development'}`);
+  console.log(`[BOOT] PORT=${process.env.PORT || '3000'}`);
+
   const isProduction = process.env.NODE_ENV === 'production';
   const port = Number(process.env.PORT) || 3000;
   const logger = new Logger('Bootstrap');
   const frontendUrl = parseOrigins(process.env.FRONTEND_URL);
-  const allowedOrigins = [
+  const configuredOrigins = [
     ...new Set([
       ...parseOrigins(process.env.CORS_ORIGINS),
       ...parseOrigins(process.env.CORS_ORIGIN),
       ...frontendUrl,
     ]),
   ];
+  const allowedOrigins = isProduction
+    ? configuredOrigins.filter(
+        (origin) =>
+          origin.startsWith('https://') ||
+          origin.startsWith('http://localhost') ||
+          origin.startsWith('http://127.0.0.1'),
+      )
+    : configuredOrigins;
 
   if (isProduction && !process.env.JWT_SECRET?.trim()) {
     throw new Error('Configura JWT_SECRET en produccion antes de iniciar.');
@@ -57,17 +69,24 @@ async function bootstrap() {
     }),
   );
 
-  if (isProduction && allowedOrigins.length === 0) {
+  if (isProduction && configuredOrigins.length === 0) {
     throw new Error(
       'Configura FRONTEND_URL o CORS_ORIGINS en produccion antes de iniciar el backend.',
     );
   }
 
   if (isProduction) {
-    const insecureOrigins = allowedOrigins.filter((origin) => origin.startsWith('http://'));
+    const insecureOrigins = configuredOrigins.filter(
+      (origin) =>
+        origin.startsWith('http://') &&
+        !origin.startsWith('http://localhost') &&
+        !origin.startsWith('http://127.0.0.1'),
+    );
 
     if (insecureOrigins.length > 0) {
-      throw new Error('HTTP origins are not allowed in production CORS configuration.');
+      logger.warn(
+        `Origenes HTTP ignorados en produccion: ${insecureOrigins.join(', ')}. Configura URLs HTTPS en Railway.`,
+      );
     }
   }
 
@@ -96,7 +115,8 @@ async function bootstrap() {
   });
 
   try {
-    await app.listen(port);
+    await app.listen(port, '0.0.0.0');
+    logger.log(`[BOOT] Listening on 0.0.0.0:${port}`);
   } catch (error) {
     const nodeError = error as NodeJS.ErrnoException;
     if (nodeError.code === 'EADDRINUSE') {
@@ -108,4 +128,8 @@ async function bootstrap() {
     throw error;
   }
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  console.error('[BOOT] Failed to start PCSystemStore backend', error);
+  process.exit(1);
+});

@@ -13,6 +13,7 @@ COPY prisma ./prisma
 COPY prisma.config.ts ./
 COPY tsconfig*.json nest-cli.json ./
 COPY src ./src
+COPY test ./test
 COPY requirements.txt ./
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt || true
 ENV DATABASE_URL="postgresql://user:password@localhost:5432/pcsystemstore"

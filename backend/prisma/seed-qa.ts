@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
-import { resetQaDatabase, seedQaDatabase } from '../test/fixtures/seed-qa';
+import { resetQaDatabase, seedQaDatabase } from './fixtures/seed-qa';
 
 function loadEnvTest() {
   for (const fileName of ['.env.test', '.env.test.local']) {
