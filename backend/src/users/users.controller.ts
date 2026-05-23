@@ -117,7 +117,18 @@ export class UsersController {
     @Body() body: GoogleAuthDto,
     @Res({ passthrough: true }) response: express.Response,
   ) {
-    const session = await this.usersService.loginWithGoogle(body.idToken);
+    const session = await this.usersService.loginWithGoogle(body.credential || body.idToken || '');
+    setSessionCookie(response, 'customer', session.token);
+    return session;
+  }
+
+  @Public()
+  @Post('google-login')
+  async googleLogin(
+    @Body() body: GoogleAuthDto,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const session = await this.usersService.loginWithGoogle(body.credential || body.idToken || '');
     setSessionCookie(response, 'customer', session.token);
     return session;
   }
@@ -151,9 +162,33 @@ export class UsersController {
   }
 
   @Public()
+  @Post('customer-forgot-password')
+  customerForgotPassword(@Body() body: ForgotPasswordDto) {
+    return this.usersService.forgotPassword(body.email, 'client');
+  }
+
+  @Public()
+  @Post('admin-forgot-password')
+  adminForgotPassword(@Body() body: ForgotPasswordDto) {
+    return this.usersService.forgotPassword(body.email, 'admin');
+  }
+
+  @Public()
   @Post('reset-password')
   resetPassword(@Body() body: ResetPasswordDto) {
     return this.usersService.resetPassword(body.token, body.newPassword);
+  }
+
+  @Public()
+  @Post('customer-reset-password')
+  customerResetPassword(@Body() body: ResetPasswordDto) {
+    return this.usersService.resetPassword(body.token, body.newPassword, 'client');
+  }
+
+  @Public()
+  @Post('admin-reset-password')
+  adminResetPassword(@Body() body: ResetPasswordDto) {
+    return this.usersService.resetPassword(body.token, body.newPassword, 'admin');
   }
 
   @Roles('CUSTOMER')

@@ -6,6 +6,7 @@ import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 function CustomerResetForm() {
   return (
     <ResetPasswordForm
+      flow="client"
       title="Nueva contrasena"
       description="Crea una nueva contrasena para tu cuenta."
       loginPath="/auth/login"

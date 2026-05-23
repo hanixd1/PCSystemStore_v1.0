@@ -69,7 +69,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const res = await api.post('/users/google-auth', { idToken });
+      const res = await api.post('/users/google-login', { credential: idToken });
       persistSession(res.data.user);
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, 'No se pudo iniciar sesion con Google'));

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api, getApiErrorMessage } from '@/lib/api';
 
 type ResetPasswordFormProps = {
+  flow: 'admin' | 'client';
   title: string;
   description: string;
   loginPath: string;
@@ -24,6 +25,7 @@ type ResetPasswordFormProps = {
 };
 
 export function ResetPasswordForm({
+  flow,
   title,
   description,
   loginPath,
@@ -65,7 +67,9 @@ export function ResetPasswordForm({
     setIsSubmitting(true);
 
     try {
-      await api.post('/users/reset-password', {
+      const endpoint =
+        flow === 'admin' ? '/users/admin-reset-password' : '/users/customer-reset-password';
+      await api.post(endpoint, {
         token,
         newPassword: password,
       });

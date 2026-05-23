@@ -6,6 +6,7 @@ import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 function AdminResetForm() {
   return (
     <ResetPasswordForm
+      flow="admin"
       title="ADMIN PANEL"
       description="Crea una nueva contrasena administrativa."
       loginPath="/admin/login"

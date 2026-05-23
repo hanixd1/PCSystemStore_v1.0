@@ -49,7 +49,9 @@ export function ForgotPasswordForm({
     setIsSubmitting(true);
 
     try {
-      const res = await api.post('/users/forgot-password', { email, flow });
+      const endpoint =
+        flow === 'admin' ? '/users/admin-forgot-password' : '/users/customer-forgot-password';
+      const res = await api.post(endpoint, { email });
       setMessage(res.data.message);
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, 'No se pudo procesar la solicitud'));

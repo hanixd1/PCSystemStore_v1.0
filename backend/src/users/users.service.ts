@@ -13,6 +13,7 @@ import * as bcrypt from 'bcryptjs';
 import { Request } from 'express';
 import { createHash, randomBytes } from 'node:crypto';
 import { JwtUserPayload, USER_ROLES } from '../auth/auth.constants';
+import { EmailService } from '../common/email/email.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -23,6 +24,7 @@ const CUSTOMER_SESSION_EXPIRES_IN = '12h';
 const ADMIN_SESSION_EXPIRES_IN = '3h';
 const RESET_PASSWORD_TOKEN_EXPIRES_MS = 30 * 60 * 1000;
 const INTERNAL_USER_ROLES = ['ADMIN', 'EDITOR', 'EMPLOYEE'] as const;
+const ADMIN_RESET_ROLES = ['ADMIN', 'EDITOR'] as const;
 
 type ProfileUpdateData = {
   name?: string;
@@ -44,6 +46,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   private sanitizeEmail(email: string) {
@@ -323,7 +326,7 @@ export class UsersService {
   }
 
   async loginWithGoogle(idToken: string) {
-    if (!idToken) {
+    if (!idToken?.trim()) {
       throw new BadRequestException('Token de Google requerido');
     }
 
@@ -360,6 +363,12 @@ export class UsersService {
       throw new UnauthorizedException('Cuenta suspendida. Contacte al administrador.');
     }
 
+    if (user && user.role !== 'CUSTOMER') {
+      throw new UnauthorizedException(
+        'Esta cuenta no puede iniciar sesion como cliente con Google',
+      );
+    }
+
     if (!user) {
       const generatedPassword = await bcrypt.hash(`${normalizedEmail}-${Date.now()}`, 10);
       user = await this.prisma.user.create({
@@ -373,14 +382,12 @@ export class UsersService {
       });
     }
 
-    if (['ADMIN', 'EDITOR'].includes(user.role)) {
-      await this.createLog(
-        user.id,
-        'ADMIN_LOGIN',
-        'USER',
-        `Inicio de sesion administrativo con Google de ${user.email}`,
-      );
-    }
+    await this.createLog(
+      user.id,
+      'LOGIN',
+      'USER',
+      `Inicio de sesion cliente con Google de ${user.email}`,
+    );
 
     return this.buildSession(user);
   }
@@ -398,9 +405,7 @@ export class UsersService {
       return genericResponse;
     }
 
-    const isAdminFlow = flow === 'admin';
-    const isAdminUser = ['ADMIN', 'EDITOR'].includes(user.role);
-    if (isAdminFlow !== isAdminUser) {
+    if (!this.canUsePasswordResetFlow(user.role, flow)) {
       return genericResponse;
     }
 
@@ -422,12 +427,17 @@ export class UsersService {
 
     const resetPath = this.getResetPasswordPath(flow);
     const resetLink = `${frontendUrl}${resetPath}?token=${plainToken}`;
-    console.log('[SIMULACION EMAIL] Para recuperar contrasena entra aqui:', resetLink);
+    await this.emailService.sendPasswordResetEmail({
+      to: user.email,
+      name: user.name,
+      resetLink,
+      flow,
+    });
 
     return genericResponse;
   }
 
-  async resetPassword(token: string, newPassword: string) {
+  async resetPassword(token: string, newPassword: string, flow?: 'client' | 'admin') {
     const tokenHash = this.hashResetToken(token);
     const user = await this.prisma.user.findFirst({
       where: {
@@ -437,6 +447,10 @@ export class UsersService {
     });
 
     if (!user) {
+      throw new BadRequestException('El enlace de recuperacion no es valido o ha expirado.');
+    }
+
+    if (flow && !this.canUsePasswordResetFlow(user.role, flow)) {
       throw new BadRequestException('El enlace de recuperacion no es valido o ha expirado.');
     }
 
@@ -455,6 +469,14 @@ export class UsersService {
     await this.createLog(user.id, 'UPDATE', 'USER', `Actualizacion de contrasena de ${user.email}`);
 
     return { message: 'Contrasena actualizada correctamente' };
+  }
+
+  private canUsePasswordResetFlow(role: string, flow: 'client' | 'admin'): boolean {
+    if (flow === 'client') {
+      return role === 'CUSTOMER';
+    }
+
+    return ADMIN_RESET_ROLES.includes(role as (typeof ADMIN_RESET_ROLES)[number]);
   }
 
   async create(data: CreateUserDto) {
