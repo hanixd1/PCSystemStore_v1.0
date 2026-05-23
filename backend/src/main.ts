@@ -3,6 +3,34 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
+function registerProcessDiagnostics() {
+  process.on('beforeExit', (code) => {
+    console.warn(`[BOOT] beforeExit emitted with code ${code}`);
+  });
+
+  process.on('exit', (code) => {
+    console.warn(`[BOOT] exit emitted with code ${code}`);
+  });
+
+  process.on('SIGTERM', () => {
+    console.warn('[BOOT] SIGTERM received');
+  });
+
+  process.on('SIGINT', () => {
+    console.warn('[BOOT] SIGINT received');
+  });
+
+  process.on('uncaughtException', (error) => {
+    console.error('[BOOT] Uncaught exception', error);
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('[BOOT] Unhandled rejection', reason);
+    process.exit(1);
+  });
+}
+
 function getDatabaseHost(databaseUrl?: string) {
   if (!databaseUrl?.trim()) {
     return 'missing';
@@ -23,6 +51,7 @@ function parseOrigins(value?: string): string[] {
 }
 
 async function bootstrap() {
+  registerProcessDiagnostics();
   console.log('[BOOT] Starting PCSystemStore backend...');
   console.log(`[BOOT] NODE_ENV=${process.env.NODE_ENV || 'development'}`);
   console.log(`[BOOT] PORT=${process.env.PORT || '3000'}`);
@@ -115,8 +144,9 @@ async function bootstrap() {
   });
 
   try {
-    await app.listen(port, '0.0.0.0');
+    const server = await app.listen(port, '0.0.0.0');
     logger.log(`[BOOT] Listening on 0.0.0.0:${port}`);
+    logger.log(`[BOOT] Server address: ${JSON.stringify(server.address())}`);
   } catch (error) {
     const nodeError = error as NodeJS.ErrnoException;
     if (nodeError.code === 'EADDRINUSE') {

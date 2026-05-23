@@ -5,8 +5,11 @@ import { PrismaService } from './prisma/prisma.service';
 export class AppService {
   constructor(private readonly prisma: PrismaService) {}
 
-  getHello(): string {
-    return 'Hello World!';
+  getHello() {
+    return {
+      service: 'pcsystemstore-backend',
+      status: 'ok',
+    };
   }
 
   getHealth() {
