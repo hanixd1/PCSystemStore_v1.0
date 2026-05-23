@@ -23,6 +23,8 @@ type PendingPayment = {
   };
 };
 
+const ONLINE_PAYMENTS_ENABLED = process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true';
+
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +103,13 @@ export default function AdminPaymentsPage() {
         </div>
       ) : null}
 
+      {!ONLINE_PAYMENTS_ENABLED ? (
+        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold text-yellow-800">
+          Los pagos estan deshabilitados temporalmente. Puedes revisar pagos existentes, pero no
+          aprobarlos hasta activar PAYMENTS_ENABLED.
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         {loading ? (
           <div className="p-10 text-center font-bold text-gray-500">Cargando pagos...</div>
@@ -147,12 +156,16 @@ export default function AdminPaymentsPage() {
 
                 <div className="flex items-center gap-3 lg:flex-col lg:justify-center">
                   <button
-                    disabled={processingAction !== null}
+                    disabled={processingAction !== null || !ONLINE_PAYMENTS_ENABLED}
                     onClick={() => updatePayment(payment.id, 'approve')}
                     className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-3 font-black text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FiCheck />{' '}
-                    {processingAction === `${payment.id}:approve` ? 'Procesando...' : 'Aprobar'}
+                    {!ONLINE_PAYMENTS_ENABLED
+                      ? 'Deshabilitado'
+                      : processingAction === `${payment.id}:approve`
+                        ? 'Procesando...'
+                        : 'Aprobar'}
                   </button>
                   <button
                     disabled={processingAction !== null}

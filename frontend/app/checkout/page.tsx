@@ -20,6 +20,12 @@ const methodLabels: Record<PaymentMethod, string> = {
   PLIN: 'Plin',
 };
 
+const ONLINE_PAYMENTS_ENABLED = process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true';
+const CHECKOUT_MODE = process.env.NEXT_PUBLIC_CHECKOUT_MODE || 'CONTACT_ONLY';
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim();
+const CONTACT_ONLY_MESSAGE =
+  'Los pagos en línea están temporalmente deshabilitados. Puedes revisar tu carrito y contactarnos para coordinar la compra.';
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, clearCart } = useCartStore();
@@ -49,6 +55,12 @@ export default function CheckoutPage() {
   const isManual = method === 'YAPE' || method === 'PLIN';
   const isWalletPaymentDisabled = total > MANUAL_WALLET_PAYMENT_LIMIT;
   const isCredit = method === 'CARD_CREDIT';
+  const isContactOnlyCheckout = !ONLINE_PAYMENTS_ENABLED || CHECKOUT_MODE === 'CONTACT_ONLY';
+  const whatsappHref = WHATSAPP_NUMBER
+    ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+        `Hola, quiero coordinar la compra de mi carrito por S/. ${total.toFixed(2)}.`,
+      )}`
+    : null;
 
   useEffect(() => {
     if (!isCheckingCustomer && !customer) {
@@ -245,6 +257,79 @@ export default function CheckoutPage() {
           >
             Volver a la tienda
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isContactOnlyCheckout) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-10">
+        <div className="container mx-auto grid max-w-6xl gap-8 px-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
+            <h1 className="text-3xl font-black text-gray-900">Checkout</h1>
+            <div className="mt-6 rounded-2xl border border-cyan-100 bg-cyan-50 p-6">
+              <p className="text-lg font-black text-gray-900">
+                Los pagos en línea estarán disponibles próximamente.
+              </p>
+              <p className="mt-3 text-sm font-medium leading-6 text-gray-700">
+                {CONTACT_ONLY_MESSAGE}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                {whatsappHref ? (
+                  <a
+                    href={whatsappHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-xl bg-brand-cyan px-5 py-3 font-black text-gray-900 transition hover:bg-cyan-400"
+                  >
+                    Contactar por WhatsApp
+                  </a>
+                ) : null}
+                <Link
+                  href="/"
+                  className="rounded-xl bg-gray-900 px-5 py-3 font-black text-white transition hover:bg-gray-800"
+                >
+                  Volver a la tienda
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          <aside className="h-max rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-5 text-xl font-black text-gray-900">Resumen</h2>
+            <div className="space-y-4">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex justify-between gap-4 border-b border-gray-100 pb-3 text-sm"
+                >
+                  <div>
+                    <p className="font-bold text-gray-800">{item.name}</p>
+                    <p className="text-gray-500">Cantidad: {item.qty}</p>
+                  </div>
+                  <p className="font-black text-gray-900">
+                    S/. {(item.price * item.qty).toFixed(2)}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 space-y-2 text-sm">
+              <div className="flex justify-between text-gray-500">
+                <span>Subtotal</span>
+                <span>S/. {subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-500">
+                <span>IGV incluido</span>
+                <span>S/. {igv.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between border-t border-gray-100 pt-3 text-xl font-black text-gray-900">
+                <span>Total</span>
+                <span>S/. {total.toFixed(2)}</span>
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
     );

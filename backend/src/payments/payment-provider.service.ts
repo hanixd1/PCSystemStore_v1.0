@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentMethod, PaymentProvider, PaymentStatus } from '@prisma/client';
 import { randomInt, randomUUID } from 'node:crypto';
+import { assertPaymentSimulationEnabled } from './payment.config';
 
 export type ProviderPaymentInput = {
   method: PaymentMethod;
@@ -22,6 +23,8 @@ export class SimulatedPaymentProvider {
   }
 
   createPayment(input: ProviderPaymentInput): ProviderPaymentResult {
+    assertPaymentSimulationEnabled();
+
     const approved = input.simulateResult === 'APPROVED';
 
     return {

@@ -13,6 +13,7 @@ import {
   MANUAL_WALLET_PAYMENT_LIMIT,
   MANUAL_WALLET_PAYMENT_LIMIT_MESSAGE,
 } from '../payments/payment.constants';
+import { assertPaymentsEnabled } from '../payments/payment.config';
 import { BuilderService } from '../builder/builder.service';
 
 const IGV_RATE_INCLUDED = 18 / 118;
@@ -32,6 +33,8 @@ export class OrdersService {
   } satisfies Prisma.OrderInclude;
 
   async create(data: CreateOrderDto, userId: string) {
+    assertPaymentsEnabled();
+
     const normalizedItems = data.items.map((item) => ({
       productId: item.productId,
       quantity: Number(item.quantity),

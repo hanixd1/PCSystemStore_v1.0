@@ -15,6 +15,7 @@ import {
   MANUAL_WALLET_PAYMENT_LIMIT,
   MANUAL_WALLET_PAYMENT_LIMIT_MESSAGE,
 } from './payment.constants';
+import { assertPaymentsEnabled } from './payment.config';
 
 const DEFAULT_COMMISSION_RATE = 0.04;
 
@@ -137,6 +138,8 @@ export class PaymentsService {
   }
 
   async simulate(data: SimulatePaymentDto, userId: string) {
+    assertPaymentsEnabled();
+
     const order = await this.getOrderForPayment(data.orderId, userId);
     const amount = Number(order.total);
     const commissionRate = this.getCommissionRate();
@@ -205,6 +208,8 @@ export class PaymentsService {
   }
 
   async createManual(data: ManualPaymentDto, userId: string) {
+    assertPaymentsEnabled();
+
     const order = await this.getOrderForPayment(data.orderId, userId);
     const amount = Number(order.total);
 
@@ -244,6 +249,8 @@ export class PaymentsService {
   }
 
   async approveManual(id: string, actorId: string) {
+    assertPaymentsEnabled();
+
     const payment = await this.prisma.payment.findUnique({ where: { id } });
     if (!payment) {
       throw new NotFoundException('Pago no encontrado');
