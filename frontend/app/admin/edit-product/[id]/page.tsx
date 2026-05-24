@@ -1167,7 +1167,7 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('m2Slots', value)}
               />
               <MultiCheckField
-                label="TamaÃ±os M.2 soportados"
+                label="Tamaños M.2 soportados"
                 options={M2_FORM_FACTORS}
                 values={formData.supportedM2FormFactors}
                 onToggle={(value) => toggleArrayValue('supportedM2FormFactors', value)}
@@ -1452,7 +1452,7 @@ export default function EditProductPage() {
               />
               {(formData.type.includes('M.2') || formData.type.toUpperCase().includes('NVME')) && (
                 <SelectField
-                  label="TamaÃ±o fisico M.2"
+                  label="Tamaño físico M.2"
                   value={formData.m2FormFactor}
                   onChange={(value) => updateField('m2FormFactor', value)}
                   options={M2_FORM_FACTORS}
@@ -1601,12 +1601,12 @@ export default function EditProductPage() {
                 options={MONITOR_BRANDS}
               />
               <TextField
-                label="TamaÃ±o"
+                label="Tamaño"
                 value={formData.screenSize}
                 onChange={(value) => updateField('screenSize', value)}
               />
               <SelectField
-                label="ResoluciÃ³n"
+                label="Resolución"
                 value={formData.resolution}
                 onChange={(value) => updateField('resolution', value)}
                 options={includeCurrentOption(MONITOR_RESOLUTION_OPTIONS, formData.resolution)}

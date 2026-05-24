@@ -36,7 +36,7 @@ export default function CartSidebar() {
         <div className="flex justify-between items-center p-6 border-b bg-white">
           <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
             <FiShoppingBag className="text-brand-cyan" />
-            Mi Cesta ({items.length})
+            Mi Carrito ({items.length})
           </h2>
           <button
             onClick={closeCart}
@@ -50,7 +50,7 @@ export default function CartSidebar() {
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
           {items.length === 0 ? (
             <div className="text-center py-20 text-gray-500">
-              <p>Tu carrito está vacío 😔</p>
+              <p>Tu carrito está vacío</p>
               <button
                 onClick={closeCart}
                 className="mt-4 text-brand-cyan font-bold hover:underline"

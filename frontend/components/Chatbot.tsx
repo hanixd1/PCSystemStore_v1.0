@@ -547,7 +547,7 @@ export default function Chatbot() {
       if (!response.success) {
         appendCatalogAssistantMessage(
           response.message ??
-            'Por ahora no pude consultar el catÃ¡logo. Intenta nuevamente en unos segundos.',
+            'Por ahora no pude consultar el catálogo. Intenta nuevamente en unos segundos.',
         );
         return false;
       }
@@ -573,7 +573,7 @@ export default function Chatbot() {
       return true;
     } catch {
       appendCatalogAssistantMessage(
-        'Por ahora no pude consultar el catÃ¡logo. Intenta nuevamente en unos segundos.',
+        'Por ahora no pude consultar el catálogo. Intenta nuevamente en unos segundos.',
       );
       return false;
     } finally {
@@ -693,7 +693,7 @@ export default function Chatbot() {
 
     if (['cancelar', 'reiniciar', 'empezar de nuevo'].includes(value)) {
       setGuidedSearch(null);
-      appendCatalogAssistantMessage('Listo, reiniciÃ© la bÃºsqueda. Â¿QuÃ© componente necesitas?');
+      appendCatalogAssistantMessage('Listo, reinicié la búsqueda. ¿Qué componente necesitas?');
       return true;
     }
 
@@ -703,7 +703,7 @@ export default function Chatbot() {
       } else if (!isAll && ['nvidia', 'rtx', 'gtx'].some((token) => value.includes(token))) {
         nextFilters.brand = 'NVIDIA';
       } else if (!isAll) {
-        appendCatalogAssistantMessage('No entendÃ­ la marca. Escribe NVIDIA, AMD o todas.');
+        appendCatalogAssistantMessage('No entendí la marca. Escribe NVIDIA, AMD o todas.');
         return true;
       }
 
@@ -725,7 +725,7 @@ export default function Chatbot() {
       } else if (!isAll && ['amd', 'ryzen'].some((token) => value.includes(token))) {
         nextFilters.brand = 'AMD';
       } else if (!isAll) {
-        appendCatalogAssistantMessage('No entendÃ­ la marca. Escribe Intel, AMD o todos.');
+        appendCatalogAssistantMessage('No entendí la marca. Escribe Intel, AMD o todos.');
         return true;
       }
 
@@ -744,7 +744,7 @@ export default function Chatbot() {
       } else if (!isAll && value.includes('ddr5')) {
         nextFilters.memoryType = 'DDR5';
       } else if (!isAll) {
-        appendCatalogAssistantMessage('No entendÃ­ el tipo de RAM. Escribe DDR4, DDR5 o todas.');
+        appendCatalogAssistantMessage('No entendí el tipo de RAM. Escribe DDR4, DDR5 o todas.');
         return true;
       }
       setGuidedSearch({ category: 'RAM', step: 'ramCapacity', filters: nextFilters });
@@ -758,7 +758,7 @@ export default function Chatbot() {
         nextFilters.capacity = String(capacity);
       } else if (!isAll) {
         appendCatalogAssistantMessage(
-          'No entendÃ­ la capacidad. Escribe 8 GB, 16 GB, 24 GB, 32 GB o todas.',
+          'No entendí la capacidad. Escribe 8 GB, 16 GB, 24 GB, 32 GB o todas.',
         );
         return true;
       }
@@ -772,7 +772,7 @@ export default function Chatbot() {
       if (!isAll && [1, 2, 4].includes(modules)) {
         nextFilters.modules = String(modules);
       } else if (!isAll) {
-        appendCatalogAssistantMessage('No entendÃ­ los mÃ³dulos. Escribe 1, 2, 4 o todas.');
+        appendCatalogAssistantMessage('No entendí los módulos. Escribe 1, 2, 4 o todas.');
         return true;
       }
       const found = await showCatalogResults(
@@ -819,7 +819,7 @@ export default function Chatbot() {
       } else if (!isAll && value.includes('nvme')) {
         nextFilters.type = 'NVMe';
       } else if (!isAll) {
-        appendCatalogAssistantMessage('No entendÃ­ el tipo. Escribe NVMe, SATA, HDD o todos.');
+        appendCatalogAssistantMessage('No entendí el tipo. Escribe NVMe, SATA, HDD o todos.');
         return true;
       }
       setGuidedSearch({ category: 'STORAGE', step: 'storageCapacity', filters: nextFilters });
@@ -847,7 +847,7 @@ export default function Chatbot() {
         nextFilters.wattage = String(wattage);
       } else if (!isAll) {
         appendCatalogAssistantMessage(
-          'No entendÃ­ la potencia. Escribe 500W, 600W, 650W, 750W, 850W, 1000W o todas.',
+          'No entendí la potencia. Escribe 500W, 600W, 650W, 750W, 850W, 1000W o todas.',
         );
         return true;
       }
@@ -906,7 +906,7 @@ export default function Chatbot() {
     if (guidedSearch && category && startsNewSearch) {
       setGuidedSearch(null);
       if (isSpecificSearch(text)) {
-        await showCatalogResults(category, {}, 'EncontrÃ© estas opciones disponibles:', text);
+        await showCatalogResults(category, {}, 'Encontré estas opciones disponibles:', text);
         return true;
       }
       startGuidedCatalogFlow(category);

@@ -216,7 +216,9 @@ const Header = () => {
                   </span>
                 ) : null}
               </div>
-              <span className="mt-1 hidden text-[10px] font-bold uppercase md:block">Mi Cesta</span>
+              <span className="mt-1 hidden text-[10px] font-bold uppercase md:block">
+                Mi Carrito
+              </span>
             </button>
           </div>
 

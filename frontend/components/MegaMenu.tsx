@@ -323,7 +323,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                     <div key={idx}>
                       {item.children ? (
                         <>
-                          {/* Row: click name â†’ navigate, click arrow â†’ toggle */}
+                          {/* Row: click name -> navigate, click arrow -> toggle */}
                           <div className="flex items-center justify-between py-2">
                             <Link
                               href={item.href || '#'}

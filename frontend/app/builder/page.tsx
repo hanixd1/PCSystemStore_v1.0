@@ -20,7 +20,7 @@ import { api } from '@/lib/api';
 import { getEffectivePrice } from '@/lib/pricing';
 import { calculateRecommendedPsuWatts } from '@/lib/products/psuRecommendation';
 
-// DefiniciÃ³n de los pasos del configurador
+// Definición de los pasos del configurador
 const STEPS = [
   { id: 'platform', title: 'Plataforma', icon: FiCpu },
   { id: 'cpu', title: 'Procesador', category: 'CPU', icon: FiCpu },
@@ -60,7 +60,7 @@ function isM2Storage(product: any) {
 
 function normalizeCoolerType(product: any) {
   const value = String(product.coolerSpecs?.type || '').toLowerCase();
-  if (value === 'aio' || value.includes('liqu') || value.includes('lÃ­qu')) return 'LÃ­quida';
+  if (value === 'aio' || value.includes('liqu') || value.includes('líqu')) return 'Líquida';
   return 'Torre';
 }
 
@@ -151,7 +151,7 @@ function validateStorageCompatibility(build: Record<string, any>) {
   }
 
   if (storageSize && supportedSizes.length > 0 && !supportedSizes.includes(storageSize)) {
-    errors.push('La placa madre no soporta el tamaÃ±o M.2 del almacenamiento seleccionado.');
+    errors.push('La placa madre no soporta el tamaño M.2 del almacenamiento seleccionado.');
   }
 
   return errors;
@@ -263,7 +263,7 @@ export default function PCBuilderPage() {
     ];
   };
 
-  // --- 1. LÃ“GICA DE FILTRADO MEJORADA (SOCKETS Y NOMBRES) ---
+  // --- 1. LÓGICA DE FILTRADO MEJORADA (SOCKETS Y NOMBRES) ---
   const getFilteredProducts = () => {
     const stepDef = STEPS[currentStep];
     if (!stepDef.category) return [];
@@ -350,7 +350,7 @@ export default function PCBuilderPage() {
     return filtered;
   };
 
-  // --- 2. NAVEGACIÃ“N Y SELECCIÃ“N ---
+  // --- 2. NAVEGACIÓN Y SELECCIÓN ---
   const handleSelectPlatform = (selected: 'Intel' | 'AMD') => {
     if (selected !== platform) {
       setBuild({}); // Si cambia de bando, limpiamos todo
@@ -395,6 +395,10 @@ export default function PCBuilderPage() {
     }
   };
 
+  const handleBack = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 0));
+  };
+
   const handleSkip = () => setCurrentStep((prev) => prev + 1);
 
   const handleAddToCart = async () => {
@@ -421,12 +425,12 @@ export default function PCBuilderPage() {
     Object.values(build).forEach((product) => {
       if (product) addItem({ ...product, source: 'builder' });
     });
-    alert('Â¡PC completa aÃ±adida al carrito! ðŸš€');
+    alert('¡PC completa añadida al carrito!');
     router.push('/carrito');
   };
 
   const handleRestart = () => {
-    if (confirm('Â¿EstÃ¡s seguro de querer reiniciar la configuraciÃ³n?')) {
+    if (confirm('¿Estás seguro de querer reiniciar la configuración?')) {
       setPlatform(null);
       setBuild({});
       setBackendValidation(null);
@@ -490,7 +494,7 @@ export default function PCBuilderPage() {
           {/* PASO 0: ELEGIR PLATAFORMA */}
           {currentStep === 0 && (
             <div className="text-center animate-fade-in">
-              <h2 className="text-2xl font-bold text-gray-800 mb-8">Â¿QuÃ© bando eliges?</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-8">¿Qué bando eliges?</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
                 <button
                   onClick={() => handleSelectPlatform('Intel')}
@@ -513,28 +517,37 @@ export default function PCBuilderPage() {
             </div>
           )}
 
-          {/* PASOS DEL 1 AL 7: SELECCIÃ“N DE COMPONENTES */}
+          {/* PASOS DEL 1 AL 7: SELECCIÓN DE COMPONENTES */}
           {currentStep > 0 && currentStep < STEPS.length - 1 && (
             <div className="animate-fade-in">
-              <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <div className="flex flex-col gap-4 mb-6 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-800">
                   <StepIcon className="text-brand-cyan" />
                   Elige tu {currentStepDef.title}
                 </h2>
-                {currentStepDef.optional && (
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={handleSkip}
-                    className="text-sm font-bold text-gray-400 hover:text-gray-800 transition flex items-center gap-1"
+                    type="button"
+                    onClick={handleBack}
+                    className="rounded-full border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 transition hover:border-brand-cyan hover:text-brand-cyan"
                   >
-                    Omitir paso <FiChevronRight />
+                    ← Regresar
                   </button>
-                )}
+                  {currentStepDef.optional && (
+                    <button
+                      onClick={handleSkip}
+                      className="text-sm font-bold text-gray-400 hover:text-gray-800 transition flex items-center gap-1"
+                    >
+                      Omitir paso <FiChevronRight />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-20 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
                   <p className="text-lg text-gray-500 font-medium">
-                    No hay componentes compatibles en stock para esta selecciÃ³n.
+                    No hay componentes compatibles en stock para esta selección.
                   </p>
                   <button
                     onClick={() => setCurrentStep((prev) => prev - 1)}
@@ -568,20 +581,19 @@ export default function PCBuilderPage() {
                       <div className="text-xs text-gray-500 mb-4 space-y-1">
                         {product.category === 'CPU' && (
                           <p>
-                            ðŸ”Œ Socket: {product.cpuSpecs?.socket} | âš™ï¸{' '}
-                            {product.cpuSpecs?.cores} NÃºcleos
+                            Socket: {product.cpuSpecs?.socket} | {product.cpuSpecs?.cores} núcleos
                           </p>
                         )}
                         {product.category === 'MOTHERBOARD' && (
                           <p>
-                            ðŸ”Œ Socket: {product.motherboardSpecs?.socket} | âš¡{' '}
+                            Socket: {product.motherboardSpecs?.socket} |{' '}
                             {product.motherboardSpecs?.memoryType}
                           </p>
                         )}
                         {product.category === 'RAM' && (
                           <p>
-                            âš¡ {product.ramSpecs?.memoryType} | ðŸ’½ {product.ramSpecs?.capacity}GB
-                            a {product.ramSpecs?.speed}MHz
+                            {product.ramSpecs?.memoryType} | {product.ramSpecs?.capacity} GB a{' '}
+                            {product.ramSpecs?.speed}MHz
                           </p>
                         )}
                       </div>
@@ -611,10 +623,8 @@ export default function PCBuilderPage() {
                 <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 text-green-500 rounded-full mb-4">
                   <FiCheckCircle size={40} />
                 </div>
-                <h2 className="text-3xl font-black text-gray-800">Â¡Tu PC estÃ¡ lista! ðŸš€</h2>
-                <p className="text-gray-500 mt-2">
-                  Revisa tu configuraciÃ³n y procede a la compra.
-                </p>
+                <h2 className="text-3xl font-black text-gray-800">¡Tu PC está lista!</h2>
+                <p className="text-gray-500 mt-2">Revisa tu configuración y procede a la compra.</p>
               </div>
 
               <div className="bg-gray-50 rounded-2xl p-6 md:p-10 border border-gray-200 shadow-inner mb-8">
@@ -707,7 +717,7 @@ export default function PCBuilderPage() {
                   className="flex-1 bg-brand-cyan text-gray-900 py-4 rounded-xl font-black text-lg hover:bg-cyan-400 transition shadow-xl shadow-brand-cyan/30 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
                 >
                   <FiShoppingCart size={22} />{' '}
-                  {validatingBuild ? 'Validando...' : 'AÃ±adir al carrito'}
+                  {validatingBuild ? 'Validando...' : 'Añadir al carrito'}
                 </button>
               </div>
             </div>
