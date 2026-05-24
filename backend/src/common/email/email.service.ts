@@ -1,5 +1,5 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import nodemailer, { type Transporter } from 'nodemailer';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { Resend } from 'resend';
 
 type PasswordResetEmailInput = {
   to: string;
@@ -16,17 +16,29 @@ type AccountLinkEmailInput = {
 
 @Injectable()
 export class EmailService {
-  private transporter?: Transporter;
+  private readonly logger = new Logger(EmailService.name);
+  private readonly resend: Resend | null;
+  private readonly mailFrom: string;
+
+  constructor() {
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const provider = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+
+    if (provider && provider !== 'resend') {
+      this.logger.warn(`[EMAIL] EMAIL_PROVIDER=${provider} ignored. Resend is the only provider.`);
+    }
+
+    this.resend = apiKey ? new Resend(apiKey) : null;
+    this.mailFrom = process.env.MAIL_FROM?.trim() || 'PCSystemStore <onboarding@resend.dev>';
+  }
 
   async sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<void> {
-    const transporter = this.getTransporter();
     const subject =
       input.flow === 'admin'
         ? 'Recuperacion de acceso administrativo - PCSystemStore'
         : 'Recuperacion de contrasena - PCSystemStore';
 
-    await transporter.sendMail({
-      from: this.getMailFrom(),
+    await this.sendMail({
       to: input.to,
       subject,
       text: this.buildPasswordResetText(input),
@@ -35,10 +47,7 @@ export class EmailService {
   }
 
   async sendGoogleWelcomeSetPasswordEmail(input: AccountLinkEmailInput): Promise<void> {
-    const transporter = this.getTransporter();
-
-    await transporter.sendMail({
-      from: this.getMailFrom(),
+    await this.sendMail({
       to: input.to,
       subject: 'Bienvenido a PCSystemStore',
       text: this.buildGoogleWelcomeText(input),
@@ -47,10 +56,7 @@ export class EmailService {
   }
 
   async sendEmailVerificationEmail(input: AccountLinkEmailInput): Promise<void> {
-    const transporter = this.getTransporter();
-
-    await transporter.sendMail({
-      from: this.getMailFrom(),
+    await this.sendMail({
       to: input.to,
       subject: 'Verifica tu correo - PCSystemStore',
       text: this.buildEmailVerificationText(input),
@@ -58,32 +64,48 @@ export class EmailService {
     });
   }
 
-  private getTransporter(): Transporter {
-    if (this.transporter) {
-      return this.transporter;
+  async sendMail(params: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+  }): Promise<void> {
+    if (!this.resend) {
+      this.logger.error('[EMAIL] RESEND_API_KEY is not configured.');
+      throw this.createEmailUnavailableException();
     }
 
-    const host = process.env.SMTP_HOST?.trim();
-    const port = Number(process.env.SMTP_PORT || 587);
-    const user = process.env.SMTP_USER?.trim();
-    const pass = process.env.SMTP_PASS;
+    try {
+      const result = await this.resend.emails.send({
+        from: this.mailFrom,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      });
 
-    if (!host || !user || !pass || !Number.isFinite(port)) {
-      throw new InternalServerErrorException('SMTP no esta configurado en el backend.');
+      if (result.error) {
+        this.logger.error(`[EMAIL] Resend error: ${result.error.message}`);
+        throw this.createEmailUnavailableException();
+      }
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `[EMAIL] Failed to send email with Resend: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      );
+      throw this.createEmailUnavailableException();
     }
-
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: { user, pass },
-    });
-
-    return this.transporter;
   }
 
-  private getMailFrom(): string {
-    return process.env.MAIL_FROM?.trim() || 'PCSystemStore <no-reply@pcsystemstore.com>';
+  private createEmailUnavailableException(): ServiceUnavailableException {
+    return new ServiceUnavailableException(
+      'No pudimos enviar el correo en este momento. Inténtalo nuevamente más tarde.',
+    );
   }
 
   private buildPasswordResetText(input: PasswordResetEmailInput): string {
