@@ -101,7 +101,18 @@ Variables:
 ```env
 NEXT_PUBLIC_API_URL=https://tu-backend.up.railway.app
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
+NEXT_PUBLIC_STORE_MAP_QUERY=PCSystemStore Huancayo Peru
+NEXT_PUBLIC_STORE_ADDRESS=Direccion real del local, Huancayo, Peru
 ```
+
+Para el mapa de `/tienda`, restringir la API key en Google Cloud:
+
+- HTTP referrers: `https://pc-system-store-frontend.vercel.app/*`
+- Futuro dominio: `https://tudominio.com/*` y `https://www.tudominio.com/*`
+- API restrictions: solo `Maps Embed API`
+
+Despues de cambiar variables `NEXT_PUBLIC_*` en Vercel, ejecutar un redeploy porque se inyectan durante build.
 
 Build esperado:
 

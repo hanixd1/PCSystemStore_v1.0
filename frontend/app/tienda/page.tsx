@@ -1,4 +1,5 @@
 import { FiClock, FiMapPin, FiPhone, FiShield } from 'react-icons/fi';
+import StoreLocationMap from '@/components/StoreLocationMap';
 
 export default function TiendaPage() {
   return (
@@ -12,14 +13,7 @@ export default function TiendaPage() {
         </p>
       </div>
 
-      {/* Imagen Principal (Placeholder) */}
-      <div className="w-full h-[400px] bg-gray-200 rounded-2xl mb-12 flex items-center justify-center relative overflow-hidden shadow-xl">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-        <span className="text-gray-500 font-bold text-xl relative z-10 bg-white/80 px-6 py-3 rounded-full">
-          [FOTO REAL DEL LOCAL/FACHADA AQUÍ]
-        </span>
-        {/* <img src="/foto-tienda.jpg" alt="Fachada PC System Store" className="object-cover w-full h-full" /> */}
-      </div>
+      <StoreLocationMap />
 
       {/* Grid de Información */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
