@@ -10,7 +10,9 @@ import {
   FiGrid,
   FiImage,
   FiLogOut,
+  FiMenu,
   FiPlusSquare,
+  FiX,
   FiUsers,
 } from 'react-icons/fi';
 import { AUTHORIZED_ADMIN_ROLES, clearStoredAuthSession, api } from '@/lib/api';
@@ -122,8 +124,13 @@ function useAdminSessionGuard(pathname: string | null) {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { currentUser, handleLogout, isCheckingSession, isPublicAdminRoute } =
     useAdminSessionGuard(pathname);
+
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
 
   if (isPublicAdminRoute) {
     return <>{children}</>;
@@ -142,12 +149,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex h-screen bg-gray-50" suppressHydrationWarning>
-      <aside className="relative z-50 flex h-full w-64 shrink-0 flex-col bg-[#1a1f2b] text-white">
+    <div className="flex min-h-screen bg-gray-50" suppressHydrationWarning>
+      {isSidebarOpen ? (
+        <button
+          type="button"
+          aria-label="Cerrar menú administrativo"
+          className="fixed inset-0 z-40 border-0 bg-black/50 p-0 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      ) : null}
+
+      <aside
+        id="admin-sidebar"
+        className={[
+          'fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] shrink-0 flex-col bg-[#1a1f2b] text-white transition-transform duration-300',
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          'lg:static lg:h-screen lg:w-64 lg:max-w-none lg:translate-x-0',
+        ].join(' ')}
+      >
         <div className="flex items-center justify-between border-b border-gray-800 p-6">
           <h2 className="text-2xl font-black tracking-tighter text-white">
             ADMIN<span className="text-brand-cyan">PANEL</span>
           </h2>
+          <button
+            type="button"
+            aria-label="Cerrar menú administrativo"
+            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-800 hover:text-white lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <FiX size={22} />
+          </button>
         </div>
 
         <div className="border-b border-gray-800 bg-[#151923] p-6">
@@ -181,6 +212,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <Link
             href="/admin"
+            onClick={() => setIsSidebarOpen(false)}
             className={[
               'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
               pathname === '/admin'
@@ -193,6 +225,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <Link
             href="/admin/add-product"
+            onClick={() => setIsSidebarOpen(false)}
             className={[
               'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
               pathname === '/admin/add-product'
@@ -211,6 +244,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
               <Link
                 href="/admin/empleados"
+                onClick={() => setIsSidebarOpen(false)}
                 className={[
                   'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
                   pathname === '/admin/empleados'
@@ -223,6 +257,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
               <Link
                 href="/admin/historial"
+                onClick={() => setIsSidebarOpen(false)}
                 className={[
                   'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
                   pathname === '/admin/historial'
@@ -235,6 +270,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
               <Link
                 href="/admin/pagos"
+                onClick={() => setIsSidebarOpen(false)}
                 className={[
                   'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
                   pathname === '/admin/pagos'
@@ -247,6 +283,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
               <Link
                 href="/admin/banners"
+                onClick={() => setIsSidebarOpen(false)}
                 className={[
                   'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
                   pathname === '/admin/banners'
@@ -259,6 +296,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
               <Link
                 href="/admin/estadistica"
+                onClick={() => setIsSidebarOpen(false)}
                 className={[
                   'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
                   pathname === '/admin/estadistica'
@@ -282,7 +320,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto bg-gray-50 p-8">{children}</main>
+      <main className="min-w-0 flex-1 bg-gray-50">
+        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+          <button
+            type="button"
+            aria-label="Abrir menú administrativo"
+            aria-controls="admin-sidebar"
+            aria-expanded={isSidebarOpen}
+            className="rounded-lg border border-gray-200 p-2 text-gray-700 transition hover:border-brand-cyan hover:text-brand-cyan"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <FiMenu size={22} />
+          </button>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+              Administrador
+            </p>
+            <p className="text-sm font-black text-gray-900">PCSystemStore</p>
+          </div>
+        </div>
+
+        <div className="w-full max-w-full overflow-x-hidden p-4 lg:p-8">{children}</div>
+      </main>
     </div>
   );
 }

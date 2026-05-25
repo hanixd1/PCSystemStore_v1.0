@@ -42,6 +42,12 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
     setExpandedItem((prev) => (prev === itemName ? null : itemName));
   };
 
+  const handleClose = () => {
+    setSelectedCategory(null);
+    setExpandedItem(null);
+    onClose();
+  };
+
   // When switching category, also reset the expanded accordion
   const handleCategorySelect = (id: string) => {
     setSelectedCategory(id);
@@ -242,22 +248,26 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
         className={`fixed inset-0 z-40 border-0 bg-black/40 p-0 transition ${
           isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
         }`}
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       <div
-        className={`fixed top-0 left-0 h-full z-50 flex transition-transform duration-300 ${
+        className={`fixed top-0 left-0 z-50 flex h-full max-w-full transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* PANEL IZQUIERDO */}
-        <div className="w-80 bg-white h-full border-r flex flex-col">
+        <div
+          className={`h-full w-screen max-w-[85vw] flex-col border-r bg-white lg:flex lg:w-80 lg:max-w-none ${
+            activeCategoryData ? 'hidden' : 'flex'
+          }`}
+        >
           <div className="p-5 flex justify-between border-b shrink-0">
             <h2 className="font-bold text-lg">Menu</h2>
             <button
               type="button"
               aria-label="Cerrar menu"
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded p-1 text-2xl hover:bg-gray-100"
             >
               <FiX />
@@ -289,14 +299,14 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           <div className="p-6 border-t shrink-0">
             <Link
               href="/builder"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex items-center gap-3 text-cyan-800 font-semibold hover:underline"
             >
               <FiTool /> Configurador de PC
             </Link>
             <Link
               href="/tienda"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex items-center gap-3 mt-4 text-gray-600 hover:text-cyan-800"
             >
               <FiHome /> Tienda fisica
@@ -304,9 +314,93 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           </div>
         </div>
 
+        {/* PANEL MOVIL DE CATEGORIA */}
+        {activeCategoryData && (
+          <div className="flex h-full w-screen max-w-[85vw] flex-col bg-white lg:hidden">
+            <div className="flex shrink-0 items-center justify-between border-b p-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory(null);
+                  setExpandedItem(null);
+                }}
+                className="font-bold text-cyan-800"
+              >
+                ← Regresar
+              </button>
+              <button
+                type="button"
+                aria-label="Cerrar menu"
+                onClick={handleClose}
+                className="rounded p-1 text-2xl hover:bg-gray-100"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="border-b px-6 py-4">
+              <h3 className="text-xl font-bold">{activeCategoryData.name}</h3>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="space-y-1">
+                {activeCategoryData.items.map((item, idx) => (
+                  <div key={idx}>
+                    {item.children ? (
+                      <>
+                        <div className="flex items-center justify-between py-2">
+                          <Link
+                            href={item.href || '#'}
+                            onClick={handleClose}
+                            className="flex-1 font-semibold hover:text-cyan-800"
+                          >
+                            {item.name}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => toggleAccordion(item.name)}
+                            className="ml-2 shrink-0 p-2 hover:text-cyan-800"
+                            aria-label={`Expandir ${item.name}`}
+                            aria-expanded={expandedItem === item.name}
+                          >
+                            {expandedItem === item.name ? <FiChevronUp /> : <FiChevronDown />}
+                          </button>
+                        </div>
+
+                        {expandedItem === item.name && (
+                          <div className="mb-2 ml-4 space-y-2">
+                            {item.children.map((sub, i) => (
+                              <Link
+                                key={i}
+                                href={sub.href || '#'}
+                                onClick={handleClose}
+                                className="block py-1 text-gray-500 hover:text-cyan-800"
+                              >
+                                {sub.name}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <Link
+                        href={item.href || '#'}
+                        onClick={handleClose}
+                        className="block py-2 font-semibold hover:text-cyan-800"
+                      >
+                        {item.name}
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PANEL DERECHO */}
         <div
-          className={`bg-white h-full border-l transition-all duration-300 ${
+          className={`hidden h-full border-l bg-white transition-all duration-300 lg:block ${
             selectedCategory ? 'w-80 opacity-100' : 'w-0 opacity-0 overflow-hidden'
           }`}
         >
@@ -327,15 +421,17 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                           <div className="flex items-center justify-between py-2">
                             <Link
                               href={item.href || '#'}
-                              onClick={onClose}
+                              onClick={handleClose}
                               className="font-semibold hover:text-cyan-800 flex-1"
                             >
                               {item.name}
                             </Link>
                             <button
+                              type="button"
                               onClick={() => toggleAccordion(item.name)}
                               className="p-1 hover:text-cyan-800 shrink-0 ml-2"
                               aria-label={`Expandir ${item.name}`}
+                              aria-expanded={expandedItem === item.name}
                             >
                               {expandedItem === item.name ? <FiChevronUp /> : <FiChevronDown />}
                             </button>
@@ -347,7 +443,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                                 <Link
                                   key={i}
                                   href={sub.href || '#'}
-                                  onClick={onClose}
+                                  onClick={handleClose}
                                   className="block text-gray-500 hover:text-cyan-800 py-0.5"
                                 >
                                   {sub.name}
@@ -359,7 +455,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                       ) : (
                         <Link
                           href={item.href || '#'}
-                          onClick={onClose}
+                          onClick={handleClose}
                           className="block font-semibold hover:text-cyan-800 py-2"
                         >
                           {item.name}
