@@ -472,7 +472,7 @@ export default function PCBuilderPage() {
                   title={idx < currentStep ? `Volver a ${step.title}` : ''}
                   className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${
                     idx < currentStep
-                      ? 'bg-brand-cyan text-gray-900 cursor-pointer hover:scale-110 shadow-md'
+                      ? 'bg-brand-cyan text-gray-900 cursor-pointer hover:scale-110'
                       : idx === currentStep
                         ? 'bg-gray-900 text-white ring-4 ring-gray-200 cursor-default'
                         : 'bg-gray-200 text-gray-400 opacity-50 cursor-not-allowed'
@@ -490,7 +490,7 @@ export default function PCBuilderPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-10 min-h-[500px]">
+        <div className="min-h-[500px] p-2 md:p-6">
           {/* PASO 0: ELEGIR PLATAFORMA */}
           {currentStep === 0 && (
             <div className="text-center animate-fade-in">
@@ -498,18 +498,16 @@ export default function PCBuilderPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
                 <button
                   onClick={() => handleSelectPlatform('Intel')}
-                  className="group relative border-2 border-gray-200 rounded-2xl p-10 hover:border-blue-500 hover:bg-blue-50 transition-all overflow-hidden"
+                  className="group border border-gray-300 bg-white p-10 text-center transition-colors hover:border-blue-500"
                 >
-                  <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-10 transition-opacity"></div>
                   <h3 className="text-3xl font-black text-blue-600 tracking-widest mb-2">INTEL</h3>
                   <p className="text-gray-500 font-medium">Core i3, i5, i7, i9</p>
                 </button>
 
                 <button
                   onClick={() => handleSelectPlatform('AMD')}
-                  className="group relative border-2 border-gray-200 rounded-2xl p-10 hover:border-red-500 hover:bg-red-50 transition-all overflow-hidden"
+                  className="group border border-gray-300 bg-white p-10 text-center transition-colors hover:border-red-500"
                 >
-                  <div className="absolute inset-0 bg-red-500 opacity-0 group-hover:opacity-10 transition-opacity"></div>
                   <h3 className="text-3xl font-black text-red-600 tracking-widest mb-2">AMD</h3>
                   <p className="text-gray-500 font-medium">Ryzen 5, 7, 9</p>
                 </button>
@@ -529,7 +527,7 @@ export default function PCBuilderPage() {
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="rounded-full border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 transition hover:border-brand-cyan hover:text-brand-cyan"
+                    className="border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 transition hover:border-brand-cyan hover:text-brand-cyan"
                   >
                     ← Regresar
                   </button>
@@ -545,7 +543,7 @@ export default function PCBuilderPage() {
               </div>
 
               {filteredProducts.length === 0 ? (
-                <div className="text-center py-20 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                <div className="border-2 border-dashed border-gray-300 bg-transparent py-20 text-center">
                   <p className="text-lg text-gray-500 font-medium">
                     No hay componentes compatibles en stock para esta selección.
                   </p>
@@ -561,14 +559,14 @@ export default function PCBuilderPage() {
                   {filteredProducts.map((product) => (
                     <div
                       key={product.id}
-                      className="border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all flex flex-col group bg-white"
+                      className="group flex flex-col border border-gray-300 bg-white p-5 transition-colors hover:border-gray-500"
                     >
-                      <div className="h-40 bg-gray-50 rounded-lg mb-4 p-2 flex items-center justify-center">
+                      <div className="mb-4 flex h-40 items-center justify-center border border-gray-200 bg-white p-2">
                         {product.images?.[0] ? (
                           <img
                             src={product.images[0]}
                             alt={product.name}
-                            className="max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform"
+                            className="max-h-full object-contain mix-blend-multiply transition-transform group-hover:scale-105"
                           />
                         ) : (
                           <FiBox className="text-4xl text-gray-300" />
@@ -604,7 +602,7 @@ export default function PCBuilderPage() {
                         </span>
                         <button
                           onClick={() => handleSelectComponent(product)}
-                          className="bg-gray-900 text-white px-4 py-2 rounded-lg font-bold hover:bg-brand-cyan hover:text-gray-900 transition"
+                          className="bg-gray-900 px-4 py-2 font-bold text-white transition hover:bg-brand-cyan hover:text-gray-900"
                         >
                           Seleccionar
                         </button>
@@ -620,14 +618,14 @@ export default function PCBuilderPage() {
           {currentStep === STEPS.length - 1 && (
             <div className="animate-fade-in max-w-4xl mx-auto">
               <div className="text-center mb-10">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 text-green-500 rounded-full mb-4">
+                <div className="mb-4 inline-flex h-20 w-20 items-center justify-center border border-green-200 bg-green-50 text-green-500">
                   <FiCheckCircle size={40} />
                 </div>
                 <h2 className="text-3xl font-black text-gray-800">¡Tu PC está lista!</h2>
                 <p className="text-gray-500 mt-2">Revisa tu configuración y procede a la compra.</p>
               </div>
 
-              <div className="bg-gray-50 rounded-2xl p-6 md:p-10 border border-gray-200 shadow-inner mb-8">
+              <div className="mb-8 border border-gray-300 bg-transparent p-6 md:p-10">
                 <div className="space-y-4">
                   {STEPS.filter((s) => s.category).map((step) => {
                     const item = build[step.id];
@@ -637,7 +635,7 @@ export default function PCBuilderPage() {
                         className="flex justify-between items-center border-b border-gray-200 pb-4 last:border-0 last:pb-0"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm text-gray-400">
+                          <div className="flex h-10 w-10 items-center justify-center border border-gray-300 bg-white text-gray-400">
                             <step.icon size={20} />
                           </div>
                           <div>
@@ -702,7 +700,7 @@ export default function PCBuilderPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
                   onClick={handleRestart}
-                  className="flex-1 bg-white border-2 border-gray-300 text-gray-700 py-4 rounded-xl font-bold text-lg hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                  className="flex flex-1 items-center justify-center gap-2 border-2 border-gray-300 bg-white py-4 text-lg font-bold text-gray-700 transition hover:bg-gray-50"
                 >
                   <FiRefreshCw /> Volver a armar
                 </button>
@@ -714,7 +712,7 @@ export default function PCBuilderPage() {
                     compatibilityErrors.length > 0 ||
                     backendValidation?.compatible === false
                   }
-                  className="flex-1 bg-brand-cyan text-gray-900 py-4 rounded-xl font-black text-lg hover:bg-cyan-400 transition shadow-xl shadow-brand-cyan/30 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
+                  className="flex flex-1 items-center justify-center gap-2 bg-brand-cyan py-4 text-lg font-black text-gray-900 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
                 >
                   <FiShoppingCart size={22} />{' '}
                   {validatingBuild ? 'Validando...' : 'Añadir al carrito'}

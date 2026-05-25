@@ -107,15 +107,20 @@ const formatDisplayText = (value: string) =>
 
 const getInitialRouteFilters = (fullSlug: string, lastSlug: string) => {
   const routeFilters: Record<string, string> = {};
+  const [categorySlug, subSlug] = fullSlug.split('/');
 
-  if (fullSlug === 'cpu/amd') routeFilters.cpuBrand = 'AMD';
-  if (fullSlug === 'cpu/intel') routeFilters.cpuBrand = 'Intel';
-  if (fullSlug === 'mobo/amd') routeFilters.platform = 'AMD';
-  if (fullSlug === 'mobo/intel') routeFilters.platform = 'Intel';
+  if (categorySlug === 'cpu' && subSlug === 'amd') routeFilters.cpuBrand = 'AMD';
+  if (categorySlug === 'cpu' && subSlug === 'intel') routeFilters.cpuBrand = 'Intel';
+  if (['mobo', 'motherboard'].includes(categorySlug) && subSlug === 'amd')
+    routeFilters.platform = 'AMD';
+  if (['mobo', 'motherboard'].includes(categorySlug) && subSlug === 'intel')
+    routeFilters.platform = 'Intel';
   if (lastSlug === 'ddr4') routeFilters.ramType = 'DDR4';
   if (lastSlug === 'ddr5') routeFilters.ramType = 'DDR5';
-  if (lastSlug === 'nvidia') routeFilters.gpuChipset = 'NVIDIA';
-  if (fullSlug === 'graficas/amd') routeFilters.gpuChipset = 'AMD';
+  if (['graficas', 'gpu'].includes(categorySlug) && subSlug === 'nvidia')
+    routeFilters.gpuChipset = 'NVIDIA';
+  if (['graficas', 'gpu'].includes(categorySlug) && subSlug === 'amd')
+    routeFilters.gpuChipset = 'AMD';
   if (lastSlug === 'solido') routeFilters.storageType = 'SSD';
   if (lastSlug === 'sata') routeFilters.storageType = 'SATA';
   if (lastSlug === 'liquida') routeFilters.coolerType = 'AIO';
@@ -124,8 +129,10 @@ const getInitialRouteFilters = (fullSlug: string, lastSlug: string) => {
   return routeFilters;
 };
 
-const resolveCategory = (lastSlug: string, fullSlug: string) => {
+const resolveCategory = (slugParts: string[], lastSlug: string, fullSlug: string) => {
   if (SLUG_TO_CATEGORY[fullSlug]) return SLUG_TO_CATEGORY[fullSlug];
+  const categorySlug = slugParts[0]?.toLowerCase();
+  if (categorySlug && SLUG_TO_CATEGORY[categorySlug]) return SLUG_TO_CATEGORY[categorySlug];
   return SLUG_TO_CATEGORY[lastSlug];
 };
 
@@ -158,7 +165,10 @@ export default function CategoryPage() {
     [slugArray],
   );
   const lastSlug = useMemo(() => slugArray[slugArray.length - 1]?.toLowerCase() || '', [slugArray]);
-  const selectedCategory = useMemo(() => resolveCategory(lastSlug, fullSlug), [fullSlug, lastSlug]);
+  const selectedCategory = useMemo(
+    () => resolveCategory(slugArray, lastSlug, fullSlug),
+    [fullSlug, lastSlug, slugArray],
+  );
   const isKnownRoute = Boolean(selectedCategory || CATEGORY_GROUPS[lastSlug]);
   const routeFilters = useMemo(
     () => getInitialRouteFilters(fullSlug, lastSlug),
@@ -408,7 +418,7 @@ export default function CategoryPage() {
           <select
             value={draftFilters[filter.key] || ''}
             onChange={(event) => updateDraft(filter.key, event.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-brand-cyan"
+            className="w-full rounded-sm border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-brand-cyan"
           >
             {(options || [{ label: 'Todos', value: '' }]).map((option) => (
               <option key={`${filter.key}-${option.value}`} value={option.value}>
@@ -429,7 +439,7 @@ export default function CategoryPage() {
             }
             value={draftFilters[filter.key] || ''}
             onChange={(event) => updateDraft(filter.key, event.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-brand-cyan"
+            className="w-full rounded-sm border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-brand-cyan"
           />
         )}
       </label>
@@ -450,7 +460,7 @@ export default function CategoryPage() {
             placeholder={filter.key === 'minPrice' ? 'S/. Min' : 'S/. Max'}
             value={draftFilters[filter.key] || ''}
             onChange={(event) => updateDraft(filter.key, event.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-brand-cyan"
+            className="w-full rounded-sm border border-gray-300 bg-white px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-brand-cyan"
           />
         ))}
       </div>
@@ -530,14 +540,14 @@ export default function CategoryPage() {
       <div className="flex gap-2 border-t border-gray-100 pt-4">
         <button
           type="submit"
-          className="flex-1 rounded-xl bg-gray-900 px-4 py-3 text-sm font-black text-white hover:bg-brand-cyan hover:text-black"
+          className="flex-1 bg-gray-900 px-4 py-3 text-sm font-black text-white hover:bg-brand-cyan hover:text-black"
         >
           Aplicar
         </button>
         <button
           type="button"
           onClick={clearFilters}
-          className="rounded-xl border border-gray-200 px-4 py-3 text-sm font-black text-gray-600 hover:border-brand-cyan"
+          className="border border-gray-300 px-4 py-3 text-sm font-black text-gray-600 hover:border-brand-cyan"
         >
           Limpiar
         </button>
@@ -547,7 +557,7 @@ export default function CategoryPage() {
 
   return (
     <div className="bg-gray-50 min-h-screen pb-20">
-      <div className="bg-white border-b border-gray-200 pt-8 pb-8 shadow-sm">
+      <div className="border-b border-gray-300 bg-gray-50 pt-8 pb-8">
         <div className="container mx-auto px-4">
           <div className="flex items-center text-sm font-bold text-gray-400 mb-4 capitalize overflow-x-auto whitespace-nowrap">
             <Link href="/" className="hover:text-brand-cyan transition">
@@ -584,7 +594,7 @@ export default function CategoryPage() {
             <button
               type="button"
               onClick={() => setFiltersOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-black text-white lg:hidden"
+              className="inline-flex items-center justify-center gap-2 bg-gray-900 px-4 py-3 text-sm font-black text-white lg:hidden"
             >
               <FiSliders /> Filtros
             </button>
@@ -594,20 +604,18 @@ export default function CategoryPage() {
 
       <div className="container mx-auto px-4 mt-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-          <aside className="hidden rounded-3xl border border-gray-100 bg-white p-5 shadow-sm lg:block">
-            {filtersPanel}
-          </aside>
+          <aside className="hidden bg-transparent p-0 lg:block">{filtersPanel}</aside>
 
           {filtersOpen ? (
             <div className="fixed inset-0 z-50 bg-black/40 p-4 lg:hidden">
-              <div className="ml-auto h-full max-w-sm overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
+              <div className="ml-auto h-full max-w-sm overflow-y-auto border-l border-gray-300 bg-white p-5">
                 {filtersPanel}
               </div>
             </div>
           ) : null}
 
           <main>
-            <div className="mb-5 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-5 py-4 text-sm font-bold text-gray-500">
+            <div className="mb-5 flex items-center justify-between border-b border-gray-300 pb-3 text-sm font-bold text-gray-500">
               <span>{loading ? 'Cargando productos...' : `${total} producto(s) encontrados`}</span>
               {selectedCategory ? (
                 <span className="text-brand-cyan">{selectedCategory}</span>
@@ -619,7 +627,7 @@ export default function CategoryPage() {
                 <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-brand-cyan"></div>
               </div>
             ) : products.length === 0 ? (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-16 text-center max-w-2xl mx-auto mt-10">
+              <div className="mx-auto mt-10 flex min-h-[320px] max-w-2xl flex-col items-center justify-center bg-transparent p-8 text-center">
                 <FiBox className="mx-auto text-6xl text-gray-300 mb-4" />
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">
                   No se encontraron productos
@@ -629,7 +637,7 @@ export default function CategoryPage() {
                 </p>
                 <button
                   onClick={clearFilters}
-                  className="bg-brand-cyan text-gray-900 font-bold px-6 py-3 rounded-xl hover:bg-cyan-400 transition"
+                  className="bg-brand-cyan px-6 py-3 font-bold text-gray-900 transition hover:bg-cyan-400"
                 >
                   Limpiar filtros
                 </button>
@@ -639,24 +647,24 @@ export default function CategoryPage() {
                 {products.map((product) => (
                   <div
                     key={product.id}
-                    className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col overflow-hidden group"
+                    className="group flex flex-col overflow-hidden border border-gray-300 bg-gray-50 transition-colors duration-200 hover:border-gray-500"
                   >
                     <Link
                       href={`/product/${product.id}`}
-                      className="block relative h-56 p-6 bg-white flex items-center justify-center border-b border-gray-50"
+                      className="relative flex h-56 items-center justify-center bg-transparent p-6"
                     >
                       {product.images && product.images.length > 0 ? (
                         <img
                           src={product.images[0]}
                           alt={product.name}
-                          className="max-h-full max-w-full object-contain group-hover:scale-110 transition duration-500"
+                          className="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-105"
                         />
                       ) : (
                         <FiBox className="text-gray-200 text-6xl" />
                       )}
                     </Link>
 
-                    <div className="p-5 flex-1 flex flex-col bg-gray-50/30">
+                    <div className="flex flex-1 flex-col p-5">
                       <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
                         {product.category}
                       </span>
@@ -667,11 +675,11 @@ export default function CategoryPage() {
                         </h3>
                       </Link>
 
-                      <div className="mt-auto flex items-end justify-between pt-4 border-t border-gray-100">
+                      <div className="mt-auto flex items-end justify-between pt-4">
                         <div>
                           {isSaleActive(product) ? (
                             <div className="mb-1 flex items-center gap-2">
-                              <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">
+                              <span className="border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">
                                 -{getDiscountPercent(product)}%
                               </span>
                               <span className="text-xs font-bold text-gray-400 line-through">
@@ -689,7 +697,7 @@ export default function CategoryPage() {
                             alert('Anadido al carrito');
                           }}
                           disabled={product.stock <= 0}
-                          className="bg-gray-900 text-white p-2.5 rounded-xl hover:bg-brand-cyan hover:text-black transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed group-active:scale-95"
+                          className="bg-gray-900 p-2.5 text-white transition hover:bg-brand-cyan hover:text-black disabled:cursor-not-allowed disabled:opacity-50 group-active:scale-95"
                         >
                           <FiShoppingCart className="text-lg" />
                         </button>

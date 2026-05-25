@@ -511,8 +511,10 @@ export const PRODUCT_FILTERS_BY_CATEGORY: Record<string, ProductFilterConfig[]> 
 export const SLUG_TO_CATEGORY: Record<string, string> = {
   cpu: 'CPU',
   mobo: 'MOTHERBOARD',
+  motherboard: 'MOTHERBOARD',
   ram: 'RAM',
   graficas: 'GPU',
+  gpu: 'GPU',
   nvidia: 'GPU',
   amd: 'GPU',
   almacenamiento: 'STORAGE',

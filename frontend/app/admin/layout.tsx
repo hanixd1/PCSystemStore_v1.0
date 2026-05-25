@@ -164,7 +164,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         className={[
           'fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] shrink-0 flex-col bg-[#1a1f2b] text-white transition-transform duration-300',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          'lg:static lg:h-screen lg:w-64 lg:max-w-none lg:translate-x-0',
+          'lg:fixed lg:h-screen lg:w-64 lg:max-w-none lg:translate-x-0',
         ].join(' ')}
       >
         <div className="flex items-center justify-between border-b border-gray-800 p-6">
@@ -320,7 +320,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 bg-gray-50">
+      <main className="min-h-screen min-w-0 flex-1 bg-gray-50 lg:ml-64">
         <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
           <button
             type="button"

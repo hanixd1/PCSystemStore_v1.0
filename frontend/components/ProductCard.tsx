@@ -25,27 +25,27 @@ export default function ProductCard({
   const discountPercent = getDiscountPercent(pricing);
 
   return (
-    <div className="group bg-white rounded-2xl border border-gray-100 p-4 transition-all duration-300 hover:shadow-xl hover:border-brand-cyan/30 flex flex-col h-full">
+    <div className="group flex h-full flex-col border border-gray-300 bg-gray-50 p-4 transition-colors duration-200 hover:border-gray-500">
       {/* Badge de Categoría */}
-      <span className="self-start text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 px-2 py-1 rounded mb-2">
+      <span className="mb-2 self-start border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-500">
         {category}
       </span>
       {hasSale ? (
-        <span className="mb-2 self-start rounded-full bg-red-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-red-600">
+        <span className="mb-2 self-start border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-red-600">
           -{discountPercent}%
         </span>
       ) : null}
 
       {/* Imagen (Placeholder elegante si no hay foto) */}
-      <div className="relative w-full h-48 mb-4 flex items-center justify-center bg-gray-50 rounded-xl overflow-hidden group-hover:scale-105 transition-transform duration-500">
+      <div className="relative mb-4 flex h-48 w-full items-center justify-center overflow-hidden bg-transparent">
         {image ? (
           <img src={image} alt={name} className="object-contain h-full w-full" />
         ) : (
-          <div className="text-gray-300 text-4xl">📷</div>
+          <div className="text-xs font-black tracking-[0.3em] text-gray-300">IMG</div>
         )}
 
         {/* Botón flotante de "Vista Rápida" que aparece al hover */}
-        <button className="absolute bottom-2 right-2 bg-white p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity text-brand-cyan hover:bg-brand-cyan hover:text-white">
+        <button className="absolute bottom-2 right-2 border border-gray-300 bg-white p-2 text-brand-cyan opacity-0 transition-opacity hover:border-brand-cyan hover:bg-brand-cyan hover:text-white group-hover:opacity-100">
           <FiShoppingCart />
         </button>
       </div>
@@ -68,7 +68,7 @@ export default function ProductCard({
             </span>
           </div>
 
-          <button className="bg-brand-dark text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-brand-cyan transition-colors">
+          <button className="bg-brand-dark px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-brand-cyan hover:text-gray-950">
             Comprar
           </button>
         </div>

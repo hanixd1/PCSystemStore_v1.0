@@ -204,8 +204,8 @@ export default function LoginPage() {
       />
 
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-        <div className="flex w-full max-w-5xl flex-col gap-12 overflow-hidden rounded-2xl bg-white p-8 shadow-sm md:flex-row md:p-12">
-          <div className="hidden w-1/2 flex-col justify-center border-r border-gray-100 pr-12 md:flex">
+        <div className="flex w-full max-w-5xl flex-col gap-12 p-2 md:flex-row md:p-0">
+          <div className="hidden w-1/2 flex-col justify-center border-r border-gray-200 pr-12 md:flex">
             <div className="mb-2 flex items-center gap-4">
               <span className="text-2xl font-black tracking-tighter text-gray-900">PC SYSTEM</span>
               <span className="rounded bg-brand-cyan px-2 py-0.5 text-xs font-bold text-white">
@@ -219,10 +219,10 @@ export default function LoginPage() {
                   <FiTruck className="text-2xl text-gray-800" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Gestiona tus pedidos</h3>
+                  <h3 className="text-lg font-bold text-gray-900">Gestiona tus pedidos aqui</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Ten el control de todos tus pedidos y recibe notificaciones con el seguimiento
-                    en tiempo real.
+                    Mantén el control total. Revisa el estado de tus envíos y entérate al
+                    instante de dónde están tus nuevos equipos.
                   </p>
                 </div>
               </div>
@@ -232,9 +232,9 @@ export default function LoginPage() {
                   <FiAward className="text-2xl text-gray-800" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Lista de deseos personalizada</h3>
+                  <h3 className="text-lg font-bold text-gray-900">Lista de productos personalizado</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Guarda tus productos favoritos para armar tu PC cuando estes listo.
+                    Añade las mejores partes a tu lista de favoritos y ten todo listo para armar tu PC ideal.
                   </p>
                 </div>
               </div>
@@ -375,7 +375,7 @@ export default function LoginPage() {
                 {mode === 'login' && (
                   <Link
                     href="/auth/forgot-password"
-                    className="whitespace-nowrap font-bold text-brand-cyan hover:underline"
+                    className="whitespace-nowrap font-semibold text-gray-900 underline underline-offset-4 transition hover:text-brand-cyan"
                   >
                     Olvidé mi contraseña
                   </Link>
@@ -385,7 +385,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-4 w-full rounded-lg bg-orange-400 py-4 text-lg font-bold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 w-full rounded-lg bg-brand-cyan py-4 text-lg font-black text-gray-950 shadow-md shadow-cyan-200/70 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting
                   ? 'Procesando...'

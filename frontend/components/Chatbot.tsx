@@ -1099,7 +1099,7 @@ export default function Chatbot() {
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 z-[100] bg-brand-cyan text-gray-900 p-4 rounded-full shadow-2xl shadow-brand-cyan/40 hover:bg-cyan-400 hover:scale-110 transition-all duration-300 flex items-center justify-center"
         >
-          <FiMessageSquare size={28} />
+          <img src="/chatbot.png" alt="Abrir chatbot Alex" className="h-10 w-10 object-cover" />
         </button>
       )}
 
@@ -1110,8 +1110,8 @@ export default function Chatbot() {
         >
           <div className="bg-[#1a1f2b] text-white p-4 flex justify-between items-center shadow-md z-10">
             <div className="flex items-center gap-3">
-              <div className="bg-brand-cyan text-gray-900 p-2 rounded-full">
-                <FiCpu size={20} />
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-brand-cyan">
+                <img src="/chatbot.png" alt="Alex" className="h-full w-full object-cover" />
               </div>
               <div>
                 <h3 className="font-bold text-sm tracking-wide">Alex</h3>

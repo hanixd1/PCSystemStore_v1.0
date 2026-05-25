@@ -77,7 +77,7 @@ const Header = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b bg-white font-sans shadow-sm">
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white font-sans">
         <div className="hidden bg-black py-2 text-center text-[10px] font-bold tracking-wide text-white md:block md:text-xs">
           Envios a todo el Peru
         </div>
@@ -103,26 +103,26 @@ const Header = () => {
 
             <button
               onClick={() => setIsMenuOpen(true)}
-              className="hidden transform items-center gap-3 rounded-full bg-cyan-500 px-6 py-2.5 text-sm font-bold text-black shadow-md ring-1 ring-cyan-400/30 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400 hover:shadow-cyan-400/50 md:flex"
+              className="hidden items-center gap-3 px-4 py-3 text-lg font-semibold text-gray-700 transition-colors hover:text-gray-950 md:flex"
             >
-              <FiMenu className="text-xl" />
+              <FiMenu className="text-3xl" />
               <span>Menu</span>
             </button>
           </div>
 
           <div className="hidden max-w-2xl flex-1 px-4 md:block">
-            <form onSubmit={handleSearch} className="relative group">
+            <form onSubmit={handleSearch} className="relative">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar componentes, perifericos..."
-                className="w-full rounded-xl border-2 border-transparent bg-gray-100 py-3 pl-5 pr-16 font-medium text-gray-900 outline-none transition-all placeholder-gray-500 focus:border-brand-cyan focus:bg-white"
+                className="h-11 w-full rounded-sm border border-gray-300 bg-white px-4 pr-12 text-sm font-medium text-gray-900 outline-none transition-colors placeholder-gray-500 focus:border-gray-600"
               />
               <button
                 type="submit"
                 aria-label="Buscar productos"
-                className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-lg bg-cyan-500 px-4 py-2 text-white shadow-md ring-1 ring-cyan-400/30 transition-all duration-200 hover:bg-cyan-400 hover:shadow-cyan-400/50"
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-gray-900 transition-colors hover:text-brand-cyan"
               >
                 <FiSearch className="text-xl stroke-2" />
               </button>
