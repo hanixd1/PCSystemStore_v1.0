@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { FiEdit, FiShield, FiShieldOff, FiUserPlus, FiUsers, FiX } from 'react-icons/fi';
+import { confirmAction, notify } from '@/lib/notify';
 
 type UserRow = {
   id: string;
@@ -71,29 +72,34 @@ export default function EmpleadosPage() {
     try {
       if (isEditing && editingId) {
         await api.patch(`/users/${editingId}`, formData);
-        alert('Empleado actualizado con exito');
+        notify.success('Empleado actualizado correctamente');
       } else {
         await api.post('/users', formData);
-        alert('Empleado creado con exito');
+        notify.success('Empleado creado correctamente');
       }
 
       setShowModal(false);
       await fetchUsers();
     } catch (error: unknown) {
-      alert(getApiErrorMessage(error, 'Hubo un error al procesar la solicitud.'));
+      notify.error(getApiErrorMessage(error, 'Hubo un error al procesar la solicitud.'));
     }
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const accion = currentStatus === 'ACTIVE' ? 'bloquear' : 'reactivar';
-    if (!confirm(`Estas seguro de que deseas ${accion} esta cuenta?`)) return;
+    const confirmed = await confirmAction({
+      title: 'Cambiar estado de cuenta',
+      message: `¿Estás seguro de que deseas ${accion} esta cuenta?`,
+      confirmText: accion === 'bloquear' ? 'Bloquear' : 'Reactivar',
+    });
+    if (!confirmed) return;
 
     try {
       await api.patch(`/users/${id}/toggle-status`);
       await fetchUsers();
     } catch (error: unknown) {
       console.error(error);
-      alert(getApiErrorMessage(error, 'Error al intentar cambiar el estado.'));
+      notify.error(getApiErrorMessage(error, 'Error al intentar cambiar el estado.'));
     }
   };
 

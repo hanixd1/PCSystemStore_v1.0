@@ -8,6 +8,7 @@ import {
   useCartStore,
 } from '@/store/useCartStore';
 import { useCustomerSession } from '@/lib/customerSession';
+import { getProductPrimaryImage } from '@/lib/product-images';
 
 function normalizeItems(items: unknown): CartItem[] {
   if (!Array.isArray(items)) {
@@ -19,14 +20,20 @@ function normalizeItems(items: unknown): CartItem[] {
       const candidate = item as CartItem;
       return Boolean(candidate?.id && candidate.name && Number.isFinite(Number(candidate.price)));
     })
-    .map((item) => ({
-      ...item,
-      price: Number(item.price),
-      qty: Math.min(
-        Math.max(Number.isFinite(Number(item.qty)) ? Number(item.qty) : 1, 1),
-        MAX_CART_ITEM_QUANTITY,
-      ),
-    }));
+    .map((item) => {
+      const primaryImage = getProductPrimaryImage(item);
+
+      return {
+        ...item,
+        image: primaryImage || item.image,
+        imageUrl: primaryImage || item.imageUrl,
+        price: Number(item.price),
+        qty: Math.min(
+          Math.max(Number.isFinite(Number(item.qty)) ? Number(item.qty) : 1, 1),
+          MAX_CART_ITEM_QUANTITY,
+        ),
+      };
+    });
 }
 
 export default function CartHydrator() {

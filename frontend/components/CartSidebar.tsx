@@ -1,151 +1,164 @@
 'use client';
 
-import { FiX, FiTrash2, FiMinus, FiPlus, FiShoppingBag } from 'react-icons/fi';
-import { MAX_CART_ITEM_QUANTITY, useCartStore } from '../store/useCartStore';
 import { useRouter } from 'next/navigation';
+import { FiMinus, FiPlus, FiShoppingBag, FiTrash2, FiX } from 'react-icons/fi';
 import { useCustomerSession } from '@/lib/customerSession';
+import { getProductPrimaryImage } from '@/lib/product-images';
+import { MAX_CART_ITEM_QUANTITY, useCartStore } from '@/store/useCartStore';
 
 export default function CartSidebar() {
-  // Traemos los datos y funciones del store actualizado
   const { isCartOpen, items, closeCart, removeItem, updateQuantity } = useCartStore();
   const router = useRouter();
   const { customer, isCheckingCustomer } = useCustomerSession();
-
-  // Calculamos el total dinámicamente
   const subtotal = items.reduce((acc, item) => acc + item.price * item.qty, 0);
 
   return (
     <>
-      {/* OVERLAY (Fondo oscuro) */}
       <button
         type="button"
         aria-label="Cerrar carrito"
         className={`fixed inset-0 z-50 border-0 bg-black/60 p-0 transition-opacity duration-300 ${
-          isCartOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+          isCartOpen ? 'visible opacity-100' : 'invisible opacity-0'
         }`}
         onClick={closeCart}
       />
 
-      {/* PANEL LATERAL */}
       <div
-        className={`fixed top-0 right-0 h-full w-full md:w-[450px] bg-white shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`fixed right-0 top-0 z-[60] flex h-full w-full transform flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out md:w-[450px] ${
           isCartOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* CABECERA (Texto Negro Fuerte) */}
-        <div className="flex justify-between items-center p-6 border-b bg-white">
-          <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
+        <div className="flex items-center justify-between border-b bg-white p-6">
+          <h2 className="flex items-center gap-3 text-xl font-black text-gray-900">
             <FiShoppingBag className="text-brand-cyan" />
             Mi Carrito ({items.length})
           </h2>
           <button
+            type="button"
             onClick={closeCart}
-            className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500"
+            className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100"
+            aria-label="Cerrar carrito"
           >
             <FiX size={24} />
           </button>
         </div>
 
-        {/* LISTA DE PRODUCTOS */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
+        <div className="flex-1 space-y-6 overflow-y-auto bg-white p-6">
           {items.length === 0 ? (
-            <div className="text-center py-20 text-gray-500">
+            <div className="py-20 text-center text-gray-500">
               <p>Tu carrito está vacío</p>
               <button
+                type="button"
                 onClick={closeCart}
-                className="mt-4 text-brand-cyan font-bold hover:underline"
+                className="mt-4 font-bold text-brand-cyan hover:underline"
               >
                 Ir a comprar
               </button>
             </div>
           ) : (
-            items.map((item) => (
-              <div key={item.id} className="flex gap-4 border-b border-gray-100 pb-6">
-                {/* Imagen Placeholder */}
-                <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center shrink-0 border border-gray-200">
-                  <span className="text-xs font-bold text-gray-400">IMG</span>
-                </div>
+            items.map((item) => {
+              const imageUrl = getProductPrimaryImage(item);
 
-                {/* Info del Producto */}
-                <div className="flex-1 flex flex-col justify-between">
-                  <div className="flex justify-between items-start gap-2">
-                    {/* CORRECCIÓN DE COLOR: text-gray-900 (Negro) */}
-                    <h3 className="font-bold text-sm text-gray-900 line-clamp-2 leading-tight">
-                      {item.name}
-                    </h3>
-
-                    {/* BOTÓN ELIMINAR CONECTADO */}
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="text-gray-400 hover:text-red-600 transition p-1"
-                      title="Eliminar producto"
-                    >
-                      <FiTrash2 size={18} />
-                    </button>
+              return (
+                <div key={item.id} className="flex gap-4 border-b border-gray-100 pb-6">
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center border border-gray-200 bg-gray-50 p-2">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-center text-[11px] font-bold text-gray-400">
+                        Sin imagen
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex justify-between items-end mt-2">
-                    {/* Selector Cantidad */}
-                    <div className="flex items-center border border-gray-300 rounded-lg bg-white">
+                  <div className="flex flex-1 flex-col justify-between">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="line-clamp-2 text-sm font-bold leading-tight text-gray-900">
+                        {item.name}
+                      </h3>
+
                       <button
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="p-1 px-2 text-gray-600 hover:text-brand-cyan hover:bg-gray-50 rounded-l-lg transition"
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        className="p-1 text-gray-400 transition hover:text-red-600"
+                        title="Eliminar producto"
+                        aria-label={`Eliminar ${item.name}`}
                       >
-                        <FiMinus size={14} />
-                      </button>
-                      <span className="font-bold text-sm w-8 text-center text-gray-900">
-                        {item.qty}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.id, 1)}
-                        disabled={item.qty >= MAX_CART_ITEM_QUANTITY}
-                        title={
-                          item.qty >= MAX_CART_ITEM_QUANTITY
-                            ? 'Limite maximo de 10 unidades por producto'
-                            : 'Aumentar cantidad'
-                        }
-                        className="p-1 px-2 text-gray-600 hover:text-brand-cyan hover:bg-gray-50 rounded-r-lg transition disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"
-                      >
-                        <FiPlus size={14} />
+                        <FiTrash2 size={18} />
                       </button>
                     </div>
 
-                    {/* PRECIO: Color Cian Oscuro para contraste */}
-                    <span className="font-black text-lg text-brand-cyan">
-                      S/. {(item.price * item.qty).toFixed(2)}
-                    </span>
+                    <div className="mt-2 flex items-end justify-between">
+                      <div className="flex items-center rounded-lg border border-gray-300 bg-white">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, -1)}
+                          className="rounded-l-lg px-2 py-1 text-gray-600 transition hover:bg-gray-50 hover:text-brand-cyan"
+                          aria-label={`Reducir cantidad de ${item.name}`}
+                        >
+                          <FiMinus size={14} />
+                        </button>
+                        <span className="w-8 text-center text-sm font-bold text-gray-900">
+                          {item.qty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, 1)}
+                          disabled={item.qty >= MAX_CART_ITEM_QUANTITY}
+                          title={
+                            item.qty >= MAX_CART_ITEM_QUANTITY
+                              ? 'Límite máximo de 10 unidades por producto'
+                              : 'Aumentar cantidad'
+                          }
+                          className="rounded-r-lg px-2 py-1 text-gray-600 transition hover:bg-gray-50 hover:text-brand-cyan disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"
+                          aria-label={`Aumentar cantidad de ${item.name}`}
+                        >
+                          <FiPlus size={14} />
+                        </button>
+                      </div>
+
+                      <span className="text-lg font-black text-brand-cyan">
+                        S/. {(item.price * item.qty).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
-        {/* FOOTER TOTALES */}
         {items.length > 0 && (
-          <div className="border-t p-6 bg-gray-50">
-            <div className="flex justify-between mb-4 text-gray-600">
+          <div className="border-t bg-gray-50 p-6">
+            <div className="mb-4 flex justify-between text-gray-600">
               <span className="font-medium text-gray-700">Subtotal (sin envío)</span>
-              {/* TOTAL EN NEGRO */}
-              <span className="font-black text-xl text-gray-900">S/. {subtotal.toFixed(2)}</span>
+              <span className="text-xl font-black text-gray-900">S/. {subtotal.toFixed(2)}</span>
             </div>
             <button
+              type="button"
               onClick={() => {
                 closeCart();
                 router.push(customer ? '/checkout' : '/auth/login?redirect=/checkout');
               }}
-              className="w-full bg-brand-cyan hover:bg-[#00b89c] text-white font-bold py-4 rounded-xl transition text-lg shadow-lg shadow-brand-cyan/20"
+              className="w-full rounded-xl bg-brand-cyan py-4 text-lg font-bold text-white shadow-lg shadow-brand-cyan/20 transition hover:bg-[#00b89c]"
             >
               Procesar Pedido
             </button>
             {!isCheckingCustomer && !customer ? (
               <p className="mt-3 text-center text-xs font-bold text-gray-500">
-                Para proteger tu compra, inicia sesion antes de continuar.
+                Para proteger tu compra, inicia sesión antes de continuar.
               </p>
             ) : null}
             <button
+              type="button"
               onClick={closeCart}
-              className="w-full text-center mt-4 text-sm text-gray-500 hover:text-gray-800 font-medium"
+              className="mt-4 w-full text-center text-sm font-medium text-gray-500 hover:text-gray-800"
             >
               Seguir comprando
             </button>

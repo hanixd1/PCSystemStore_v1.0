@@ -9,6 +9,7 @@ import { MdLaptopMac, MdComputer, MdMonitor, MdMouse, MdBuild, MdLocalOffer } fr
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
 import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/pricing';
+import { notify } from '@/lib/notify';
 
 const HeroCarousel = dynamic(() => import('@/components/HeroCarousel'));
 
@@ -104,7 +105,7 @@ const ProductSection = ({
                 <button
                   onClick={() => {
                     addItem(product);
-                    alert('Añadido al carrito');
+                    notify.success('Producto agregado al carrito');
                   }}
                   disabled={product.stock <= 0}
                   className="bg-gray-900 text-white p-3 rounded-lg hover:bg-brand-cyan hover:text-black transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group-active:scale-95"

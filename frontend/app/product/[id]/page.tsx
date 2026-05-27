@@ -8,6 +8,7 @@ import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
 import { buildSpecificationRows } from '@/lib/productSpecifications';
 import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/pricing';
+import { notify } from '@/lib/notify';
 
 // Función mágica que genera las migas de pan leyendo el nombre y specs del producto
 const generateBreadcrumbs = (product: any) => {
@@ -230,7 +231,7 @@ export default function ProductPage() {
                 onClick={() => {
                   if (!hasStock) return;
                   addItem(product);
-                  alert('¡Producto añadido al carrito!');
+                  notify.success('Producto agregado al carrito');
                 }}
                 disabled={!hasStock}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-cyan py-3.5 text-base font-black text-gray-900 shadow-lg shadow-brand-cyan/30 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"

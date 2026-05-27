@@ -22,9 +22,10 @@ const methodLabels: Record<PaymentMethod, string> = {
 
 const ONLINE_PAYMENTS_ENABLED = process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === 'true';
 const CHECKOUT_MODE = process.env.NEXT_PUBLIC_CHECKOUT_MODE || 'CONTACT_ONLY';
-const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim();
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() || '51959139676';
+const WHATSAPP_DISPLAY = '959139676';
 const CONTACT_ONLY_MESSAGE =
-  'Los pagos en línea están temporalmente deshabilitados. Puedes revisar tu carrito y contactarnos para coordinar la compra.';
+  'Por el momento, los pagos en línea se encuentran temporalmente deshabilitados. Para concluir tu compra, comunícate con nuestro equipo de ventas por WhatsApp y te ayudaremos a confirmar disponibilidad, método de pago y entrega.';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -56,11 +57,19 @@ export default function CheckoutPage() {
   const isWalletPaymentDisabled = total > MANUAL_WALLET_PAYMENT_LIMIT;
   const isCredit = method === 'CARD_CREDIT';
   const isContactOnlyCheckout = !ONLINE_PAYMENTS_ENABLED || CHECKOUT_MODE === 'CONTACT_ONLY';
-  const whatsappHref = WHATSAPP_NUMBER
-    ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-        `Hola, quiero coordinar la compra de mi carrito por S/. ${total.toFixed(2)}.`,
-      )}`
-    : null;
+  const whatsappMessage = useMemo(() => {
+    if (items.length === 0) return 'Hola PCSystemStore, quiero concluir mi compra desde la web.';
+
+    const cartLines = items
+      .map(
+        (item) =>
+          `- ${item.name} x${item.qty} - S/. ${(item.price * item.qty).toFixed(2)}`,
+      )
+      .join('\n');
+
+    return `Hola PCSystemStore, quiero concluir mi compra. Mi carrito incluye:\n${cartLines}\nTotal: S/. ${total.toFixed(2)}`;
+  }, [items, total]);
+  const whatsappHref = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMessage)}`;
 
   useEffect(() => {
     if (!isCheckingCustomer && !customer) {
@@ -274,27 +283,26 @@ export default function CheckoutPage() {
         <div className="container mx-auto grid max-w-6xl gap-8 px-4 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
             <h1 className="text-3xl font-black text-gray-900">Checkout</h1>
-            <div className="mt-6 rounded-2xl border border-cyan-100 bg-cyan-50 p-6">
-              <p className="text-lg font-black text-gray-900">
-                Los pagos en línea estarán disponibles próximamente.
-              </p>
+            <div className="mt-6 border border-cyan-200 bg-cyan-50/70 p-6">
+              <p className="text-2xl font-black text-gray-950">Finaliza tu compra por WhatsApp</p>
               <p className="mt-3 text-sm font-medium leading-6 text-gray-700">
                 {CONTACT_ONLY_MESSAGE}
               </p>
+              <p className="mt-5 text-sm font-black text-gray-900">
+                WhatsApp: <span className="text-cyan-700">{WHATSAPP_DISPLAY}</span>
+              </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                {whatsappHref ? (
-                  <a
-                    href={whatsappHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-xl bg-brand-cyan px-5 py-3 font-black text-gray-900 transition hover:bg-cyan-400"
-                  >
-                    Contactar por WhatsApp
-                  </a>
-                ) : null}
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-brand-cyan px-5 py-3 font-black text-gray-900 transition hover:bg-cyan-400"
+                >
+                  Continuar por WhatsApp
+                </a>
                 <Link
                   href="/"
-                  className="rounded-xl bg-gray-900 px-5 py-3 font-black text-white transition hover:bg-gray-800"
+                  className="border border-gray-300 px-5 py-3 font-black text-gray-800 transition hover:border-gray-500"
                 >
                   Volver a la tienda
                 </Link>

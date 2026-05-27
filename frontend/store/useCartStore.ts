@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getProductPrimaryImage } from '@/lib/product-images';
 
 export interface CartItem {
   id: number | string;
@@ -6,6 +7,8 @@ export interface CartItem {
   price: number;
   qty: number;
   image?: string;
+  imageUrl?: string;
+  images?: string[];
   category?: string;
   source?: 'builder';
 }
@@ -44,7 +47,13 @@ export const useCartStore = create<CartState>()((set) => ({
         salePrice < normalPrice
           ? salePrice
           : normalPrice;
-      const cartItem = { ...newItem, price: effectivePrice };
+      const primaryImage = getProductPrimaryImage(newItem);
+      const cartItem = {
+        ...newItem,
+        image: primaryImage || newItem.image,
+        imageUrl: primaryImage || newItem.imageUrl,
+        price: effectivePrice,
+      };
       const existingItem = state.items.find((i) => i.id === cartItem.id);
       if (existingItem) {
         return {

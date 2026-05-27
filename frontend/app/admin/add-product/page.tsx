@@ -20,6 +20,7 @@ import { api, getApiErrorMessage } from '@/lib/api';
 import ImageUploader from '@/components/ImageUploader';
 import { buildProductPayload } from '@/lib/products/buildProductPayload';
 import { validateProductForm } from '@/lib/products/validateProductForm';
+import { notify } from '@/lib/notify';
 
 // --- CONSTANTES Y LISTAS ---
 const DEPARTMENTS = {
@@ -638,12 +639,12 @@ export default function AddProductPage() {
     e.preventDefault();
     const validationError = validateForm();
     if (validationError) {
-      alert(validationError);
+      notify.error(validationError);
       return;
     }
 
     if (imageFiles.length === 0) {
-      alert('Debes subir al menos 1 imagen del producto');
+      notify.error('Debes subir al menos 1 imagen del producto');
       return;
     }
 
@@ -670,10 +671,10 @@ export default function AddProductPage() {
       });
 
       resetProductForm();
-      alert('Producto creado correctamente.');
+      notify.success('Producto creado correctamente.');
     } catch (error: unknown) {
       console.error(error);
-      alert(
+      notify.error(
         getApiErrorMessage(
           error,
           'Error al guardar. Revisa la configuracion del backend o Cloudinary.',

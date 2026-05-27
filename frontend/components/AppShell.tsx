@@ -6,13 +6,19 @@ import CartSidebar from '@/components/CartSidebar';
 import ClientChatbot from '@/components/ClientChatbot';
 import CartHydrator from '@/components/CartHydrator';
 import PublicFooter from '@/components/PublicFooter';
+import AppNotifier from '@/components/AppNotifier';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/admin');
 
   if (isAdminRoute) {
-    return <main className="min-h-screen">{children}</main>;
+    return (
+      <>
+        <main className="min-h-screen">{children}</main>
+        <AppNotifier />
+      </>
+    );
   }
 
   return (
@@ -23,6 +29,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <main className="min-h-[calc(100vh-80px)]">{children}</main>
       <PublicFooter />
       <ClientChatbot />
+      <AppNotifier />
     </>
   );
 }

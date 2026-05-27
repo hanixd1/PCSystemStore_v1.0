@@ -5,16 +5,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FiEdit, FiTrash2, FiPlus, FiAlertCircle, FiSearch } from 'react-icons/fi';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { confirmAction, notify } from '@/lib/notify';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Cargar productos al iniciar
-  useEffect(() => {
-    fetchProducts();
-  }, []);
 
   const fetchProducts = async () => {
     try {
@@ -27,18 +23,27 @@ export default function AdminDashboard() {
     }
   };
 
+  useEffect(() => {
+    void fetchProducts();
+  }, []);
+
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+    const confirmed = await confirmAction({
+      title: 'Eliminar producto',
+      message: '¿Estás seguro de eliminar este producto?',
+      confirmText: 'Eliminar',
+    });
+    if (!confirmed) return;
+
     try {
       await api.delete(`/products/${id}`);
-      setProducts(products.filter((p) => p.id !== id)); // Actualizar tabla visualmente
-      alert('Producto eliminado');
+      setProducts(products.filter((p) => p.id !== id));
+      notify.success('Producto eliminado');
     } catch (error: unknown) {
-      alert(getApiErrorMessage(error, 'Error al eliminar'));
+      notify.error(getApiErrorMessage(error, 'Error al eliminar'));
     }
   };
 
-  // Filtrado simple por nombre
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -47,37 +52,34 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      {/* CABECERA */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+      <div className="mb-8 flex flex-col items-center justify-between gap-4 md:flex-row">
         <div>
           <h1 className="text-3xl font-black text-gray-800">Inventario</h1>
           <p className="text-gray-500">Gestión total de {products.length} productos.</p>
         </div>
         <Link
           href="/admin/add-product"
-          className="bg-black text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-800 transition flex items-center gap-2"
+          className="flex items-center gap-2 rounded-xl bg-black px-6 py-3 font-bold text-white transition hover:bg-gray-800"
         >
           <FiPlus /> Nuevo Producto
         </Link>
       </div>
 
-      {/* BARRA DE BÚSQUEDA */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex items-center gap-3">
-        <FiSearch className="text-gray-400 text-xl" />
+      <div className="mb-6 flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <FiSearch className="text-xl text-gray-400" />
         <input
           type="text"
           placeholder="Buscar por nombre o SKU..."
-          className="w-full outline-none text-gray-700 font-medium"
+          className="w-full font-medium text-gray-700 outline-none"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      {/* TABLA DE PRODUCTOS */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-gray-50 text-gray-500 font-bold text-xs uppercase border-b">
+            <thead className="border-b bg-gray-50 text-xs font-bold uppercase text-gray-500">
               <tr>
                 <th className="p-4">Producto</th>
                 <th className="p-4">Categoría</th>
@@ -101,30 +103,30 @@ export default function AdminDashboard() {
                 </tr>
               ) : (
                 filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50 transition group">
+                  <tr key={product.id} className="group transition hover:bg-gray-50">
                     <td className="p-4">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border">
+                        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border bg-gray-100">
                           {product.images[0] ? (
                             <img
                               src={product.images[0]}
                               alt=""
                               loading="lazy"
                               decoding="async"
-                              className="w-full h-full object-cover"
+                              className="h-full w-full object-cover"
                             />
                           ) : (
                             <span className="text-xs text-gray-400">N/A</span>
                           )}
                         </div>
                         <div>
-                          <p className="font-bold text-gray-900 line-clamp-1">{product.name}</p>
+                          <p className="line-clamp-1 font-bold text-gray-900">{product.name}</p>
                           <p className="text-xs text-gray-400">{product.sku}</p>
                         </div>
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-bold">
+                      <span className="rounded bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
                         {product.category}
                       </span>
                     </td>
@@ -147,24 +149,27 @@ export default function AdminDashboard() {
                     </td>
                     <td className="p-4">
                       <div
-                        className={`flex items-center gap-2 font-bold ${product.stock < 5 ? 'text-red-500' : 'text-green-600'}`}
+                        className={`flex items-center gap-2 font-bold ${
+                          product.stock < 5 ? 'text-red-500' : 'text-green-600'
+                        }`}
                       >
                         {product.stock < 5 && <FiAlertCircle />}
                         {product.stock} u.
                       </div>
                     </td>
                     <td className="p-4">
-                      <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                         <Link
                           href={`/admin/edit-product/${product.id}`}
-                          className="p-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition"
+                          className="rounded-lg bg-yellow-100 p-2 text-yellow-700 transition hover:bg-yellow-200"
                           title="Editar"
                         >
                           <FiEdit />
                         </Link>
                         <button
+                          type="button"
                           onClick={() => handleDelete(product.id)}
-                          className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
+                          className="rounded-lg bg-red-100 p-2 text-red-700 transition hover:bg-red-200"
                           title="Eliminar"
                         >
                           <FiTrash2 />

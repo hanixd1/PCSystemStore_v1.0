@@ -9,6 +9,7 @@ import { api, clearStoredAuthSession, getApiErrorMessage, isAuthenticationError 
 import ProductOfferSection from '@/components/admin/product/ProductOfferSection';
 import { buildProductPayload } from '@/lib/products/buildProductPayload';
 import { validateProductForm } from '@/lib/products/validateProductForm';
+import { notify } from '@/lib/notify';
 import { normalizeLaptopStorage } from '@/lib/normalizers';
 
 const CPU_BRANDS = ['AMD', 'Intel'];
@@ -779,7 +780,7 @@ export default function EditProductPage() {
         setExistingImages(Array.isArray(product.images) ? product.images : []);
       })
       .catch((error: unknown) => {
-        alert(getApiErrorMessage(error, 'Error cargando producto'));
+        notify.error(getApiErrorMessage(error, 'Error cargando producto'));
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -923,18 +924,18 @@ export default function EditProductPage() {
 
     const parsedStock = Number(formData.stock);
     if (!Number.isInteger(parsedStock) || parsedStock < 0) {
-      alert('El stock debe ser un numero entero mayor o igual a 0.');
+      notify.error('El stock debe ser un número entero mayor o igual a 0.');
       return;
     }
 
     const specError = validateSpecs();
     if (specError) {
-      alert(specError);
+      notify.error(specError);
       return;
     }
 
     if (existingImages.length + imageFiles.length > 5) {
-      alert('El producto puede tener como maximo 5 imagenes.');
+      notify.error('El producto puede tener como máximo 5 imágenes.');
       return;
     }
 
@@ -952,17 +953,17 @@ export default function EditProductPage() {
         ),
         images: [...existingImages, ...uploadedImages],
       });
-      alert('Producto actualizado correctamente');
+      notify.success('Producto actualizado correctamente');
       router.push('/admin');
     } catch (error: unknown) {
       if (isAuthenticationError(error)) {
         clearStoredAuthSession();
-        alert('Tu sesion expiro. Inicia sesion nuevamente para guardar cambios.');
+        notify.error('Tu sesión expiró. Inicia sesión nuevamente para guardar cambios.');
         router.replace('/admin/login');
         return;
       }
 
-      alert(getApiErrorMessage(error, 'Error al actualizar'));
+      notify.error(getApiErrorMessage(error, 'Error al actualizar'));
     } finally {
       setSaving(false);
     }

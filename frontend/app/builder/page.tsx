@@ -19,6 +19,7 @@ import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
 import { getEffectivePrice } from '@/lib/pricing';
 import { calculateRecommendedPsuWatts } from '@/lib/products/psuRecommendation';
+import { confirmAction, notify } from '@/lib/notify';
 
 // Definición de los pasos del configurador
 const STEPS = [
@@ -404,7 +405,7 @@ export default function PCBuilderPage() {
   const handleAddToCart = async () => {
     const errors = getCompatibilityErrors();
     if (errors.length > 0) {
-      alert(errors.join('\n'));
+      notify.error(errors.join('\n'));
       return;
     }
 
@@ -412,11 +413,11 @@ export default function PCBuilderPage() {
     try {
       const validation = await validateBuildWithBackend();
       if (!validation.compatible) {
-        alert(validation.errors.map((error) => error.message).join('\n'));
+        notify.error(validation.errors.map((error) => error.message).join('\n'));
         return;
       }
     } catch {
-      alert('No se pudo validar la compatibilidad con el servidor.');
+      notify.error('No se pudo validar la compatibilidad con el servidor.');
       return;
     } finally {
       setValidatingBuild(false);
@@ -425,17 +426,23 @@ export default function PCBuilderPage() {
     Object.values(build).forEach((product) => {
       if (product) addItem({ ...product, source: 'builder' });
     });
-    alert('¡PC completa añadida al carrito!');
+    notify.success('PC completa agregada al carrito');
     router.push('/carrito');
   };
 
-  const handleRestart = () => {
-    if (confirm('¿Estás seguro de querer reiniciar la configuración?')) {
-      setPlatform(null);
-      setBuild({});
-      setBackendValidation(null);
-      setCurrentStep(0);
-    }
+  const handleRestart = async () => {
+    const confirmed = await confirmAction({
+      title: 'Reiniciar configuración',
+      message: '¿Estás seguro de querer reiniciar la configuración?',
+      confirmText: 'Reiniciar',
+    });
+
+    if (!confirmed) return;
+
+    setPlatform(null);
+    setBuild({});
+    setBackendValidation(null);
+    setCurrentStep(0);
   };
 
   if (loading)

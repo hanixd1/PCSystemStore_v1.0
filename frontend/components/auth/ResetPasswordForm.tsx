@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { notify } from '@/lib/notify';
 
 type ResetPasswordFormProps = {
   flow: 'admin' | 'client';
@@ -73,7 +74,7 @@ export function ResetPasswordForm({
         token,
         newPassword: password,
       });
-      alert(successMessage);
+      notify.success(successMessage);
       router.push(loginPath);
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, errorFallback));
