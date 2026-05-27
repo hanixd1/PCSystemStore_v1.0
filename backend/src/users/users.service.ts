@@ -12,7 +12,7 @@ import { AccountTokenType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { Request } from 'express';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { JwtUserPayload, USER_ROLES } from '../auth/auth.constants';
 import { EmailService } from '../common/email/email.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -24,8 +24,19 @@ import { UpdateUserDto } from './dto/update-user.dto';
 const CUSTOMER_SESSION_EXPIRES_IN = '12h';
 const ADMIN_SESSION_EXPIRES_IN = '3h';
 const RESET_PASSWORD_TOKEN_EXPIRES_MS = 30 * 60 * 1000;
-const INTERNAL_USER_ROLES = ['ADMIN', 'EDITOR', 'EMPLOYEE'] as const;
+const GOOGLE_OAUTH_STATE_EXPIRES_MS = 5 * 60 * 1000;
+const STAFF_MANAGEMENT_ROLES = ['ADMIN', 'EDITOR'] as const;
 const ADMIN_RESET_ROLES = ['ADMIN', 'EDITOR'] as const;
+const GOOGLE_OAUTH_MODES = ['login', 'register'] as const;
+
+type GoogleOAuthMode = (typeof GOOGLE_OAUTH_MODES)[number];
+
+type GoogleOAuthStatePayload = {
+  state: string;
+  codeVerifier: string;
+  mode: GoogleOAuthMode;
+  createdAt: number;
+};
 
 type ProfileUpdateData = {
   name?: string;
@@ -105,6 +116,182 @@ export class UsersService {
 
   private hashResetToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private toBase64Url(value: Buffer | string): string {
+    const input = Buffer.isBuffer(value) ? value : Buffer.from(value, 'utf8');
+    return input.toString('base64').replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  }
+
+  private createGoogleCodeChallenge(codeVerifier: string): string {
+    return this.toBase64Url(createHash('sha256').update(codeVerifier).digest());
+  }
+
+  private getGoogleOAuthSecret(): string {
+    const secret = process.env.JWT_SECRET?.trim() || process.env.GOOGLE_CLIENT_SECRET?.trim();
+    if (!secret) {
+      throw new InternalServerErrorException(
+        'JWT_SECRET o GOOGLE_CLIENT_SECRET debe estar configurado para Google OAuth.',
+      );
+    }
+
+    return secret;
+  }
+
+  private signGoogleOAuthPayload(payload: string): string {
+    return this.toBase64Url(
+      createHmac('sha256', this.getGoogleOAuthSecret()).update(payload).digest(),
+    );
+  }
+
+  private encodeGoogleOAuthStateCookie(payload: GoogleOAuthStatePayload): string {
+    const encodedPayload = this.toBase64Url(JSON.stringify(payload));
+    return `${encodedPayload}.${this.signGoogleOAuthPayload(encodedPayload)}`;
+  }
+
+  private decodeGoogleOAuthStateCookie(cookieValue: string): GoogleOAuthStatePayload {
+    const [encodedPayload, signature] = cookieValue.split('.');
+    if (!encodedPayload || !signature) {
+      throw new UnauthorizedException('Estado de Google invalido o expirado.');
+    }
+
+    const expectedSignature = this.signGoogleOAuthPayload(encodedPayload);
+    const received = Buffer.from(signature);
+    const expected = Buffer.from(expectedSignature);
+
+    if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
+      throw new UnauthorizedException('Estado de Google invalido o expirado.');
+    }
+
+    let payload: Partial<GoogleOAuthStatePayload>;
+    try {
+      payload = JSON.parse(
+        Buffer.from(encodedPayload, 'base64url').toString('utf8'),
+      ) as Partial<GoogleOAuthStatePayload>;
+    } catch {
+      throw new UnauthorizedException('Estado de Google invalido o expirado.');
+    }
+
+    if (
+      typeof payload.state !== 'string' ||
+      typeof payload.codeVerifier !== 'string' ||
+      !this.isGoogleOAuthMode(payload.mode) ||
+      typeof payload.createdAt !== 'number'
+    ) {
+      throw new UnauthorizedException('Estado de Google invalido o expirado.');
+    }
+
+    if (Date.now() - payload.createdAt > GOOGLE_OAUTH_STATE_EXPIRES_MS) {
+      throw new UnauthorizedException('Estado de Google expirado.');
+    }
+
+    return payload as GoogleOAuthStatePayload;
+  }
+
+  private isGoogleOAuthMode(mode: unknown): mode is GoogleOAuthMode {
+    return GOOGLE_OAUTH_MODES.includes(mode as GoogleOAuthMode);
+  }
+
+  private getGoogleClientId(): string {
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!clientId) {
+      throw new InternalServerErrorException('GOOGLE_CLIENT_ID no esta configurado.');
+    }
+
+    return clientId;
+  }
+
+  private getGoogleClientSecret(): string {
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+    if (!clientSecret) {
+      throw new InternalServerErrorException('GOOGLE_CLIENT_SECRET no esta configurado.');
+    }
+
+    return clientSecret;
+  }
+
+  private getGoogleRedirectUri(): string {
+    const redirectUri =
+      process.env.GOOGLE_REDIRECT_URI?.trim() ||
+      `${this.getRequiredFrontendUrl()}/auth/google/callback`;
+
+    if (!redirectUri) {
+      throw new InternalServerErrorException('GOOGLE_REDIRECT_URI no esta configurado.');
+    }
+
+    return redirectUri;
+  }
+
+  createGoogleOAuthUrl(mode: string) {
+    if (!this.isGoogleOAuthMode(mode)) {
+      throw new BadRequestException('Modo de autenticacion Google invalido.');
+    }
+
+    const state = randomBytes(32).toString('hex');
+    const codeVerifier = this.toBase64Url(randomBytes(64));
+    const codeChallenge = this.createGoogleCodeChallenge(codeVerifier);
+    const redirectUri = this.getGoogleRedirectUri();
+
+    const query = new URLSearchParams({
+      client_id: this.getGoogleClientId(),
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid email profile',
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      prompt: 'select_account',
+    });
+
+    const cookieValue = this.encodeGoogleOAuthStateCookie({
+      state,
+      codeVerifier,
+      mode,
+      createdAt: Date.now(),
+    });
+
+    return {
+      authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${query.toString()}`,
+      cookieValue,
+    };
+  }
+
+  async handleGoogleOAuthCallback(code: string, state: string, stateCookie?: string) {
+    if (!stateCookie?.trim()) {
+      throw new UnauthorizedException('Estado de Google invalido o expirado.');
+    }
+
+    const storedState = this.decodeGoogleOAuthStateCookie(stateCookie);
+    if (storedState.state !== state) {
+      throw new UnauthorizedException('Estado de Google invalido.');
+    }
+
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: this.getGoogleClientId(),
+        client_secret: this.getGoogleClientSecret(),
+        code,
+        code_verifier: storedState.codeVerifier,
+        grant_type: 'authorization_code',
+        redirect_uri: this.getGoogleRedirectUri(),
+      }),
+    });
+
+    const tokenPayload = (await tokenResponse.json()) as {
+      id_token?: string;
+      error?: string;
+      error_description?: string;
+    };
+
+    if (!tokenResponse.ok || !tokenPayload.id_token) {
+      throw new UnauthorizedException('No se pudo completar la autenticacion con Google.');
+    }
+
+    return storedState.mode === 'register'
+      ? this.registerWithGoogle(tokenPayload.id_token)
+      : this.loginWithGoogle(tokenPayload.id_token);
   }
 
   private async createAccountToken(userId: string, type: AccountTokenType) {
@@ -1054,7 +1241,7 @@ export class UsersService {
     return this.prisma.user.findMany({
       where: {
         role: {
-          in: [...INTERNAL_USER_ROLES],
+          in: [...STAFF_MANAGEMENT_ROLES],
         },
       },
       select: {
@@ -1152,12 +1339,12 @@ export class UsersService {
 
   private assertInternalUserRole(role: string) {
     if (!this.isInternalUserRole(role)) {
-      throw new BadRequestException('Gestion de Personal solo permite roles internos');
+      throw new BadRequestException('Rol no permitido para gestión de personal.');
     }
   }
 
   private isInternalUserRole(role: string): boolean {
-    return INTERNAL_USER_ROLES.includes(role as (typeof INTERNAL_USER_ROLES)[number]);
+    return STAFF_MANAGEMENT_ROLES.includes(role as (typeof STAFF_MANAGEMENT_ROLES)[number]);
   }
 
   async getAuditLogs() {

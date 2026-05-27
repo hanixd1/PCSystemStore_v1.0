@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   Res,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import { CreateAddressDto } from './dto/create-address.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
+import { GoogleOAuthCallbackDto } from './dto/google-oauth-callback.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -34,8 +36,10 @@ type SessionScope = 'customer' | 'admin';
 
 const CUSTOMER_SESSION_COOKIE = 'pcs_customer_session';
 const ADMIN_SESSION_COOKIE = 'pcs_admin_session';
+const GOOGLE_OAUTH_STATE_COOKIE = 'pcs_google_oauth_state';
 const CUSTOMER_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 12;
 const ADMIN_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 3;
+const GOOGLE_OAUTH_STATE_MAX_AGE_MS = 1000 * 60 * 5;
 
 function getSessionCookieName(scope: SessionScope) {
   return scope === 'admin' ? ADMIN_SESSION_COOKIE : CUSTOMER_SESSION_COOKIE;
@@ -57,6 +61,46 @@ function getSessionCookieOptions(scope: SessionScope): CookieOptions {
 function getClearSessionCookieOptions(scope: SessionScope): CookieOptions {
   const { maxAge, ...options } = getSessionCookieOptions(scope);
   return options;
+}
+
+function getGoogleOAuthStateCookieOptions(): CookieOptions {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: GOOGLE_OAUTH_STATE_MAX_AGE_MS,
+    path: '/',
+  };
+}
+
+function getClearGoogleOAuthStateCookieOptions(): CookieOptions {
+  const { maxAge, ...options } = getGoogleOAuthStateCookieOptions();
+  return options;
+}
+
+function getCookieValue(request: express.Request, name: string): string | undefined {
+  const cookieHeader = request.headers.cookie;
+  if (!cookieHeader) {
+    return undefined;
+  }
+
+  const rawValue = cookieHeader
+    .split(';')
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
+
+  if (!rawValue) {
+    return undefined;
+  }
+
+  try {
+    return decodeURIComponent(rawValue);
+  } catch {
+    return rawValue;
+  }
 }
 
 function setSessionCookie(response: express.Response, scope: SessionScope, token: string) {
@@ -146,6 +190,44 @@ export class UsersController {
     );
     setSessionCookie(response, 'customer', session.token);
     return session;
+  }
+
+  @Public()
+  @Get('google/oauth-url')
+  googleOAuthUrl(
+    @Query('mode') mode: string,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const result = this.usersService.createGoogleOAuthUrl(mode);
+    response.cookie(
+      GOOGLE_OAUTH_STATE_COOKIE,
+      result.cookieValue,
+      getGoogleOAuthStateCookieOptions(),
+    );
+
+    return { authUrl: result.authUrl };
+  }
+
+  @Public()
+  @Post('google/callback')
+  async googleOAuthCallback(
+    @Body() body: GoogleOAuthCallbackDto,
+    @Req() request: express.Request,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    try {
+      const session = await this.usersService.handleGoogleOAuthCallback(
+        body.code,
+        body.state,
+        getCookieValue(request, GOOGLE_OAUTH_STATE_COOKIE),
+      );
+      setSessionCookie(response, 'customer', session.token);
+      response.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, getClearGoogleOAuthStateCookieOptions());
+      return session;
+    } catch (error) {
+      response.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, getClearGoogleOAuthStateCookieOptions());
+      throw error;
+    }
   }
 
   @Post('customer-logout')

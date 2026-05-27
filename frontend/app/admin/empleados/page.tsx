@@ -13,9 +13,8 @@ type UserRow = {
 };
 
 const STAFF_ROLE_OPTIONS = [
-  { value: 'EDITOR', label: 'EDITOR' },
-  { value: 'EMPLOYEE', label: 'EMPLOYEE' },
   { value: 'ADMIN', label: 'ADMIN' },
+  { value: 'EDITOR', label: 'EDITOR' },
 ] as const;
 
 type StaffRole = (typeof STAFF_ROLE_OPTIONS)[number]['value'];

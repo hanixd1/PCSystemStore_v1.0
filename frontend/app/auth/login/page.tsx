@@ -1,31 +1,11 @@
 'use client';
 
-import { FormEvent, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
-import Script from 'next/script';
 import { FiAward, FiEye, FiEyeOff, FiTruck } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { notifyCustomerSessionChanged } from '@/lib/customerSession';
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (response: { credential?: string }) => void;
-          }) => void;
-          renderButton: (
-            element: HTMLElement,
-            options: { theme: string; size: string; shape: string; width?: number },
-          ) => void;
-        };
-      };
-    };
-  }
-}
 
 type Mode = 'login' | 'register';
 
@@ -47,12 +27,8 @@ function isValidEmailFormat(value: string): boolean {
 }
 
 export default function LoginPage() {
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const googleButtonRef = useRef<HTMLDivElement | null>(null);
-  const modeRef = useRef<Mode>('login');
   const [mode, setMode] = useState<Mode>('login');
   const [showPassword, setShowPassword] = useState(false);
-  const [googleReady, setGoogleReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -78,52 +54,33 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    modeRef.current = mode;
-  }, [mode]);
-
-  const handleGoogleAuth = useEffectEvent(async (idToken?: string) => {
-    if (!idToken) {
-      setError('Google no devolvio un token valido');
-      return;
+    const googleError = new URLSearchParams(window.location.search).get('googleError');
+    if (googleError) {
+      setError(googleError);
     }
+  }, []);
 
+  const startGoogleOAuth = async () => {
     setError('');
     setSuccess('');
     setIsSubmitting(true);
 
     try {
-      const currentMode = modeRef.current;
-      const endpoint =
-        currentMode === 'register' ? '/users/google-register' : '/users/google-login';
-      const res = await api.post(endpoint, { credential: idToken });
-      persistSession(res.data.user, currentMode === 'register' ? '/mi-cuenta/datos' : undefined);
+      sessionStorage.setItem('googleOAuthMode', mode);
+      const res = await api.get('/users/google/oauth-url', { params: { mode } });
+      const authUrl = res.data?.authUrl;
+
+      if (typeof authUrl !== 'string' || !authUrl.startsWith('https://accounts.google.com/')) {
+        throw new Error('No se pudo iniciar el flujo seguro de Google.');
+      }
+
+      window.location.href = authUrl;
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, 'No se pudo iniciar sesion con Google'));
     } finally {
       setIsSubmitting(false);
     }
-  });
-
-  useEffect(() => {
-    if (!googleReady || !googleClientId || !window.google || !googleButtonRef.current) {
-      return;
-    }
-
-    googleButtonRef.current.innerHTML = '';
-    window.google.accounts.id.initialize({
-      client_id: googleClientId,
-      callback: ({ credential }) => {
-        void handleGoogleAuth(credential);
-      },
-    });
-
-    window.google.accounts.id.renderButton(googleButtonRef.current, {
-      theme: 'outline',
-      size: 'large',
-      shape: 'rectangular',
-      width: 360,
-    });
-  }, [googleClientId, googleReady]);
+  };
 
   const validateRegisterForm = (): string | null => {
     if (!isValidEmailFormat(formData.email)) {
@@ -197,12 +154,6 @@ export default function LoginPage() {
 
   return (
     <>
-      <Script
-        src="https://accounts.google.com/gsi/client"
-        strategy="afterInteractive"
-        onLoad={() => setGoogleReady(true)}
-      />
-
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex w-full max-w-5xl flex-col gap-12 p-2 md:flex-row md:p-0">
           <div className="hidden w-1/2 flex-col justify-center border-r border-gray-200 pr-12 md:flex">
@@ -221,8 +172,8 @@ export default function LoginPage() {
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Gestiona tus pedidos aqui</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Mantén el control total. Revisa el estado de tus envíos y entérate al
-                    instante de dónde están tus nuevos equipos.
+                    Mantén el control total. Revisa el estado de tus envíos y entérate al instante
+                    de dónde están tus nuevos equipos.
                   </p>
                 </div>
               </div>
@@ -232,9 +183,12 @@ export default function LoginPage() {
                   <FiAward className="text-2xl text-gray-800" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Lista de productos personalizado</h3>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    Lista de productos personalizado
+                  </h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Añade las mejores partes a tu lista de favoritos y ten todo listo para armar tu PC ideal.
+                    Añade las mejores partes a tu lista de favoritos y ten todo listo para armar tu
+                    PC ideal.
                   </p>
                 </div>
               </div>
@@ -246,7 +200,6 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
-                  modeRef.current = 'login';
                   setMode('login');
                   setError('');
                   setSuccess('');
@@ -262,7 +215,6 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
-                  modeRef.current = 'register';
                   setMode('register');
                   setError('');
                   setSuccess('');
@@ -292,20 +244,15 @@ export default function LoginPage() {
               </p>
             )}
 
-            {googleClientId ? (
-              <div className="mb-6" ref={googleButtonRef} />
-            ) : (
-              <button
-                type="button"
-                onClick={() =>
-                  setError('Falta configurar NEXT_PUBLIC_GOOGLE_CLIENT_ID para usar Google')
-                }
-                className="mb-6 flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white py-3 font-medium text-gray-700 transition hover:bg-gray-50"
-              >
-                <FcGoogle className="text-2xl" />
-                Acceder con Google
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={startGoogleOAuth}
+              disabled={isSubmitting}
+              className="mb-6 flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white py-3 font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FcGoogle className="text-2xl" />
+              {mode === 'register' ? 'Crear cuenta con Google' : 'Acceder con Google'}
+            </button>
 
             <div className="relative mb-6 flex items-center py-2">
               <div className="flex-grow border-t border-gray-200" />
