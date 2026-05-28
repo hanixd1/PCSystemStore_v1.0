@@ -87,10 +87,12 @@ function buildWarnings(mode: UploaderMode, width: number, height: number) {
 
   if (mode === 'product') {
     if (width < config.width || height < config.height) {
-      warnings.push('La imagen puede verse pixelada. Se recomienda 550 x 550 px.');
+      warnings.push(
+        'La imagen puede verse pixelada. Se recomienda usar imágenes cuadradas de al menos 550 x 550 px.',
+      );
     }
-    if (Math.abs(ratio - 1) > 0.25) {
-      warnings.push('Se recomienda usar imagenes cuadradas para productos.');
+    if (width !== height) {
+      warnings.push('Se recomienda usar imágenes cuadradas para evitar recortes o deformaciones.');
     }
   }
 
