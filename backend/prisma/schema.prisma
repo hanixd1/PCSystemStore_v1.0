@@ -8,6 +8,7 @@ datasource db {
 
 model Product {
   id                     String                  @id @default(uuid())
+  // Maps to Odoo product default_code for future inventory synchronization.
   sku                    String                  @unique
   slug                   String                  @unique
   name                   String

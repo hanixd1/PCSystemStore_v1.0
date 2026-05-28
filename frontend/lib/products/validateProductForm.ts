@@ -16,6 +16,7 @@ type ValidateProductFormOptions = {
 
 const MIN_PRODUCT_DESCRIPTION_LENGTH = 10;
 const MAX_PRODUCT_DESCRIPTION_LENGTH = 200;
+const SKU_REGEX = /^[A-Z0-9_-]+$/;
 
 function isSafeDescriptionText(value: string): boolean {
   return Array.from(value).every((char) => {
@@ -30,6 +31,17 @@ export function validateProductForm(
 ) {
   const trimmedName = String(formData.name || '').trim();
   const trimmedDescription = String(formData.description || '').trim();
+  const normalizedSku = String(formData.sku || '')
+    .trim()
+    .toUpperCase();
+
+  if (normalizedSku.length < 3 || normalizedSku.length > 80) {
+    return 'El SKU debe tener entre 3 y 80 caracteres.';
+  }
+
+  if (!SKU_REGEX.test(normalizedSku)) {
+    return 'El SKU solo puede contener letras, números, guiones y guion bajo.';
+  }
 
   if (options.nameRegex && !options.nameRegex.test(trimmedName)) {
     return 'El nombre debe tener entre 10 y 120 caracteres y solo usar letras, numeros y signos comunes.';

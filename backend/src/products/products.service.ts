@@ -55,6 +55,7 @@ export class ProductsService {
   } satisfies Prisma.ProductInclude;
 
   private readonly nameRegex = /^[A-Za-zÃÃ‰ÃÃ“ÃšÃ¡Ã©Ã­Ã³ÃºÃ‘Ã±0-9().,+\-/%\s]{10,120}$/;
+  private readonly skuRegex = /^[A-Z0-9_-]{3,80}$/;
   private readonly minDescriptionLength = 10;
   private readonly maxDescriptionLength = 200;
 
@@ -656,11 +657,49 @@ export class ProductsService {
     }
   }
 
+  private normalizeAndValidateSku(value: unknown) {
+    const sku = String(value ?? '')
+      .trim()
+      .toUpperCase();
+
+    if (!this.skuRegex.test(sku)) {
+      throw new BadRequestException(
+        'El SKU solo puede contener letras, números, guiones y guion bajo.',
+      );
+    }
+
+    return sku;
+  }
+
+  private async ensureSkuIsAvailable(sku: string, currentProductId?: string) {
+    const existingProduct = await this.prisma.product.findUnique({ where: { sku } });
+    if (existingProduct && existingProduct.id !== currentProductId) {
+      throw new BadRequestException('Ya existe un producto registrado con este SKU.');
+    }
+  }
+
+  private handlePrismaProductWriteError(error: unknown): never {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const target = error.meta?.target;
+      const isSkuConflict = Array.isArray(target)
+        ? target.includes('sku')
+        : String(target ?? '').includes('sku');
+
+      if (isSkuConflict) {
+        throw new BadRequestException('Ya existe un producto registrado con este SKU.');
+      }
+    }
+
+    throw error;
+  }
+
   async create(data: CreateProductDto & { uploadedImages?: string[] }, actorId?: string) {
     const finalImages = this.buildCreateProductImages(data);
     this.validateCreateProductInput(data, finalImages);
+    const sku = this.normalizeAndValidateSku(data.sku);
+    await this.ensureSkuIsAvailable(sku);
 
-    const productData = this.buildCreateProductPayload(data, finalImages);
+    const productData = this.buildCreateProductPayload(data, finalImages, sku);
     const product = await this.persistCreatedProduct(productData);
     await this.logProductCreationIfNeeded(actorId, product);
 
@@ -692,9 +731,10 @@ export class ProductsService {
   private buildCreateProductPayload(
     data: CreateProductDto & { uploadedImages?: string[] },
     finalImages: string[],
+    sku: string,
   ) {
     return {
-      ...this.buildCreateProductBasePayload(data, finalImages),
+      ...this.buildCreateProductBasePayload(data, finalImages, sku),
       ...this.buildCreateProductSpecsPayload(data),
     };
   }
@@ -702,6 +742,7 @@ export class ProductsService {
   private buildCreateProductBasePayload(
     data: CreateProductDto & { uploadedImages?: string[] },
     finalImages: string[],
+    sku: string,
   ) {
     return {
       name: String(data.name).trim(),
@@ -713,7 +754,7 @@ export class ProductsService {
       category: data.category,
       images: finalImages,
       slug: this.buildSlug(data.name),
-      sku: `${data.category}-${Date.now()}`,
+      sku,
     };
   }
 
@@ -1174,8 +1215,12 @@ export class ProductsService {
       },
     };
   }
-  private persistCreatedProduct(productData: any) {
-    return this.prisma.product.create({ data: productData });
+  private async persistCreatedProduct(productData: any) {
+    try {
+      return await this.prisma.product.create({ data: productData });
+    } catch (error) {
+      this.handlePrismaProductWriteError(error);
+    }
   }
 
   private async logProductCreationIfNeeded(actorId: string | undefined, product: any) {
@@ -2383,36 +2428,20 @@ export class ProductsService {
 
   async update(id: string, data: UpdateProductDto, actorId?: string) {
     const currentProduct = await this.findProductForUpdateOrThrow(id);
-    const updateData = this.buildProductUpdateData(currentProduct, data);
-    const specUpdate = this.buildSpecUpdate(currentProduct, data);
+    const normalizedData = { ...data };
+    if (data.sku !== undefined) {
+      normalizedData.sku = this.normalizeAndValidateSku(data.sku);
+      await this.ensureSkuIsAvailable(normalizedData.sku, id);
+    }
+
+    const updateData = this.buildProductUpdateData(currentProduct, normalizedData);
+    const specUpdate = this.buildSpecUpdate(currentProduct, normalizedData);
 
     if (Object.keys(updateData).length === 0 && Object.keys(specUpdate).length === 0) {
       throw new BadRequestException('Debes enviar al menos un campo valido para actualizar');
     }
 
-    const updatedProduct = await this.prisma.product.update({
-      where: { id },
-      data: {
-        ...updateData,
-        ...specUpdate,
-      },
-      include: {
-        cpuSpecs: true,
-        motherboardSpecs: true,
-        gpuSpecs: true,
-        caseSpecs: true,
-        coolerSpecs: true,
-        storageSpecs: true,
-        laptopSpecs: true,
-        desktopSpecs: true,
-        monitorSpecs: true,
-        keyboardSpecs: true,
-        mouseSpecs: true,
-        mousepadSpecs: true,
-        chairSpecs: true,
-        gamingDeskSpecs: true,
-      },
-    });
+    const updatedProduct = await this.persistUpdatedProduct(id, updateData, specUpdate);
 
     if (actorId) {
       await this.logProductChanges(actorId, currentProduct, updatedProduct, updateData);
@@ -2453,6 +2482,36 @@ export class ProductsService {
     return currentProduct;
   }
 
+  private async persistUpdatedProduct(id: string, updateData: any, specUpdate: any) {
+    try {
+      return await this.prisma.product.update({
+        where: { id },
+        data: {
+          ...updateData,
+          ...specUpdate,
+        },
+        include: {
+          cpuSpecs: true,
+          motherboardSpecs: true,
+          gpuSpecs: true,
+          caseSpecs: true,
+          coolerSpecs: true,
+          storageSpecs: true,
+          laptopSpecs: true,
+          desktopSpecs: true,
+          monitorSpecs: true,
+          keyboardSpecs: true,
+          mouseSpecs: true,
+          mousepadSpecs: true,
+          chairSpecs: true,
+          gamingDeskSpecs: true,
+        },
+      });
+    } catch (error) {
+      this.handlePrismaProductWriteError(error);
+    }
+  }
+
   private buildProductUpdateData(currentProduct: any, data: UpdateProductDto) {
     const updateData: any = {};
     this.applyBasicProductUpdate(updateData, data);
@@ -2464,6 +2523,10 @@ export class ProductsService {
   }
 
   private applyBasicProductUpdate(updateData: any, data: UpdateProductDto) {
+    if (data.sku !== undefined) {
+      updateData.sku = data.sku;
+    }
+
     if (data.name !== undefined) {
       updateData.name = data.name;
     }
@@ -3551,6 +3614,15 @@ export class ProductsService {
     updateData: any,
   ): ProductChangeLog[] {
     const logs: ProductChangeLog[] = [];
+    this.addChangeIfDifferent(
+      logs,
+      updateData,
+      'sku',
+      'UPDATE_PRODUCT_SKU',
+      before.sku,
+      after.sku,
+      `Cambio el SKU de ${after.name} de ${before.sku} a ${after.sku}.`,
+    );
     this.addChangeIfDifferent(
       logs,
       updateData,

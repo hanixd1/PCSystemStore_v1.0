@@ -193,6 +193,7 @@ const MOUSE_POWER_TYPES = ['Pila', 'Bateria', 'Ninguno'];
 const CHAIR_MATERIALS = ['Cuero sintetico', 'Tela', 'Malla', 'Mixto', 'Otro'];
 
 type EditableForm = {
+  sku: string;
   name: string;
   description: string;
   category: string;
@@ -297,6 +298,7 @@ type EditableForm = {
 };
 
 const INITIAL_FORM: EditableForm = {
+  sku: '',
   name: '',
   description: '',
   category: '',
@@ -632,6 +634,7 @@ function mapProductToFormData(product: any): EditableForm {
 
   return {
     ...INITIAL_FORM,
+    sku: product.sku ?? '',
     name: product.name ?? '',
     description: product.description ?? '',
     category: product.category ?? '',
@@ -786,6 +789,11 @@ export default function EditProductPage() {
   }, [id]);
 
   const updateField = (name: keyof EditableForm, value: string) => {
+    if (name === 'sku') {
+      setFormData((prev) => ({ ...prev, sku: value.toUpperCase() }));
+      return;
+    }
+
     if (name === 'cpuBrand') {
       const validSockets = CPU_SOCKETS_BY_BRAND[value] ?? [];
       setFormData((prev) => ({
@@ -986,6 +994,23 @@ export default function EditProductPage() {
         noValidate
         className="space-y-6 rounded-xl border border-gray-200 bg-white p-8 shadow-lg"
       >
+        <div>
+          <label htmlFor="edit-product-sku" className="mb-2 block text-sm font-bold text-gray-700">
+            SKU del producto
+          </label>
+          <input
+            id="edit-product-sku"
+            name="sku"
+            value={formData.sku}
+            onChange={(e) => updateField('sku', e.target.value)}
+            maxLength={80}
+            className="w-full rounded-lg border border-gray-300 p-3 font-mono text-sm font-bold uppercase tracking-wide outline-none focus:ring-2 focus:ring-brand-cyan"
+          />
+          <p className="mt-1 text-xs font-semibold text-amber-700">
+            Modificar el SKU puede afectar la sincronización con sistemas externos como Odoo.
+          </p>
+        </div>
+
         <div>
           <label htmlFor="edit-product-name" className="mb-2 block text-sm font-bold text-gray-700">
             Nombre del Producto

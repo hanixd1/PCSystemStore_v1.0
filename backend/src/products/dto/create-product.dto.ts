@@ -5,6 +5,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -43,6 +44,16 @@ function toKeyboardLayout({ value }: { value: unknown }) {
 }
 
 const NAME_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,+\-/%\s]{10,120}$/;
+const SKU_REGEX = /^[A-Z0-9_-]+$/;
+
+function toNormalizedSku({ value }: { value: unknown }) {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  return String(value).trim().toUpperCase();
+}
+
 export const PRODUCT_CATEGORIES = [
   'CPU',
   'MOTHERBOARD',
@@ -72,6 +83,15 @@ export const PRODUCT_CATEGORIES = [
 ] as const;
 
 export class CreateProductDto {
+  @Transform(toNormalizedSku)
+  @IsString({ message: 'El SKU es obligatorio.' })
+  @IsNotEmpty({ message: 'El SKU es obligatorio.' })
+  @Length(3, 80, { message: 'El SKU debe tener entre 3 y 80 caracteres.' })
+  @Matches(SKU_REGEX, {
+    message: 'El SKU solo puede contener letras, números, guiones y guion bajo.',
+  })
+  sku!: string;
+
   @Transform(toTrimmedString)
   @IsString()
   @Length(10, 120)

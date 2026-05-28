@@ -25,6 +25,7 @@ export function buildProductPayload(
 ) {
   const saleEnabled = options?.mode === 'create' ? false : isTrue(formData.isOnSale);
   const payload: ProductFormState = {
+    sku: formData.sku,
     name: formData.name,
     description: formData.description,
     category: formData.category,

@@ -239,6 +239,7 @@ const CHAIR_MATERIALS = ['Cuero sintetico', 'Tela', 'Malla', 'Mixto', 'Otro'];
 const MOUSE_POWER_TYPES = ['Pila', 'Bateria', 'Ninguno'];
 
 const INITIAL_FORM_DATA = {
+  sku: '',
   name: '',
   description: '',
   price: '',
@@ -571,7 +572,7 @@ export default function AddProductPage() {
     const checked = target instanceof HTMLInputElement ? target.checked : false;
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? String(checked) : value,
+      [name]: type === 'checkbox' ? String(checked) : name === 'sku' ? value.toUpperCase() : value,
     });
   };
 
@@ -722,6 +723,25 @@ export default function AddProductPage() {
                   placeholder="Ej: Laptop Gamer ASUS TUF F15"
                   required
                 />
+              </div>
+              <div className="col-span-2">
+                <label htmlFor={fieldId('sku')} className="label-admin">
+                  SKU del producto
+                </label>
+                <input
+                  id={fieldId('sku')}
+                  name="sku"
+                  value={formData.sku}
+                  onChange={handleChange}
+                  className="input-admin font-mono text-sm font-bold uppercase tracking-wide"
+                  placeholder="Ej: PCS-CPU-AMD-R5-9600X"
+                  maxLength={80}
+                  required
+                />
+                <p className="mt-2 text-xs font-medium text-gray-500">
+                  Usa un código único para identificar el producto en inventario y futuras
+                  integraciones con Odoo.
+                </p>
               </div>
               <div>
                 <label htmlFor={fieldId('price')} className="label-admin">
