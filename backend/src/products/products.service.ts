@@ -122,7 +122,10 @@ export class ProductsService {
   }
 
   private buildSlug(name: string) {
-    const normalized = name.toLowerCase().trim().normalize('NFD');
+    const normalized = String(name || '')
+      .toLowerCase()
+      .trim()
+      .normalize('NFD');
     const slugChars: string[] = [];
     let previousWasSeparator = false;
 
@@ -150,7 +153,24 @@ export class ProductsService {
 
     const baseSlug = slugChars.join('').split('-').filter(Boolean).join('-');
 
-    return `${baseSlug || 'producto'}-${Date.now()}`;
+    return (baseSlug || 'producto').slice(0, 120).replace(/-+$/g, '') || 'producto';
+  }
+
+  private async buildUniqueSlug(name: string, currentProductId?: string) {
+    const baseSlug = this.buildSlug(name);
+
+    for (let suffix = 0; suffix < 1000; suffix += 1) {
+      const suffixText = suffix === 0 ? '' : `-${suffix + 1}`;
+      const candidateBase = baseSlug.slice(0, 120 - suffixText.length).replace(/-+$/g, '');
+      const candidate = `${candidateBase || 'producto'}${suffixText}`;
+      const existingProduct = await this.prisma.product.findUnique({ where: { slug: candidate } });
+
+      if (!existingProduct || existingProduct.id === currentProductId) {
+        return candidate;
+      }
+    }
+
+    throw new BadRequestException('No se pudo generar un slug unico para este producto.');
   }
 
   private isCombiningMark(code: number): boolean {
@@ -165,12 +185,12 @@ export class ProductsService {
     return code >= 48 && code <= 57;
   }
 
-  private isSlugAllowedCharacter(char: string, code: number): boolean {
-    return this.isSlugLetter(code) || this.isDigitCode(code) || char === '_';
+  private isSlugAllowedCharacter(_char: string, code: number): boolean {
+    return this.isSlugLetter(code) || this.isDigitCode(code);
   }
 
   private isSlugSeparator(char: string): boolean {
-    return char === ' ' || char === '-';
+    return char !== '.';
   }
 
   private shouldAppendSlugSeparator(
@@ -681,12 +701,14 @@ export class ProductsService {
   private handlePrismaProductWriteError(error: unknown): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const target = error.meta?.target;
-      const isSkuConflict = Array.isArray(target)
-        ? target.includes('sku')
-        : String(target ?? '').includes('sku');
+      const fields = Array.isArray(target) ? target : [String(target ?? '')];
 
-      if (isSkuConflict) {
+      if (fields.some((field) => field.includes('sku'))) {
         throw new BadRequestException('Ya existe un producto registrado con este SKU.');
+      }
+
+      if (fields.some((field) => field.includes('slug'))) {
+        throw new BadRequestException('Ya existe un producto registrado con este slug.');
       }
     }
 
@@ -698,8 +720,9 @@ export class ProductsService {
     this.validateCreateProductInput(data, finalImages);
     const sku = this.normalizeAndValidateSku(data.sku);
     await this.ensureSkuIsAvailable(sku);
+    const slug = await this.buildUniqueSlug(data.name);
 
-    const productData = this.buildCreateProductPayload(data, finalImages, sku);
+    const productData = this.buildCreateProductPayload(data, finalImages, sku, slug);
     const product = await this.persistCreatedProduct(productData);
     await this.logProductCreationIfNeeded(actorId, product);
 
@@ -732,9 +755,10 @@ export class ProductsService {
     data: CreateProductDto & { uploadedImages?: string[] },
     finalImages: string[],
     sku: string,
+    slug: string,
   ) {
     return {
-      ...this.buildCreateProductBasePayload(data, finalImages, sku),
+      ...this.buildCreateProductBasePayload(data, finalImages, sku, slug),
       ...this.buildCreateProductSpecsPayload(data),
     };
   }
@@ -743,6 +767,7 @@ export class ProductsService {
     data: CreateProductDto & { uploadedImages?: string[] },
     finalImages: string[],
     sku: string,
+    slug: string,
   ) {
     return {
       name: String(data.name).trim(),
@@ -753,7 +778,7 @@ export class ProductsService {
       stock: this.toInt(data.stock),
       category: data.category,
       images: finalImages,
-      slug: this.buildSlug(data.name),
+      slug,
       sku,
     };
   }
@@ -2376,34 +2401,30 @@ export class ProductsService {
   findOne(id: string) {
     return this.prisma.product.findUnique({
       where: { id },
-      include: {
-        cpuSpecs: true,
-        motherboardSpecs: true,
-        ramSpecs: true,
-        gpuSpecs: true,
-        psuSpecs: true,
-        caseSpecs: true,
-        coolerSpecs: true,
-        storageSpecs: true,
-        laptopSpecs: true,
-        desktopSpecs: true,
-        softwareSpecs: true,
-        monitorSpecs: true,
-        keyboardSpecs: true,
-        mouseSpecs: true,
-        headsetSpecs: true,
-        mousepadSpecs: true,
-        chairSpecs: true,
-        gamingDeskSpecs: true,
-        microphoneSpecs: true,
-        speakerSpecs: true,
-        webcamSpecs: true,
-        captureCardSpecs: true,
-        cableHubSpecs: true,
-        laptopCoolingBaseSpecs: true,
-        backpackSpecs: true,
-      },
+      include: this.productInclude,
     });
+  }
+
+  findBySlug(slug: string) {
+    return this.prisma.product.findUnique({
+      where: { slug },
+      include: this.productInclude,
+    });
+  }
+
+  findByIdOrSlug(identifier: string) {
+    const where = this.isUuid(identifier) ? { id: identifier } : { slug: identifier };
+
+    return this.prisma.product.findUnique({
+      where,
+      include: this.productInclude,
+    });
+  }
+
+  private isUuid(value: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    );
   }
 
   async findRelated(id: string) {
@@ -2432,6 +2453,12 @@ export class ProductsService {
     if (data.sku !== undefined) {
       normalizedData.sku = this.normalizeAndValidateSku(data.sku);
       await this.ensureSkuIsAvailable(normalizedData.sku, id);
+    }
+    if (data.name !== undefined && String(data.name).trim() !== currentProduct.name) {
+      (normalizedData as UpdateProductDto & { slug?: string }).slug = await this.buildUniqueSlug(
+        data.name,
+        id,
+      );
     }
 
     const updateData = this.buildProductUpdateData(currentProduct, normalizedData);
@@ -2525,6 +2552,11 @@ export class ProductsService {
   private applyBasicProductUpdate(updateData: any, data: UpdateProductDto) {
     if (data.sku !== undefined) {
       updateData.sku = data.sku;
+    }
+
+    const dataWithSlug = data as UpdateProductDto & { slug?: string };
+    if (dataWithSlug.slug !== undefined) {
+      updateData.slug = dataWithSlug.slug;
     }
 
     if (data.name !== undefined) {

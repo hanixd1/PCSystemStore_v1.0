@@ -429,7 +429,7 @@ export default function Chatbot() {
       imageUrl:
         product.imageUrl ??
         (Array.isArray(product.images) && product.images[0] ? product.images[0] : null),
-      productUrl: `/product/${product.id}`,
+      productUrl: `/producto/${product.slug || product.id}`,
     }));
 
   const fetchCatalogProducts = async (

@@ -89,6 +89,18 @@ export class ProductsController {
   }
 
   @Public()
+  @Get('slug/:slug')
+  findBySlug(@Param('slug') slug: string) {
+    return this.productsService.findBySlug(slug);
+  }
+
+  @Public()
+  @Get('resolve/:identifier')
+  findByIdOrSlug(@Param('identifier') identifier: string) {
+    return this.productsService.findByIdOrSlug(identifier);
+  }
+
+  @Public()
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findOne(id);

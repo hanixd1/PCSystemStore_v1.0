@@ -651,7 +651,7 @@ export default function CategoryPage() {
                     className="group flex flex-col overflow-hidden border border-gray-300 bg-gray-50 transition-colors duration-200 hover:border-gray-500"
                   >
                     <Link
-                      href={`/product/${product.id}`}
+                      href={`/producto/${product.slug || product.id}`}
                       className="relative flex h-56 items-center justify-center bg-transparent p-6"
                     >
                       {product.images && product.images.length > 0 ? (
@@ -670,7 +670,7 @@ export default function CategoryPage() {
                         {product.category}
                       </span>
 
-                      <Link href={`/product/${product.id}`}>
+                      <Link href={`/producto/${product.slug || product.id}`}>
                         <h3 className="font-bold text-sm text-gray-800 leading-tight mb-4 hover:text-brand-cyan transition line-clamp-2">
                           {product.name}
                         </h3>

@@ -355,7 +355,7 @@ export class AiService {
   }
 
   private getProductUrl(product: { id: string; slug?: string | null }) {
-    return `/product/${product.id}`;
+    return `/producto/${product.slug || product.id}`;
   }
 
   private mapCatalogProduct(product: any): ChatCatalogProduct {

@@ -24,6 +24,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "clean:products": "ts-node prisma/clean-products.ts",
+    "normalize:slugs": "ts-node prisma/normalize-product-slugs.ts",
     "seed:products:clean": "ts-node prisma/seed-products-clean.ts",
     "seed:qa": "ts-node prisma/seed-qa.ts",
     "seed": "ts-node prisma/seed.ts",

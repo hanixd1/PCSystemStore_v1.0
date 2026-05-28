@@ -76,7 +76,7 @@ export default function OffersPage() {
                 className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:shadow-xl"
               >
                 <Link
-                  href={`/product/${product.id}`}
+                  href={`/producto/${product.slug || product.id}`}
                   className="flex h-56 items-center justify-center bg-white p-6"
                 >
                   {product.images?.[0] ? (
@@ -94,7 +94,7 @@ export default function OffersPage() {
                     -{getDiscountPercent(product)}% Oferta
                   </span>
                   <Link
-                    href={`/product/${product.id}`}
+                    href={`/producto/${product.slug || product.id}`}
                     className="line-clamp-2 text-sm font-bold text-gray-800 hover:text-brand-cyan"
                   >
                     {product.name}

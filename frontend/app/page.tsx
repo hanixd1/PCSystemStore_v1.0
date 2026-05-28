@@ -49,7 +49,7 @@ const ProductSection = ({
           >
             {/* IMAGEN: Aquí se corrigió para que use solo product.id */}
             <Link
-              href={`/product/${product.id}`}
+              href={`/producto/${product.slug || product.id}`}
               className="block relative h-64 p-6 bg-gray-50 flex items-center justify-center"
             >
               {product.images && product.images.length > 0 ? (
@@ -80,7 +80,7 @@ const ProductSection = ({
               </span>
 
               {/* TÍTULO: Aquí se corrigió para que use solo product.id */}
-              <Link href={`/product/${product.id}`}>
+              <Link href={`/producto/${product.slug || product.id}`}>
                 <h3 className="font-bold text-gray-800 leading-tight mb-4 hover:text-brand-cyan transition line-clamp-2 min-h-[2.5rem]">
                   {product.name}
                 </h3>
