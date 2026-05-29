@@ -1669,7 +1669,7 @@ export class AiService {
       reply: `${intro} ${mainPrediction.mensaje_cliente}${alternativeLine}`,
       productLink:
         mainProduct.id && this.getFrontendUrl()
-          ? `${this.getFrontendUrl()}/product/${mainProduct.id}`
+          ? `${this.getFrontendUrl()}/producto/${mainProduct.slug || mainProduct.id}`
           : null,
       matches: matchedProducts.map((product) => ({
         id: product.id,

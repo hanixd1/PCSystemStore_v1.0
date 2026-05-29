@@ -1,15 +1,45 @@
 type ProductFormState = Record<string, any>;
 
+const BOOLEAN_FIELDS = new Set([
+  'isOnSale',
+  'integratedGraphics',
+  'includesCooler',
+  'hasRGB',
+  'includesPsu',
+  'hasScreen',
+  'hasHdmiOutput',
+  'hasRj45Output',
+  'hasSpeakers',
+  'hasDedicatedGpu',
+  'includesWindows',
+  'hasLighting',
+  'hasLed',
+  'wireless',
+  'noiseCancel',
+]);
+
 function hasValue(value: unknown) {
   if (Array.isArray(value)) return value.length > 0;
   return value !== undefined && value !== null && String(value).trim() !== '';
+}
+
+function toBooleanValue(value: unknown) {
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  return ['true', '1', 'si', 'sí', 'yes'].includes(normalized);
+}
+
+function normalizePayloadValue(key: string, value: unknown) {
+  return BOOLEAN_FIELDS.has(key) ? toBooleanValue(value) : value;
 }
 
 function pick(source: ProductFormState, keys: string[]) {
   return keys.reduce<ProductFormState>((payload, key) => {
     const value = source[key];
     if (hasValue(value)) {
-      payload[key] = value;
+      payload[key] = normalizePayloadValue(key, value);
     }
     return payload;
   }, {});

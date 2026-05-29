@@ -29,11 +29,11 @@ export function toOptionalBoolean({ value }: TransformFnParams) {
 
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase();
-    if (normalized === 'true') {
+    if (['true', '1', 'si', 'sí', 'yes'].includes(normalized)) {
       return true;
     }
 
-    if (normalized === 'false') {
+    if (['false', '0', 'no'].includes(normalized)) {
       return false;
     }
   }

@@ -7,7 +7,6 @@ import { FiBox, FiChevronRight, FiFilter, FiShoppingCart, FiSliders, FiX } from 
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
 import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/pricing';
-import { notify } from '@/lib/notify';
 import {
   GENERAL_PRODUCT_FILTERS,
   PRODUCT_FILTERS_BY_CATEGORY,
@@ -695,7 +694,6 @@ export default function CategoryPage() {
                         <button
                           onClick={() => {
                             addItem(product);
-                            notify.success('Producto agregado al carrito');
                           }}
                           disabled={product.stock <= 0}
                           className="bg-gray-900 p-2.5 text-white transition hover:bg-brand-cyan hover:text-black disabled:cursor-not-allowed disabled:opacity-50 group-active:scale-95"

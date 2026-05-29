@@ -74,7 +74,15 @@ export class ProductsService {
   }
 
   private toBool(val: any): boolean {
-    return String(val) === 'true';
+    if (typeof val === 'boolean') {
+      return val;
+    }
+
+    const normalized = String(val ?? '')
+      .trim()
+      .toLowerCase();
+
+    return ['true', '1', 'si', 'sí', 'yes'].includes(normalized);
   }
 
   private toStringArray(val: any): string[] {
@@ -2443,7 +2451,7 @@ export class ProductsService {
         category: product.category,
       },
       orderBy: { createdAt: 'desc' },
-      take: 4,
+      take: 10,
     });
   }
 

@@ -426,7 +426,6 @@ export default function PCBuilderPage() {
     Object.values(build).forEach((product) => {
       if (product) addItem({ ...product, source: 'builder' });
     });
-    notify.success('PC completa agregada al carrito');
     router.push('/carrito');
   };
 
