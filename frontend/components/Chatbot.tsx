@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { FiMessageSquare, FiX, FiSend, FiCpu } from 'react-icons/fi';
 import { api } from '@/lib/api';
+import { parseBooleanLike } from '@/lib/productPayload';
 import { MAX_CART_ITEM_QUANTITY, useCartStore } from '@/store/useCartStore';
 
 type ChatProduct = {
@@ -513,7 +514,7 @@ export default function Chatbot() {
 
     if (category === 'CASE') {
       const formFactor = normalizeText(String(specs.caseSpecs.formFactor ?? text));
-      const includesPsu = Boolean(specs.caseSpecs.includesPsu);
+      const includesPsu = parseBooleanLike(specs.caseSpecs.includesPsu) ?? false;
       return (
         (!filters.formFactor || formFactor.includes(normalizeText(filters.formFactor))) &&
         (!filters.includesPsu ||

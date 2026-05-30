@@ -23,12 +23,24 @@ function hasValue(value: unknown) {
   return value !== undefined && value !== null && String(value).trim() !== '';
 }
 
-function toBooleanValue(value: unknown) {
+export function parseBooleanLike(value: unknown): boolean | undefined {
   if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+
   const normalized = String(value ?? '')
     .trim()
-    .toLowerCase();
-  return ['true', '1', 'si', 'sí', 'yes'].includes(normalized);
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (['true', '1', 'si', 'yes'].includes(normalized)) return true;
+  if (['false', '0', 'no'].includes(normalized)) return false;
+
+  return undefined;
+}
+
+function toBooleanValue(value: unknown) {
+  return parseBooleanLike(value) ?? false;
 }
 
 function normalizePayloadValue(key: string, value: unknown) {
@@ -46,7 +58,7 @@ function pick(source: ProductFormState, keys: string[]) {
 }
 
 function isTrue(value: unknown) {
-  return value === true || value === 'true';
+  return parseBooleanLike(value) === true;
 }
 
 export function buildProductPayload(

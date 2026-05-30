@@ -18,7 +18,7 @@ export function toOptionalNumber({ value }: TransformFnParams) {
   return Number.isNaN(normalized) ? value : normalized;
 }
 
-export function toOptionalBoolean({ value }: TransformFnParams) {
+export function parseBooleanLike(value: unknown): boolean | undefined {
   if (value === undefined || value === null || value === '') {
     return undefined;
   }
@@ -27,9 +27,18 @@ export function toOptionalBoolean({ value }: TransformFnParams) {
     return value;
   }
 
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+
   if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (['true', '1', 'si', 'sí', 'yes'].includes(normalized)) {
+    const normalized = value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (['true', '1', 'si', 'yes'].includes(normalized)) {
       return true;
     }
 
@@ -38,7 +47,11 @@ export function toOptionalBoolean({ value }: TransformFnParams) {
     }
   }
 
-  return value;
+  return undefined;
+}
+
+export function toOptionalBoolean({ value }: TransformFnParams) {
+  return parseBooleanLike(value) ?? value;
 }
 
 export function toOptionalStringArray({ value }: TransformFnParams) {

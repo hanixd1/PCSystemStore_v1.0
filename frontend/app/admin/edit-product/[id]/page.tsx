@@ -8,6 +8,7 @@ import ImageUploader from '@/components/ImageUploader';
 import { api, clearStoredAuthSession, getApiErrorMessage, isAuthenticationError } from '@/lib/api';
 import ProductOfferSection from '@/components/admin/product/ProductOfferSection';
 import { buildProductPayload } from '@/lib/products/buildProductPayload';
+import { parseBooleanLike } from '@/lib/productPayload';
 import { validateProductForm } from '@/lib/products/validateProductForm';
 import { notify } from '@/lib/notify';
 import { normalizeLaptopStorage } from '@/lib/normalizers';
@@ -403,7 +404,7 @@ const INITIAL_FORM: EditableForm = {
 };
 
 function boolToString(value: unknown) {
-  return value ? 'true' : 'false';
+  return parseBooleanLike(value) === true ? 'true' : 'false';
 }
 
 function normalizeCoolerType(value: unknown) {

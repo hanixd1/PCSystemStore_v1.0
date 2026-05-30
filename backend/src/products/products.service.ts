@@ -5,6 +5,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AuditService } from '../audit/audit.service';
 import { ProductPricingService } from './services/product-pricing.service';
+import { parseBooleanLike } from '../common/dto/transformers';
 
 type ProductQuery = Record<string, string | string[] | undefined>;
 type ProductChangeLog = {
@@ -76,15 +77,7 @@ export class ProductsService {
   }
 
   private toBool(val: any): boolean {
-    if (typeof val === 'boolean') {
-      return val;
-    }
-
-    const normalized = String(val ?? '')
-      .trim()
-      .toLowerCase();
-
-    return ['true', '1', 'si', 'sí', 'yes'].includes(normalized);
+    return parseBooleanLike(val) ?? false;
   }
 
   private toStringArray(val: any): string[] {
@@ -1061,7 +1054,7 @@ export class ProductsService {
             data.connection || this.toStringArray(data.connections).join(', ') || 'Cableado',
           switchType: data.switchType || '',
           layout: data.layoutLanguage || data.layout || 'EspaÃ±ol',
-          hasRGB: this.toBool(data.hasRGB || data.hasLighting),
+          hasRGB: this.toBool(data.hasRGB !== undefined ? data.hasRGB : data.hasLighting),
           brand: data.brand || '',
           keyboardType: data.keyboardType || 'Membrana',
           connections: this.toStringArray(data.connections),
@@ -1300,13 +1293,7 @@ export class ProductsService {
     if (value === undefined || value === 'all') {
       return undefined;
     }
-    if (['true', '1', 'yes', 'si', 'sÃ­'].includes(value.toLowerCase())) {
-      return true;
-    }
-    if (['false', '0', 'no'].includes(value.toLowerCase())) {
-      return false;
-    }
-    return undefined;
+    return parseBooleanLike(value);
   }
 
   private getQueryList(query: ProductQuery, key: string): string[] {
@@ -2598,7 +2585,9 @@ export class ProductsService {
       const nextPrice =
         data.price !== undefined ? this.toFloat(data.price) : this.toFloat(currentProduct.price);
       const nextIsOnSale =
-        data.isOnSale !== undefined ? this.toBool(data.isOnSale) : Boolean(currentProduct.isOnSale);
+        data.isOnSale !== undefined
+          ? this.toBool(data.isOnSale)
+          : this.toBool(currentProduct.isOnSale);
       const nextSalePrice =
         data.salePrice !== undefined ? data.salePrice : currentProduct.salePrice;
       const sale = this.pricing.validateSale(nextPrice, nextIsOnSale, nextSalePrice);
