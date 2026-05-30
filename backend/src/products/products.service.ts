@@ -54,7 +54,9 @@ export class ProductsService {
     backpackSpecs: true,
   } satisfies Prisma.ProductInclude;
 
-  private readonly nameRegex = /^[A-Za-zÃÃ‰ÃÃ“ÃšÃ¡Ã©Ã­Ã³ÃºÃ‘Ã±0-9().,+\-/%\s]{10,120}$/;
+  private readonly nameRegex = /^[\p{L}\p{N}\s.,+\-_%/()[\]:;'"#&°@]{5,200}$/u;
+  private readonly productNameMessage =
+    'El nombre debe tener entre 5 y 200 caracteres y puede incluir caracteres técnicos comunes.';
   private readonly skuRegex = /^[A-Z0-9_-]{3,80}$/;
   private readonly minDescriptionLength = 10;
   private readonly maxDescriptionLength = 200;
@@ -263,9 +265,7 @@ export class ProductsService {
     const trimmedDescription = String(data.description ?? '').trim();
 
     if (!this.nameRegex.test(trimmedName)) {
-      throw new BadRequestException(
-        'El nombre debe tener entre 5 y 120 caracteres y solo usar letras, numeros y signos comunes',
-      );
+      throw new BadRequestException(this.productNameMessage);
     }
 
     this.validateDescription(trimmedDescription);

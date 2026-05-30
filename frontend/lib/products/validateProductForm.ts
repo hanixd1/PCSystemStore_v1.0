@@ -16,6 +16,9 @@ type ValidateProductFormOptions = {
 
 const MIN_PRODUCT_DESCRIPTION_LENGTH = 10;
 const MAX_PRODUCT_DESCRIPTION_LENGTH = 200;
+const PRODUCT_NAME_MESSAGE =
+  'El nombre debe tener entre 5 y 200 caracteres y puede incluir caracteres técnicos comunes.';
+const TECHNICAL_PRODUCT_NAME_REGEX = /^[\p{L}\p{N}\s.,+\-_%/()[\]:;'"#&°@]{5,200}$/u;
 const SKU_REGEX = /^[A-Z0-9_-]+$/;
 
 function isSafeDescriptionText(value: string): boolean {
@@ -43,8 +46,9 @@ export function validateProductForm(
     return 'El SKU solo puede contener letras, números, guiones y guion bajo.';
   }
 
-  if (options.nameRegex && !options.nameRegex.test(trimmedName)) {
-    return 'El nombre debe tener entre 10 y 120 caracteres y solo usar letras, numeros y signos comunes.';
+  const nameRegex = options.nameRegex || TECHNICAL_PRODUCT_NAME_REGEX;
+  if (!nameRegex.test(trimmedName)) {
+    return PRODUCT_NAME_MESSAGE;
   }
 
   if (

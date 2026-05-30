@@ -413,7 +413,7 @@ const NON_NEGATIVE_FIELDS = new Set([
 
 const NO_NEGATIVE_TEXT_FIELDS = new Set(['frequency']);
 
-const NAME_REGEX = /^[\p{L}0-9().,+\-/%\s]{10,120}$/u;
+const NAME_REGEX = /^[\p{L}\p{N}\s.,+\-_%/()[\]:;'"#&°@]{5,200}$/u;
 
 const fieldId = (name: string) => `add-product-${name}`;
 

@@ -43,7 +43,9 @@ function toKeyboardLayout({ value }: { value: unknown }) {
   return normalized;
 }
 
-const NAME_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9().,+\-/%\s]{10,120}$/;
+const NAME_REGEX = /^[\p{L}\p{N}\s.,+\-_%/()[\]:;'"#&°@]{5,200}$/u;
+const PRODUCT_NAME_MESSAGE =
+  'El nombre debe tener entre 5 y 200 caracteres y puede incluir caracteres técnicos comunes.';
 const SKU_REGEX = /^[A-Z0-9_-]+$/;
 
 function toNormalizedSku({ value }: { value: unknown }) {
@@ -94,8 +96,8 @@ export class CreateProductDto {
 
   @Transform(toTrimmedString)
   @IsString()
-  @Length(10, 120)
-  @Matches(NAME_REGEX)
+  @Length(5, 200, { message: PRODUCT_NAME_MESSAGE })
+  @Matches(NAME_REGEX, { message: PRODUCT_NAME_MESSAGE })
   name!: string;
 
   @Transform(toTrimmedString)

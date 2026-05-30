@@ -7,11 +7,16 @@ type ProductPageProps = {
 };
 
 type ProductMetadata = {
-  name?: string;
-  description?: string | null;
-  slug?: string | null;
-  images?: string[];
+  name?: unknown;
+  description?: unknown;
+  slug?: unknown;
+  images?: unknown;
 };
+
+function toSafeText(value: unknown, fallback: string) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text || fallback;
+}
 
 async function getProductMetadata(slug: string): Promise<ProductMetadata | null> {
   if (!API_URL) {
@@ -36,12 +41,18 @@ async function getProductMetadata(slug: string): Promise<ProductMetadata | null>
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProductMetadata(slug);
-  const title = product?.name ? `${product.name} | PCSystemStore` : 'Producto | PCSystemStore';
-  const description =
-    product?.description ||
-    'Compra hardware, componentes y periféricos en PCSystemStore.';
-  const canonicalPath = `/producto/${product?.slug || slug}`;
-  const images = Array.isArray(product?.images) && product.images[0] ? [product.images[0]] : [];
+  const productName = toSafeText(product?.name, 'Producto');
+  const productSlug = toSafeText(product?.slug, slug);
+  const title = `${productName} | PCSystemStore`;
+  const description = toSafeText(
+    product?.description,
+    'Compra hardware, componentes y perifericos en PCSystemStore.',
+  );
+  const canonicalPath = `/producto/${encodeURIComponent(productSlug)}`;
+  const images =
+    Array.isArray(product?.images) && typeof product.images[0] === 'string'
+      ? [product.images[0]]
+      : [];
 
   return {
     title,

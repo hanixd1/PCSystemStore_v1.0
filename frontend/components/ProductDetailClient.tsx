@@ -12,20 +12,21 @@ import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/prici
 // Función mágica que genera las migas de pan leyendo el nombre y specs del producto
 const generateBreadcrumbs = (product: any) => {
   const breadcrumbs = [];
-  const name = product.name.toLowerCase();
+  const name = String(product?.name || '').toLowerCase();
+  const category = String(product?.category || '').trim();
 
   // 1. Determinar Padre y Categoría Principal
-  if (product.category === 'CPU') {
+  if (category === 'CPU') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/cpu', label: 'Procesadores' });
     if (name.includes('amd') || name.includes('ryzen'))
       breadcrumbs.push({ url: '/categoria/cpu/amd', label: 'AMD' });
     if (name.includes('intel') || name.includes('core'))
       breadcrumbs.push({ url: '/categoria/cpu/intel', label: 'Intel' });
-  } else if (product.category === 'MOTHERBOARD') {
+  } else if (category === 'MOTHERBOARD') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/mobo', label: 'Placas Base' });
-  } else if (product.category === 'GPU') {
+  } else if (category === 'GPU') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/graficas', label: 'Tarjetas Gráficas' });
     const chip = product.gpuSpecs?.chipset?.toLowerCase() || name;
@@ -33,27 +34,27 @@ const generateBreadcrumbs = (product: any) => {
       breadcrumbs.push({ url: '/categoria/nvidia', label: 'NVIDIA' });
     if (chip.includes('amd') || chip.includes('radeon'))
       breadcrumbs.push({ url: '/categoria/amd', label: 'AMD' });
-  } else if (product.category === 'RAM') {
+  } else if (category === 'RAM') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/ram', label: 'Memorias RAM' });
     if (product.ramSpecs?.memoryType === 'DDR4' || name.includes('ddr4'))
       breadcrumbs.push({ url: '/categoria/ddr4', label: 'DDR4' });
     if (product.ramSpecs?.memoryType === 'DDR5' || name.includes('ddr5'))
       breadcrumbs.push({ url: '/categoria/ddr5', label: 'DDR5' });
-  } else if (product.category === 'STORAGE') {
+  } else if (category === 'STORAGE') {
     breadcrumbs.push({ url: '/categoria/componentes', label: 'Componentes' });
     breadcrumbs.push({ url: '/categoria/almacenamiento', label: 'Almacenamiento' });
-  } else if (product.category === 'MONITOR') {
+  } else if (category === 'MONITOR') {
     breadcrumbs.push({ url: '/categoria/perifericos', label: 'Periféricos' });
     breadcrumbs.push({ url: '/categoria/monitores', label: 'Monitores' });
-  } else if (product.category === 'LAPTOP') {
+  } else if (category === 'LAPTOP') {
     breadcrumbs.push({ url: '/categoria/ordenadores', label: 'Ordenadores' });
     breadcrumbs.push({ url: '/categoria/laptops', label: 'Laptops' });
-  } else {
+  } else if (category) {
     // Genérico para cualquier otra cosa
     breadcrumbs.push({
-      url: `/categoria/${product.category.toLowerCase()}`,
-      label: product.category,
+      url: `/categoria/${category.toLowerCase()}`,
+      label: category,
     });
   }
 
@@ -293,6 +294,9 @@ export default function ProductDetailClient({ identifier }: { identifier: string
   }
 
   const breadcrumbs = generateBreadcrumbs(product);
+  const productName = String(product.name || 'Producto sin nombre');
+  const productCategory = String(product.category || 'producto');
+  const productSku = product.sku || String(product.id || '').slice(0, 8).toUpperCase() || 'SIN-SKU';
   const productStock = Number(product.stock) || 0;
   const hasStock = productStock > 0;
   const specificationRows = buildSpecificationRows(product);
@@ -362,9 +366,9 @@ export default function ProductDetailClient({ identifier }: { identifier: string
           <FiChevronRight className="mx-2 flex-shrink-0 text-gray-400" />
           <span
             className="text-gray-900 font-bold max-w-[200px] sm:max-w-xs md:max-w-md truncate"
-            title={product.name}
+            title={productName}
           >
-            {product.name}
+            {productName}
           </span>
         </div>
 
@@ -378,7 +382,7 @@ export default function ProductDetailClient({ identifier }: { identifier: string
               {currentImage ? (
                 <img
                   src={currentImage}
-                  alt={product.name}
+                  alt={productName}
                   className={`max-h-full max-w-full object-contain mix-blend-multiply transition-all duration-200 ease-out ${
                     isImageFading ? 'scale-[0.985] opacity-0' : 'scale-100 opacity-100'
                   }`}
@@ -436,10 +440,10 @@ export default function ProductDetailClient({ identifier }: { identifier: string
           {/* COLUMNA DERECHA: INFORMACIÓN Y COMPRA */}
           <div className="lg:col-span-5 flex flex-col">
             <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2 leading-tight">
-              {product.name}
+              {productName}
             </h1>
             <div className="flex items-center gap-4 text-sm text-gray-500 mb-6">
-              <span>SKU: {product.sku || product.id.substring(0, 8).toUpperCase()}</span>
+              <span>SKU: {productSku}</span>
               {hasStock ? (
                 <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[15px] font-black text-green-600 ring-1 ring-green-100">
                   <FiCheck className="text-base" /> En stock
@@ -451,9 +455,9 @@ export default function ProductDetailClient({ identifier }: { identifier: string
               )}
             </div>
 
-            <p className="text-gray-600 mb-5 leading-relaxed">
+            <p className="mb-5 whitespace-pre-line text-gray-600 leading-relaxed">
               {product.description ||
-                `Excelente ${product.category.toLowerCase()} ideal para tu ensamble. Revisa las especificaciones completas para más detalles.`}
+                `Excelente ${productCategory.toLowerCase()} ideal para tu ensamble. Revisa las especificaciones completas para más detalles.`}
             </p>
 
             <div className="mt-2 rounded-2xl border border-gray-100 bg-gray-50 p-6">
@@ -519,7 +523,7 @@ export default function ProductDetailClient({ identifier }: { identifier: string
 
         <section className="mt-16">
           <h2 className="mb-6 text-2xl font-black text-gray-900">
-            Especificaciones de {product.name}
+            Especificaciones de {productName}
           </h2>
 
           {specificationRows.length > 0 ? (
