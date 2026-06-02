@@ -28,6 +28,8 @@ const GOOGLE_OAUTH_STATE_EXPIRES_MS = 5 * 60 * 1000;
 const STAFF_MANAGEMENT_ROLES = ['ADMIN', 'EDITOR'] as const;
 const ADMIN_RESET_ROLES = ['ADMIN', 'EDITOR'] as const;
 const GOOGLE_OAUTH_MODES = ['login', 'register'] as const;
+const PRIMARY_ADMIN_EMAIL =
+  process.env.PRIMARY_ADMIN_EMAIL?.trim().toLowerCase() || 'admin@pcsystemstore.com';
 
 type GoogleOAuthMode = (typeof GOOGLE_OAUTH_MODES)[number];
 
@@ -392,7 +394,7 @@ export class UsersService {
     const module = action.startsWith('ADMIN_')
       ? 'SECURITY'
       : entity === 'USER'
-        ? 'EMPLOYEES'
+        ? 'EDITORS'
         : undefined;
 
     await this.prisma.actionLog.create({
@@ -523,7 +525,7 @@ export class UsersService {
     try {
       const user = await this.validateCredentials(email, pass);
 
-      if (!['ADMIN', 'EDITOR', 'EMPLOYEE'].includes(user.role)) {
+      if (!['ADMIN', 'EDITOR'].includes(user.role)) {
         this.registerAdminLoginFailure(email, request);
         await this.logAuthEvent(
           'ADMIN_LOGIN_FAILED',
@@ -973,6 +975,7 @@ export class UsersService {
         emailVerified: true,
         emailVerifiedAt: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -982,6 +985,13 @@ export class UsersService {
       ...user,
       profileComplete: this.isCustomerProfileComplete(user),
     };
+  }
+
+  async createEditor(data: CreateUserDto) {
+    return this.create({
+      ...data,
+      role: 'EDITOR',
+    });
   }
 
   async getMe(id: string) {
@@ -1234,11 +1244,11 @@ export class UsersService {
   }
 
   async findAll() {
-    return this.findStaffUsers();
+    return this.findInternalUsers();
   }
 
-  async findStaffUsers() {
-    return this.prisma.user.findMany({
+  async findInternalUsers() {
+    const users = await this.prisma.user.findMany({
       where: {
         role: {
           in: [...STAFF_MANAGEMENT_ROLES],
@@ -1251,12 +1261,39 @@ export class UsersService {
         role: true,
         status: true,
         createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return users.sort((left, right) => {
+      if (left.role !== right.role) {
+        return left.role === 'ADMIN' ? -1 : 1;
+      }
+
+      return right.createdAt.getTime() - left.createdAt.getTime();
+    });
+  }
+
+  async findEditors() {
+    return this.prisma.user.findMany({
+      where: {
+        role: 'EDITOR',
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async toggleStatus(id: string) {
+  async toggleStatus(id: string, actorUserId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
@@ -1264,6 +1301,7 @@ export class UsersService {
     this.assertInternalUser(user.role);
 
     const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    await this.assertInternalUserMutationAllowed(user, { status: newStatus }, actorUserId);
 
     const updatedUser = await this.prisma.user.update({
       where: { id },
@@ -1276,16 +1314,17 @@ export class UsersService {
     return updatedUser;
   }
 
-  async updateUser(id: string, data: UpdateUserDto) {
+  async updateUser(id: string, data: UpdateUserDto, actorUserId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, status: true },
     });
 
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
     this.assertInternalUser(user.role);
+    await this.assertInternalUserMutationAllowed(user, data, actorUserId);
 
     const updateData: any = {};
 
@@ -1311,6 +1350,10 @@ export class UsersService {
       updateData.email = normalizedEmail;
     }
 
+    if (data.status !== undefined) {
+      updateData.status = data.status;
+    }
+
     if (data.password && data.password.trim() !== '') {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(data.password, salt);
@@ -1323,7 +1366,7 @@ export class UsersService {
     const updatedUser = await this.prisma.user.update({
       where: { id },
       data: updateData,
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, status: true, updatedAt: true },
     });
 
     await this.createLog(id, 'UPDATE', 'USER', `Actualizacion de usuario ${updatedUser.email}`);
@@ -1332,19 +1375,73 @@ export class UsersService {
   }
 
   private assertInternalUser(role: string) {
-    if (!this.isInternalUserRole(role)) {
+    if (!this.isAllowedInternalUserRole(role)) {
       throw new NotFoundException('Usuario no encontrado');
     }
   }
 
   private assertInternalUserRole(role: string) {
-    if (!this.isInternalUserRole(role)) {
+    if (!this.isAllowedInternalUserRole(role)) {
       throw new BadRequestException('Rol no permitido para gestión de personal.');
     }
   }
 
-  private isInternalUserRole(role: string): boolean {
+  private isAllowedInternalUserRole(role: string): boolean {
     return STAFF_MANAGEMENT_ROLES.includes(role as (typeof STAFF_MANAGEMENT_ROLES)[number]);
+  }
+
+  private isPrimaryAdminEmail(email: string): boolean {
+    return this.sanitizeEmail(email) === PRIMARY_ADMIN_EMAIL;
+  }
+
+  private async assertInternalUserMutationAllowed(
+    user: { id: string; email: string; role: string; status?: string },
+    data: UpdateUserDto,
+    actorUserId?: string,
+  ) {
+    const isPrimaryAdmin = this.isPrimaryAdminEmail(user.email);
+    const wantsPrimaryAdminDowngrade = data.role !== undefined && data.role !== 'ADMIN';
+    const wantsPrimaryAdminBlock = data.status === 'INACTIVE';
+    const wantsPrimaryAdminEmailChange =
+      data.email !== undefined && this.sanitizeEmail(data.email) !== this.sanitizeEmail(user.email);
+
+    if (
+      isPrimaryAdmin &&
+      (wantsPrimaryAdminDowngrade || wantsPrimaryAdminBlock || wantsPrimaryAdminEmailChange)
+    ) {
+      throw new BadRequestException('La cuenta principal del sistema no puede bloquearse ni degradarse.');
+    }
+
+    if (actorUserId && user.id === actorUserId) {
+      if (data.status === 'INACTIVE') {
+        throw new BadRequestException('No puedes bloquear tu propia cuenta administrativa.');
+      }
+
+      if (data.role !== undefined && data.role !== 'ADMIN') {
+        throw new BadRequestException('No puedes degradar tu propia cuenta administrativa.');
+      }
+    }
+
+    const willStopBeingActiveAdmin =
+      user.role === 'ADMIN' &&
+      user.status === 'ACTIVE' &&
+      ((data.role !== undefined && data.role !== 'ADMIN') || data.status === 'INACTIVE');
+
+    if (!willStopBeingActiveAdmin) {
+      return;
+    }
+
+    const activeAdminCount = await this.prisma.user.count({
+      where: {
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        id: { not: user.id },
+      },
+    });
+
+    if (activeAdminCount === 0) {
+      throw new BadRequestException('Debe quedar al menos un administrador activo.');
+    }
   }
 
   async getAuditLogs() {

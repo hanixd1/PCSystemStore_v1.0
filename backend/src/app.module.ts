@@ -15,6 +15,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { BrandingModule } from './branding/branding.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { AuditModule } from './audit/audit.module';
+import { StatisticsModule } from './statistics/statistics.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AuditModule } from './audit/audit.module';
     BrandingModule,
     UploadsModule,
     AuditModule,
+    StatisticsModule,
   ],
   controllers: [AppController],
   providers: [

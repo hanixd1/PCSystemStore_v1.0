@@ -92,7 +92,7 @@ api.interceptors.response.use(
   },
 );
 
-export const AUTHORIZED_ADMIN_ROLES = new Set(['ADMIN', 'EDITOR', 'EMPLOYEE']);
+export const AUTHORIZED_ADMIN_ROLES = new Set(['ADMIN', 'EDITOR']);
 
 export function getContextToken() {
   return '';

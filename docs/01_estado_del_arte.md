@@ -104,7 +104,7 @@ La brecha que cubre PCSystemStore se resume en cuatro puntos:
 | E-commerce comun no valida compatibilidad tecnica. | Configurador con reglas de hardware. |
 | Inventario manual no anticipa quiebres. | Motor predictivo asistivo de riesgo de stockout. |
 | FOMO suele ser comercial y no basado en datos. | Alertas condicionadas a stock real o prediccion. |
-| Gestion administrativa sin trazabilidad fina. | Auditoria de productos, stock, pagos, empleados y banners. |
+| Gestion administrativa sin trazabilidad fina. | Auditoria de productos, stock, pagos, editores y banners. |
 
 ## 10. Conclusion del estado del arte
 

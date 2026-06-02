@@ -77,6 +77,9 @@ const CATEGORY_GROUPS: Record<string, string[]> = {
   audio: ['HEADSET', 'SPEAKER', 'MICROPHONE'],
 };
 
+const AMD_SOCKET_FILTER_OPTIONS = ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5'];
+const INTEL_SOCKET_FILTER_OPTIONS = ['LGA 1200', 'LGA 1700', 'LGA 1851'];
+
 type ProductsResponse = {
   items?: any[];
   total?: number;
@@ -320,9 +323,9 @@ export default function CategoryPage() {
       if (key === 'cpuBrand') {
         const validSockets =
           value === 'AMD'
-            ? ['AM4', 'AM5']
+            ? AMD_SOCKET_FILTER_OPTIONS
             : value === 'Intel'
-              ? ['LGA 1200', 'LGA 1700', 'LGA 1851']
+              ? INTEL_SOCKET_FILTER_OPTIONS
               : [];
         if (validSockets.length && next.socket && !validSockets.includes(next.socket)) {
           next.socket = '';
@@ -331,9 +334,9 @@ export default function CategoryPage() {
       if (key === 'platform') {
         const validSockets =
           value === 'AMD'
-            ? ['AM4', 'AM5']
+            ? AMD_SOCKET_FILTER_OPTIONS
             : value === 'Intel'
-              ? ['LGA 1200', 'LGA 1700', 'LGA 1851']
+              ? INTEL_SOCKET_FILTER_OPTIONS
               : [];
         if (validSockets.length && next.socket && !validSockets.includes(next.socket)) {
           next.socket = '';
@@ -383,11 +386,11 @@ export default function CategoryPage() {
       const selectedBrand = draftFilters.cpuBrand;
       if (selectedBrand === 'AMD')
         options = options?.filter(
-          (option) => !option.value || ['AM4', 'AM5'].includes(option.value),
+          (option) => !option.value || AMD_SOCKET_FILTER_OPTIONS.includes(option.value),
         );
       if (selectedBrand === 'Intel') {
         options = options?.filter(
-          (option) => !option.value || ['LGA 1200', 'LGA 1700', 'LGA 1851'].includes(option.value),
+          (option) => !option.value || INTEL_SOCKET_FILTER_OPTIONS.includes(option.value),
         );
       }
     }
@@ -396,11 +399,11 @@ export default function CategoryPage() {
       const selectedPlatform = draftFilters.platform;
       if (selectedPlatform === 'AMD')
         options = options?.filter(
-          (option) => !option.value || ['AM4', 'AM5'].includes(option.value),
+          (option) => !option.value || AMD_SOCKET_FILTER_OPTIONS.includes(option.value),
         );
       if (selectedPlatform === 'Intel') {
         options = options?.filter(
-          (option) => !option.value || ['LGA 1200', 'LGA 1700', 'LGA 1851'].includes(option.value),
+          (option) => !option.value || INTEL_SOCKET_FILTER_OPTIONS.includes(option.value),
         );
       }
     }

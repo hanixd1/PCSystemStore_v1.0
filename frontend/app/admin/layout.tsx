@@ -12,6 +12,7 @@ import {
   FiLogOut,
   FiMenu,
   FiPlusSquare,
+  FiUploadCloud,
   FiX,
   FiUsers,
 } from 'react-icons/fi';
@@ -235,6 +236,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <FiPlusSquare size={20} /> Agregar Producto
           </Link>
+
+          {currentUser.role === 'ADMIN' ? (
+            <Link
+              href="/admin/import-products"
+              onClick={() => setIsSidebarOpen(false)}
+              className={[
+                'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
+                pathname === '/admin/import-products'
+                  ? 'bg-brand-cyan font-bold text-gray-900'
+                  : 'text-gray-400 hover:bg-gray-800 hover:text-white',
+              ].join(' ')}
+            >
+              <FiUploadCloud size={20} /> Importar productos
+            </Link>
+          ) : null}
 
           {currentUser.role === 'ADMIN' ? (
             <div className="mt-4 border-t border-gray-800 pt-6">

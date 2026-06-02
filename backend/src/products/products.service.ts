@@ -1344,7 +1344,7 @@ export class ProductsService {
       return undefined;
     }
     if (platform.toUpperCase() === 'AMD') {
-      return ['AM4', 'AM5'];
+      return ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5'];
     }
     if (platform.toUpperCase() === 'INTEL') {
       return ['LGA 1200', 'LGA 1700', 'LGA 1851'];
@@ -2614,7 +2614,7 @@ export class ProductsService {
 
   private validateCpuBrandSocket(brand: string, socket: string) {
     const socketsByBrand: Record<string, string[]> = {
-      AMD: ['AM4', 'AM5'],
+      AMD: ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5'],
       Intel: ['LGA 1200', 'LGA 1700', 'LGA 1851'],
     };
 

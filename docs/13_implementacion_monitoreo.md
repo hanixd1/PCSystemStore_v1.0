@@ -41,7 +41,7 @@ Checklist post-deploy recomendado:
 | Conexión DB | Prisma conecta a DB QA. | Log migración/API. | Pendiente |
 | Frontend consume API | Catálogo carga desde backend. | Captura navegador. | Pendiente |
 | Login cliente | CUSTOMER inicia sesión solo en `/auth/login`. | Captura/API. | Pendiente |
-| Login admin | ADMIN/EMPLOYEE inicia sesión solo en `/admin/login`. | Captura/API. | Pendiente |
+| Login admin | ADMIN/EDITOR inicia sesión solo en `/admin/login`. | Captura/API. | Pendiente |
 | Catálogo | Productos, filtros y búsqueda funcionan. | Captura/API. | Pendiente |
 | Imágenes | Uploads y fallback funcionan. | Captura. | Pendiente |
 | Carrito | Agrega productos con stock. | Captura. | Pendiente |
@@ -89,7 +89,7 @@ Antes del repaso final y despliegue en nube se preparó una limpieza controlada 
 | Protección limpieza | Requiere `ALLOW_CLEAN_PRODUCTS=true` y aborta si `NODE_ENV=production`. | Implementado |
 | Seed limpio | `npm run seed:products:clean`. | Creado |
 | Protección seed | Requiere `ALLOW_SEED_PRODUCTS_CLEAN=true` y aborta si `NODE_ENV=production`. | Implementado |
-| Conservado | Usuarios, empleados/admins, branding, banners, órdenes y pagos. | Implementado por diseño |
+| Conservado | Usuarios, editores/admins, branding, banners, órdenes y pagos. | Implementado por diseño |
 | Auditoría | Conservada por defecto; limpiar logs de producto solo con `CLEAN_PRODUCT_AUDIT=true`. | Implementado por diseño |
 
 La limpieza no debe ejecutarse sobre producción. Debe realizarse en local o QA/staging con respaldo o base descartable.

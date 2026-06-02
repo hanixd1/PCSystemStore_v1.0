@@ -242,7 +242,7 @@ export class UsersController {
   }
 
   @Post('admin-logout')
-  @Roles('ADMIN', 'EDITOR', 'EMPLOYEE')
+  @Roles('ADMIN', 'EDITOR')
   async adminLogout(
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: express.Response,
@@ -306,7 +306,7 @@ export class UsersController {
     return this.usersService.getMe(request.user.sub);
   }
 
-  @Roles('ADMIN', 'EDITOR', 'EMPLOYEE')
+  @Roles('ADMIN', 'EDITOR')
   @Get('admin-me')
   getAdminMe(@Req() request: AuthenticatedRequest) {
     return this.usersService.getMe(request.user.sub);
@@ -353,9 +353,27 @@ export class UsersController {
   }
 
   @Roles('ADMIN')
-  @Get('staff')
-  findStaff() {
-    return this.usersService.findStaffUsers();
+  @Post('editors')
+  createEditor(@Body() body: CreateUserDto) {
+    return this.usersService.createEditor(body);
+  }
+
+  @Roles('ADMIN')
+  @Post('internal')
+  createInternalUser(@Body() body: CreateUserDto) {
+    return this.usersService.create(body);
+  }
+
+  @Roles('ADMIN')
+  @Get('editors')
+  findEditors() {
+    return this.usersService.findEditors();
+  }
+
+  @Roles('ADMIN')
+  @Get('internal')
+  findInternalUsers() {
+    return this.usersService.findInternalUsers();
   }
 
   @Roles('ADMIN')
@@ -372,13 +390,27 @@ export class UsersController {
 
   @Roles('ADMIN')
   @Patch(':id/toggle-status')
-  toggleStatus(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.toggleStatus(id);
+  toggleStatus(@Param('id', ParseUUIDPipe) id: string, @Req() request: AuthenticatedRequest) {
+    return this.usersService.toggleStatus(id, request.user.sub);
+  }
+
+  @Roles('ADMIN')
+  @Patch('internal/:id')
+  updateInternalUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdateUserDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.usersService.updateUser(id, body, request.user.sub);
   }
 
   @Roles('ADMIN')
   @Patch(':id')
-  updateUser(@Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateUserDto) {
-    return this.usersService.updateUser(id, body);
+  updateUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdateUserDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.usersService.updateUser(id, body, request.user.sub);
   }
 }

@@ -10,9 +10,9 @@ export const qaUsers = {
     email: 'admin.qa@pcsystemstore.test',
     password: getQaPassword('QA_ADMIN_PASSWORD'),
   },
-  employee: {
-    email: 'empleado.qa@pcsystemstore.test',
-    password: getQaPassword('QA_EMPLOYEE_PASSWORD'),
+  editor: {
+    email: 'editor.qa@pcsystemstore.test',
+    password: getQaPassword('QA_EDITOR_PASSWORD'),
   },
   customer: {
     email: 'cliente.qa@pcsystemstore.test',
@@ -50,13 +50,13 @@ export async function resetQaDatabase(prisma: PrismaClient) {
 }
 
 export async function seedQaDatabase(prisma: PrismaClient) {
-  const [adminPassword, employeePassword, customerPassword] = await Promise.all([
+  const [adminPassword, editorPassword, customerPassword] = await Promise.all([
     bcrypt.hash(qaUsers.admin.password, 10),
-    bcrypt.hash(qaUsers.employee.password, 10),
+    bcrypt.hash(qaUsers.editor.password, 10),
     bcrypt.hash(qaUsers.customer.password, 10),
   ]);
 
-  const [admin, employee, customer] = await Promise.all([
+  const [admin, editor, customer] = await Promise.all([
     prisma.user.create({
       data: {
         email: qaUsers.admin.email,
@@ -68,10 +68,10 @@ export async function seedQaDatabase(prisma: PrismaClient) {
     }),
     prisma.user.create({
       data: {
-        email: qaUsers.employee.email,
-        password: employeePassword,
-        name: 'Empleado QA',
-        role: 'EMPLOYEE',
+        email: qaUsers.editor.email,
+        password: editorPassword,
+        name: 'Editor QA',
+        role: 'EDITOR',
         status: 'ACTIVE',
       },
     }),
@@ -369,5 +369,5 @@ export async function seedQaDatabase(prisma: PrismaClient) {
     }),
   ]);
 
-  return { admin, employee, customer };
+  return { admin, editor, customer };
 }

@@ -5,6 +5,8 @@ import { api, getApiErrorMessage } from '@/lib/api';
 import { FiEdit, FiShield, FiShieldOff, FiUserPlus, FiUsers, FiX } from 'react-icons/fi';
 import { confirmAction, notify } from '@/lib/notify';
 
+type InternalRole = 'ADMIN' | 'EDITOR';
+
 type UserRow = {
   id: string;
   name: string;
@@ -13,15 +15,48 @@ type UserRow = {
   status: string;
 };
 
-const STAFF_ROLE_OPTIONS = [
-  { value: 'ADMIN', label: 'ADMIN' },
-  { value: 'EDITOR', label: 'EDITOR' },
-] as const;
+type EmployeeFormData = {
+  name: string;
+  email: string;
+  password: string;
+  role: InternalRole;
+};
 
-type StaffRole = (typeof STAFF_ROLE_OPTIONS)[number]['value'];
-const STAFF_ROLES = STAFF_ROLE_OPTIONS.map((option) => option.value) as StaffRole[];
+const INTERNAL_ROLES: InternalRole[] = ['ADMIN', 'EDITOR'];
+const ROLE_LABELS: Record<InternalRole, string> = {
+  ADMIN: 'Administrador',
+  EDITOR: 'Editor',
+};
+const ROLE_OPTIONS: Array<{ value: InternalRole; label: string }> = [
+  { value: 'EDITOR', label: 'Editor' },
+  { value: 'ADMIN', label: 'Administrador' },
+];
+const PRIMARY_ADMIN_EMAIL = 'admin@pcsystemstore.com';
 
-const isStaffRole = (role: string): role is StaffRole => STAFF_ROLES.includes(role as StaffRole);
+const emptyForm: EmployeeFormData = {
+  name: '',
+  email: '',
+  password: '',
+  role: 'EDITOR',
+};
+
+const isInternalRole = (role: string): role is InternalRole =>
+  INTERNAL_ROLES.includes(role as InternalRole);
+
+function isPrimaryAdmin(user: Pick<UserRow, 'email' | 'role'>) {
+  return user.role === 'ADMIN' && user.email.trim().toLowerCase() === PRIMARY_ADMIN_EMAIL;
+}
+
+function getStoredAdminEmail() {
+  const session = localStorage.getItem('adminUser') || localStorage.getItem('user');
+  if (!session) return null;
+
+  try {
+    return String((JSON.parse(session) as { email?: string }).email || '') || null;
+  } catch {
+    return null;
+  }
+}
 
 export default function EmpleadosPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -30,15 +65,18 @@ export default function EmpleadosPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'EDITOR' });
+  const [formData, setFormData] = useState<EmployeeFormData>(emptyForm);
+  const [loadError, setLoadError] = useState('');
 
   const fetchUsers = async () => {
+    setLoadError('');
     try {
-      const res = await api.get('/users/staff');
-      const staffUsers = res.data.filter((user: UserRow) => isStaffRole(user.role));
-      setUsers(staffUsers);
-    } catch (error) {
-      console.error(error);
+      const res = await api.get('/users/internal');
+      const payload = Array.isArray(res.data) ? res.data : [];
+      setUsers(payload.filter((user: UserRow) => isInternalRole(user.role)));
+    } catch {
+      setUsers([]);
+      setLoadError('No se pudieron cargar los empleados.');
     } finally {
       setLoading(false);
     }
@@ -46,35 +84,42 @@ export default function EmpleadosPage() {
 
   useEffect(() => {
     void fetchUsers();
-    const session = localStorage.getItem('user');
-    if (session) {
-      setCurrentAdminEmail(JSON.parse(session).email);
-    }
+    setCurrentAdminEmail(getStoredAdminEmail());
   }, []);
-
-  const openEditModal = (user: UserRow) => {
-    setIsEditing(true);
-    setEditingId(user.id);
-    setFormData({ name: user.name, email: user.email, password: '', role: user.role });
-    setShowModal(true);
-  };
 
   const openCreateModal = () => {
     setIsEditing(false);
     setEditingId(null);
-    setFormData({ name: '', email: '', password: '', role: 'EDITOR' });
+    setFormData(emptyForm);
     setShowModal(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const openEditModal = (user: UserRow) => {
+    if (isPrimaryAdmin(user)) {
+      notify.error('La cuenta principal del sistema esta protegida.');
+      return;
+    }
+
+    setIsEditing(true);
+    setEditingId(user.id);
+    setFormData({
+      name: user.name,
+      email: user.email,
+      password: '',
+      role: isInternalRole(user.role) ? user.role : 'EDITOR',
+    });
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
 
     try {
       if (isEditing && editingId) {
-        await api.patch(`/users/${editingId}`, formData);
+        await api.patch(`/users/internal/${editingId}`, formData);
         notify.success('Empleado actualizado correctamente');
       } else {
-        await api.post('/users', formData);
+        await api.post('/users/internal', formData);
         notify.success('Empleado creado correctamente');
       }
 
@@ -85,20 +130,24 @@ export default function EmpleadosPage() {
     }
   };
 
-  const handleToggleStatus = async (id: string, currentStatus: string) => {
-    const accion = currentStatus === 'ACTIVE' ? 'bloquear' : 'reactivar';
+  const handleToggleStatus = async (user: UserRow) => {
+    if (isPrimaryAdmin(user)) {
+      notify.error('La cuenta principal del sistema no puede bloquearse.');
+      return;
+    }
+
+    const accion = user.status === 'ACTIVE' ? 'bloquear' : 'reactivar';
     const confirmed = await confirmAction({
       title: 'Cambiar estado de cuenta',
-      message: `¿Estás seguro de que deseas ${accion} esta cuenta?`,
+      message: `Estas seguro de que deseas ${accion} esta cuenta?`,
       confirmText: accion === 'bloquear' ? 'Bloquear' : 'Reactivar',
     });
     if (!confirmed) return;
 
     try {
-      await api.patch(`/users/${id}/toggle-status`);
+      await api.patch(`/users/${user.id}/toggle-status`);
       await fetchUsers();
     } catch (error: unknown) {
-      console.error(error);
       notify.error(getApiErrorMessage(error, 'Error al intentar cambiar el estado.'));
     }
   };
@@ -111,8 +160,10 @@ export default function EmpleadosPage() {
             <FiUsers size={24} />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-gray-800">Gestion de Personal</h1>
-            <p className="font-medium text-gray-500">Administra accesos y permisos</p>
+            <h1 className="text-3xl font-black text-gray-800">Gestion de Empleados</h1>
+            <p className="font-medium text-gray-500">
+              Administra accesos administrativos del panel
+            </p>
           </div>
         </div>
         <button
@@ -126,6 +177,19 @@ export default function EmpleadosPage() {
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         {loading ? (
           <div className="p-10 text-center font-bold">Cargando...</div>
+        ) : loadError ? (
+          <div className="p-10 text-center">
+            <p className="mb-4 text-lg font-bold text-red-700">{loadError}</p>
+            <button
+              onClick={() => {
+                setLoading(true);
+                void fetchUsers();
+              }}
+              className="rounded-xl bg-brand-cyan px-5 py-3 font-bold text-gray-900 transition hover:bg-cyan-400"
+            >
+              Reintentar
+            </button>
+          </div>
         ) : users.length === 0 ? (
           <div className="p-10 text-center">
             <p className="mb-4 text-lg font-bold text-gray-700">
@@ -151,6 +215,8 @@ export default function EmpleadosPage() {
             <tbody className="divide-y divide-gray-100">
               {users.map((user) => {
                 const isMe = user.email === currentAdminEmail;
+                const protectedPrimaryAdmin = isPrimaryAdmin(user);
+                const roleLabel = isInternalRole(user.role) ? ROLE_LABELS[user.role] : user.role;
 
                 return (
                   <tr
@@ -174,35 +240,43 @@ export default function EmpleadosPage() {
                             : 'bg-blue-100 text-blue-700'
                         }`}
                       >
-                        {user.role}
+                        {roleLabel}
                       </span>
                     </td>
                     <td className="p-5">
-                      <button
-                        onClick={() => handleToggleStatus(user.id, user.status)}
-                        disabled={isMe}
-                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition-all ${
-                          isMe
-                            ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                            : user.status === 'ACTIVE'
-                              ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
-                              : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700'
-                        }`}
-                        title={
-                          isMe ? 'No puedes bloquearte a ti mismo' : 'Clic para cambiar estado'
-                        }
-                      >
-                        {user.status === 'ACTIVE' ? <FiShield /> : <FiShieldOff />}
-                        {user.status === 'ACTIVE' ? 'Activo' : 'Bloqueado'}
-                      </button>
+                      {protectedPrimaryAdmin ? (
+                        <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-500">
+                          Protegido
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleToggleStatus(user)}
+                          disabled={isMe}
+                          className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition-all ${
+                            isMe
+                              ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                              : user.status === 'ACTIVE'
+                                ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
+                                : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700'
+                          }`}
+                          title={isMe ? 'No puedes bloquearte a ti mismo' : 'Clic para cambiar estado'}
+                        >
+                          {user.status === 'ACTIVE' ? <FiShield /> : <FiShieldOff />}
+                          {user.status === 'ACTIVE' ? 'Activo' : 'Bloqueado'}
+                        </button>
+                      )}
                     </td>
                     <td className="space-x-2 p-5 text-right">
-                      <button
-                        onClick={() => openEditModal(user)}
-                        className="rounded-lg bg-gray-50 p-2 text-gray-400 hover:bg-cyan-50 hover:text-brand-cyan"
-                      >
-                        <FiEdit size={18} />
-                      </button>
+                      {protectedPrimaryAdmin ? (
+                        <span className="text-xs font-bold text-gray-400">Sin acciones</span>
+                      ) : (
+                        <button
+                          onClick={() => openEditModal(user)}
+                          className="rounded-lg bg-gray-50 p-2 text-gray-400 hover:bg-cyan-50 hover:text-brand-cyan"
+                        >
+                          <FiEdit size={18} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -239,7 +313,7 @@ export default function EmpleadosPage() {
                   type="text"
                   className="w-full rounded-xl border-2 p-3 outline-none focus:border-brand-cyan"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                 />
               </div>
               <div>
@@ -258,7 +332,7 @@ export default function EmpleadosPage() {
                     isEditing ? 'bg-gray-100 text-gray-400' : 'focus:border-brand-cyan'
                   }`}
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(event) => setFormData({ ...formData, email: event.target.value })}
                 />
               </div>
               <div>
@@ -274,7 +348,7 @@ export default function EmpleadosPage() {
                   type="text"
                   className="w-full rounded-xl border-2 p-3 outline-none focus:border-brand-cyan"
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(event) => setFormData({ ...formData, password: event.target.value })}
                 />
               </div>
               <div>
@@ -288,9 +362,11 @@ export default function EmpleadosPage() {
                   id="employee-role"
                   className="w-full rounded-xl border-2 bg-white p-3 font-bold outline-none focus:border-brand-cyan"
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  onChange={(event) =>
+                    setFormData({ ...formData, role: event.target.value as InternalRole })
+                  }
                 >
-                  {STAFF_ROLE_OPTIONS.map((option) => (
+                  {ROLE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

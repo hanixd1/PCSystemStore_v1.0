@@ -15,7 +15,7 @@ Automatizar y mejorar la gestion comercial e inventario de PCSystemStore mediant
 | OE-01 | Reducir errores de compatibilidad entre componentes. | Casos incompatibles bloqueados por builder. |
 | OE-02 | Evitar venta de productos sin stock. | Stock nunca negativo en pruebas de checkout. |
 | OE-03 | Centralizar datos de productos y especificaciones tecnicas. | Producto con specs completas por categoria. |
-| OE-04 | Mejorar auditoria administrativa. | Registro de cambios de stock, precio, imagen, empleado y pago. |
+| OE-04 | Mejorar auditoria administrativa. | Registro de cambios de stock, precio, imagen, editor y pago. |
 | OE-05 | Habilitar carga dinamica de banners y logo. | Home y header consumen configuracion administrable. |
 | OE-06 | Gestionar pagos simulados/manuales sin pasarela real. | Pago manual descuenta stock solo al aprobar. |
 | OE-07 | Integrar IA predictiva asistiva. | Alerta de riesgo con evidencia de datos. |
@@ -32,7 +32,7 @@ Automatizar y mejorar la gestion comercial e inventario de PCSystemStore mediant
 | Builder | Validacion de compatibilidad de componentes. |
 | Carrito/checkout | Carrito, autenticacion cliente, ordenes y stock. |
 | Pagos | Simulados para tarjeta y manuales Yape/Plin en revision. |
-| Usuarios | Cliente, admin, empleado, login separado y rutas protegidas. |
+| Usuarios | Cliente, admin, editor, login separado y rutas protegidas. |
 | Auditoria | Seguridad/admin, productos, inventario, pagos y branding. |
 | Branding/banners | Logo y banners dinamicos administrables. |
 | Chatbot | Asistencia IA al usuario/cliente. |

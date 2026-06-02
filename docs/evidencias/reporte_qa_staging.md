@@ -128,7 +128,7 @@ Fallo corregido durante la ejecucion:
 | `npx prisma db execute` | Fallido ambiental | `P1001`: no se alcanza `ep-morning-tooth-aiznn3f2-pooler.c-4.us-east-1.aws.neon.tech:5432`. | Ejecutar cuando Neon/DB QA sea accesible. |
 | Script limpieza productos | Creado | `backend/prisma/clean-products.ts`. | Requiere `ALLOW_CLEAN_PRODUCTS=true`; aborta en produccion. |
 | Seed limpio productos | Creado | `backend/prisma/seed-products-clean.ts`. | Requiere `ALLOW_SEED_PRODUCTS_CLEAN=true`; aborta en produccion. |
-| Usuarios/admin/empleados | Conservados | No forman parte del script de limpieza. | Solo se limpian productos y dependencias de catalogo. |
+| Usuarios/admin/editores | Conservados | No forman parte del script de limpieza. | Solo se limpian productos y dependencias de catalogo. |
 | Branding/banners | Conservados | No forman parte del script de limpieza. | No se borran por defecto. |
 | Auditoria | Conservada por defecto | Solo se limpia si `CLEAN_PRODUCT_AUDIT=true`. | No elimina auditoria admin/security por defecto. |
 

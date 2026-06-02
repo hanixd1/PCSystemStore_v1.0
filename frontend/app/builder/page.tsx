@@ -284,7 +284,8 @@ export default function PCBuilderPage() {
             name.includes('amd') ||
             name.includes('ryzen') ||
             socket.includes('AM4') ||
-            socket.includes('AM5')
+            socket.includes('AM5') ||
+            socket.includes('STR')
           );
         }
         // Filtro inteligente para Intel

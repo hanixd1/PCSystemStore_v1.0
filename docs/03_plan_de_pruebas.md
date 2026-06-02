@@ -14,7 +14,7 @@ Este plan define la estrategia para validar PCSystemStore en sus flujos criticos
 | Productos | CRUD, specs, imagenes, ofertas, stock y auditoria. |
 | Builder | Compatibilidad CPU, motherboard, RAM, PSU, cooler, storage y case. |
 | Compra | Carrito, checkout, ordenes, pagos simulados/manuales y stock. |
-| Admin | Empleados, auditoria, pagos pendientes, branding y banners. |
+| Admin | Editores, auditoria, pagos pendientes, branding y banners. |
 | IA | Predictor Python, salida JSON, errores controlados y alertas. |
 | Seguridad | SQLi, XSS, CORS, env, acceso directo a endpoints. |
 | Frontend | Responsive, fallback de imagenes, UX de errores. |
@@ -120,7 +120,7 @@ Este plan define la estrategia para validar PCSystemStore en sus flujos criticos
 | Productos sin stock | Bloqueo compra. | Stock 0 |
 | Productos con oferta | Pricing. | `isOnSale=true`, `salePrice<price` |
 | Pagos manuales | Revision admin. | Yape/Plin PENDING_REVIEW |
-| Usuarios | Auth. | Cliente, admin, empleado |
+| Usuarios | Auth. | Cliente, admin, editor |
 
 ## 10. Evidencias esperadas
 

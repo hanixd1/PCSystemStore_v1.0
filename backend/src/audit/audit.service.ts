@@ -48,7 +48,7 @@ export class AuditService {
   findByScope(scope: 'security' | 'products', limit = 100) {
     const modules =
       scope === 'security'
-        ? ['SECURITY', 'EMPLOYEES']
+        ? ['SECURITY', 'EDITORS']
         : ['PRODUCTS', 'INVENTORY', 'SALES', 'PAYMENTS', 'BRANDING', 'BANNERS'];
 
     return this.prisma.actionLog.findMany({

@@ -11,6 +11,7 @@ import { RolesGuard } from '../src/auth/roles.guard';
 import { ProductsController } from '../src/products/products.controller';
 import { ProductsService } from '../src/products/products.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { CloudinaryService } from '../src/uploads/cloudinary.service';
 import { UsersController } from '../src/users/users.controller';
 import { UsersService } from '../src/users/users.service';
 
@@ -19,6 +20,7 @@ describe('Security (e2e)', () => {
   let jwtService: JwtService;
 
   const validProduct = {
+    sku: 'PCS-CPU-R7-7700X-QA',
     name: 'Procesador Ryzen 7 7700X',
     description: 'Procesador de alto rendimiento con 8 nucleos y excelente capacidad multitarea.',
     price: 1499.9,
@@ -46,6 +48,11 @@ describe('Security (e2e)', () => {
     })),
     remove: jest.fn((id: string) => ({ id })),
   };
+  const cloudinaryServiceMock = {
+    uploadImage: jest.fn(async () => ({
+      secureUrl: 'https://example.com/uploaded.jpg',
+    })),
+  };
 
   const usersServiceMock = {
     login: jest.fn(),
@@ -57,7 +64,42 @@ describe('Security (e2e)', () => {
       id: 'user-1',
       ...(body as Record<string, unknown>),
     })),
+    createEditor: jest.fn((body: Record<string, unknown>) => ({
+      id: 'editor-created-1',
+      ...body,
+      role: 'EDITOR',
+    })),
     findAll: jest.fn(() => []),
+    findInternalUsers: jest.fn(() => [
+      {
+        id: 'admin-1',
+        name: 'Admin QA',
+        email: 'admin@example.com',
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-03T00:00:00.000Z'),
+      },
+      {
+        id: 'editor-1',
+        name: 'Editor QA',
+        email: 'editor@example.com',
+        role: 'EDITOR',
+        status: 'ACTIVE',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      },
+    ]),
+    findEditors: jest.fn(() => [
+      {
+        id: 'editor-1',
+        name: 'Editor QA',
+        email: 'editor@example.com',
+        role: 'EDITOR',
+        status: 'ACTIVE',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+    ]),
     getAuditLogs: jest.fn(() => []),
     toggleStatus: jest.fn((id: string) => ({ id, status: 'INACTIVE' })),
     updateUser: jest.fn((id: string, body: unknown) => ({
@@ -83,6 +125,7 @@ describe('Security (e2e)', () => {
           },
         },
         { provide: ProductsService, useValue: productsServiceMock },
+        { provide: CloudinaryService, useValue: cloudinaryServiceMock },
         { provide: UsersService, useValue: usersServiceMock },
         {
           provide: APP_GUARD,
@@ -144,6 +187,210 @@ describe('Security (e2e)', () => {
       .get('/users')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
+  });
+
+  it('GET /users/internal sin token devuelve 401', () => {
+    return request(app.getHttpServer()).get('/users/internal').expect(401);
+  });
+
+  it('GET /users/internal con token de cliente devuelve 403', async () => {
+    const customerToken = await jwtService.signAsync({
+      sub: 'customer-1',
+      email: 'customer@example.com',
+      role: 'CUSTOMER',
+    });
+
+    return request(app.getHttpServer())
+      .get('/users/internal')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .expect(403);
+  });
+
+  it('GET /users/internal con token editor devuelve 403', async () => {
+    const editorToken = await jwtService.signAsync({
+      sub: 'editor-1',
+      email: 'editor@example.com',
+      role: 'EDITOR',
+    });
+
+    return request(app.getHttpServer())
+      .get('/users/internal')
+      .set('Authorization', `Bearer ${editorToken}`)
+      .expect(403);
+  });
+
+  it('GET /users/internal con token admin devuelve ADMIN y EDITOR sin clientes', async () => {
+    const adminToken = await jwtService.signAsync({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/users/internal')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(response.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: 'ADMIN' }),
+        expect.objectContaining({ role: 'EDITOR' }),
+      ]),
+    );
+    expect(response.body).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ role: 'CUSTOMER' })]),
+    );
+  });
+
+  it('GET /users/editors sin token devuelve 401', () => {
+    return request(app.getHttpServer()).get('/users/editors').expect(401);
+  });
+
+  it('GET /users/editors con token de cliente devuelve 403', async () => {
+    const customerToken = await jwtService.signAsync({
+      sub: 'customer-1',
+      email: 'customer@example.com',
+      role: 'CUSTOMER',
+    });
+
+    return request(app.getHttpServer())
+      .get('/users/editors')
+      .set('Authorization', `Bearer ${customerToken}`)
+      .expect(403);
+  });
+
+  it('GET /users/editors con token editor devuelve 403', async () => {
+    const editorToken = await jwtService.signAsync({
+      sub: 'editor-1',
+      email: 'editor@example.com',
+      role: 'EDITOR',
+    });
+
+    return request(app.getHttpServer())
+      .get('/users/editors')
+      .set('Authorization', `Bearer ${editorToken}`)
+      .expect(403);
+  });
+
+  it('GET /users/editors con token admin devuelve solo editores', async () => {
+    const adminToken = await jwtService.signAsync({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/users/editors')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(response.body).toEqual(
+      expect.arrayContaining([expect.objectContaining({ role: 'EDITOR' })]),
+    );
+    expect(response.body).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ role: 'CUSTOMER' })]),
+    );
+  });
+
+  it('POST /users/editors con token admin crea rol EDITOR', async () => {
+    const adminToken = await jwtService.signAsync({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/users/editors')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Editor Nuevo',
+        email: 'nuevo-editor@example.com',
+        password: 'secret123',
+        role: 'ADMIN',
+      })
+      .expect(201);
+
+    expect(response.body).toEqual(expect.objectContaining({ role: 'EDITOR' }));
+  });
+
+  it('POST /users/internal con token admin crea EDITOR', async () => {
+    const adminToken = await jwtService.signAsync({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/users/internal')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Editor Nuevo',
+        email: 'editor-internal@example.com',
+        password: 'secret123',
+        role: 'EDITOR',
+      })
+      .expect(201);
+
+    expect(response.body).toEqual(expect.objectContaining({ role: 'EDITOR' }));
+  });
+
+  it('POST /users/internal con token admin crea ADMIN', async () => {
+    const adminToken = await jwtService.signAsync({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/users/internal')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Admin Nuevo',
+        email: 'admin-internal@example.com',
+        password: 'secret123',
+        role: 'ADMIN',
+      })
+      .expect(201);
+
+    expect(response.body).toEqual(expect.objectContaining({ role: 'ADMIN' }));
+  });
+
+  it('POST /users/internal con token editor devuelve 403', async () => {
+    const editorToken = await jwtService.signAsync({
+      sub: 'editor-1',
+      email: 'editor@example.com',
+      role: 'EDITOR',
+    });
+
+    return request(app.getHttpServer())
+      .post('/users/internal')
+      .set('Authorization', `Bearer ${editorToken}`)
+      .send({
+        name: 'No permitido',
+        email: 'forbidden-editor@example.com',
+        password: 'secret123',
+        role: 'EDITOR',
+      })
+      .expect(403);
+  });
+
+  it('POST /users/internal rechaza role EMPLOYEE', async () => {
+    const adminToken = await jwtService.signAsync({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    });
+
+    return request(app.getHttpServer())
+      .post('/users/internal')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Empleado legacy',
+        email: 'legacy@example.com',
+        password: 'secret123',
+        role: 'EMPLOYEE',
+      })
+      .expect(400);
   });
 
   it('POST /products con token editor devuelve 201', async () => {

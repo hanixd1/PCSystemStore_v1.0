@@ -1,6 +1,10 @@
 from collections import Counter
 
-from schemas.statistics_schema import StatisticsRequest, StatisticsResponse
+from schemas.statistics_schema import (
+    InventoryStatisticsResponse,
+    StatisticsRequest,
+    StatisticsResponse,
+)
 
 
 def get_number(value: object, fallback: float = 0) -> float:
@@ -52,4 +56,13 @@ def build_statistics_summary(payload: StatisticsRequest) -> StatisticsResponse:
             for category, count in category_counter.most_common(5)
         ],
         alerts=alerts[:10],
+    )
+
+
+def build_inventory_statistics() -> InventoryStatisticsResponse:
+    return InventoryStatisticsResponse(
+        available=True,
+        generatedBy="ai-service",
+        riskProducts=[],
+        message="Statistics service available",
     )

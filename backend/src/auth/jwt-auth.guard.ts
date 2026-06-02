@@ -45,7 +45,7 @@ export class JwtAuthGuard implements CanActivate {
     const cookieHeader = request.headers.cookie;
     const roles = Array.isArray(requiredRoles) ? requiredRoles : [];
     const needsCustomerSession = roles.includes('CUSTOMER');
-    const needsAdminSession = roles.some((role) => ['ADMIN', 'EDITOR', 'EMPLOYEE'].includes(role));
+    const needsAdminSession = roles.some((role) => ['ADMIN', 'EDITOR'].includes(role));
     const cookieToken = needsCustomerSession
       ? getCookieValue(cookieHeader, 'pcs_customer_session')
       : needsAdminSession

@@ -108,4 +108,131 @@ describe('UsersService auth cliente/admin', () => {
       UnauthorizedException,
     );
   });
+
+  it('USERS-01 lista usuarios internos como ADMIN primero y EDITOR despues', async () => {
+    const prisma = {
+      user: {
+        findMany: jest.fn(async () => [
+          {
+            id: 'editor-1',
+            name: 'Editor QA',
+            email: 'editor@test.com',
+            role: 'EDITOR',
+            status: 'ACTIVE',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          },
+          {
+            id: 'admin-1',
+            name: 'Admin QA',
+            email: 'admin@test.com',
+            role: 'ADMIN',
+            status: 'ACTIVE',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          },
+        ]),
+      },
+    };
+    const jwtService = {
+      signAsync: jest.fn(),
+    };
+    const service = new UsersService(prisma as any, jwtService as any);
+
+    const result = await service.findInternalUsers();
+
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { role: { in: ['ADMIN', 'EDITOR'] } },
+      }),
+    );
+    expect(result.map((user) => user.role)).toEqual(['ADMIN', 'EDITOR']);
+  });
+
+  it('USERS-02 no permite bloquear la cuenta principal', async () => {
+    const prisma = {
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: 'primary-admin',
+          email: 'admin@pcsystemstore.com',
+          role: 'ADMIN',
+          status: 'ACTIVE',
+        })),
+      },
+      actionLog: {
+        create: jest.fn(),
+      },
+    };
+    const service = new UsersService(prisma as any, { signAsync: jest.fn() } as any);
+
+    await expect(service.toggleStatus('primary-admin', 'admin-2')).rejects.toThrow(
+      'La cuenta principal del sistema no puede bloquearse ni degradarse.',
+    );
+  });
+
+  it('USERS-03 no permite degradar la cuenta principal', async () => {
+    const prisma = {
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: 'primary-admin',
+          email: 'admin@pcsystemstore.com',
+          role: 'ADMIN',
+          status: 'ACTIVE',
+        })),
+      },
+      actionLog: {
+        create: jest.fn(),
+      },
+    };
+    const service = new UsersService(prisma as any, { signAsync: jest.fn() } as any);
+
+    await expect(
+      service.updateUser('primary-admin', { role: 'EDITOR' }, 'admin-2'),
+    ).rejects.toThrow('La cuenta principal del sistema no puede bloquearse ni degradarse.');
+  });
+
+  it('USERS-04 permite editar y degradar un ADMIN normal si queda otro ADMIN activo', async () => {
+    const prisma = {
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: 'admin-normal',
+          email: 'admin.normal@test.com',
+          role: 'ADMIN',
+          status: 'ACTIVE',
+        })),
+        count: jest.fn(async () => 1),
+        update: jest.fn(async ({ data }) => ({
+          id: 'admin-normal',
+          name: data.name,
+          email: 'admin.normal@test.com',
+          role: data.role,
+          status: data.status,
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        })),
+      },
+      actionLog: {
+        create: jest.fn(async (args) => args),
+      },
+    };
+    const service = new UsersService(prisma as any, { signAsync: jest.fn() } as any);
+
+    const result = await service.updateUser(
+      'admin-normal',
+      { name: 'Admin editado', role: 'EDITOR', status: 'INACTIVE' },
+      'admin-2',
+    );
+
+    expect(prisma.user.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          role: 'ADMIN',
+          status: 'ACTIVE',
+          id: { not: 'admin-normal' },
+        }),
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({ name: 'Admin editado', role: 'EDITOR', status: 'INACTIVE' }),
+    );
+  });
 });

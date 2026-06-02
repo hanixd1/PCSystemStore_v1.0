@@ -44,7 +44,7 @@ Estados permitidos: `Pendiente`, `En ejecucion`, `Aprobado`, `Fallido`, `Bloquea
 | ID | Modulo | Caso | Pasos | Resultado esperado | Estado | Evidencia | Observaciones |
 |---|---|---|---|---|---|---|---|
 | AUTH-01 | Auth | Cliente inicia sesion en `/auth/login`. | Abrir login cliente, ingresar usuario CUSTOMER valido, enviar formulario. | Login exitoso, token cliente guardado, header muestra usuario. | Pendiente | `docs/evidencias/auth/` | Pendiente de ejecucion manual/E2E. |
-| AUTH-02 | Auth | Admin inicia sesion en `/admin/login`. | Abrir login admin, ingresar usuario ADMIN/EMPLOYEE valido. | Login exitoso y acceso al panel admin. | Pendiente | `docs/evidencias/auth/` | Pendiente de ejecucion manual/E2E. |
+| AUTH-02 | Auth | Admin inicia sesion en `/admin/login`. | Abrir login admin, ingresar usuario ADMIN/EDITOR valido. | Login exitoso y acceso al panel admin. | Pendiente | `docs/evidencias/auth/` | Pendiente de ejecucion manual/E2E. |
 | AUTH-03 | Auth | Admin no entra desde `/auth/login` si no existe como cliente. | Intentar login cliente con credenciales admin. | Respuesta 403 o mensaje de cuenta no registrada como cliente; no guarda token cliente. | Pendiente | `docs/evidencias/auth/` | Critico. |
 | AUTH-04 | Auth | Cliente no puede entrar desde `/admin/login`. | Intentar login admin con usuario CUSTOMER. | Respuesta 403 o mensaje sin permisos administrativos. | Pendiente | `docs/evidencias/auth/` | Critico. |
 | AUTH-05 | Auth | Ruta `/admin` sin token devuelve 401/403 o redirige a login. | Abrir ruta admin en sesion limpia. | No permite acceso al panel. | Pendiente | `docs/evidencias/auth/` | Validar UI y endpoint. |
@@ -107,8 +107,8 @@ Estados permitidos: `Pendiente`, `En ejecucion`, `Aprobado`, `Fallido`, `Bloquea
 | AUD-03 | Auditoria | Editar stock genera log anterior/nuevo. | Cambiar stock. | Log con stockBefore/stockAfter. | Pendiente | `docs/evidencias/auditoria/` |  |
 | AUD-04 | Auditoria | Cambiar imagen genera log. | Agregar/eliminar imagen. | Log de imagen. | Pendiente | `docs/evidencias/auditoria/` |  |
 | AUD-05 | Auditoria | Activar/desactivar oferta genera log. | Cambiar estado oferta. | Log de oferta. | Pendiente | `docs/evidencias/auditoria/` |  |
-| AUD-06 | Auditoria | Crear empleado genera log. | Crear empleado. | Log en seguridad/admin. | Pendiente | `docs/evidencias/auditoria/` |  |
-| AUD-07 | Auditoria | Modificar/desactivar empleado genera log. | Editar/desactivar empleado. | Log en seguridad/admin. | Pendiente | `docs/evidencias/auditoria/` |  |
+| AUD-06 | Auditoria | Crear editor genera log. | Crear editor. | Log en seguridad/admin. | Pendiente | `docs/evidencias/auditoria/` |  |
+| AUD-07 | Auditoria | Modificar/desactivar editor genera log. | Editar/desactivar editor. | Log en seguridad/admin. | Pendiente | `docs/evidencias/auditoria/` |  |
 | AUD-08 | Auditoria | Venta/reduccion de stock genera log. | Completar compra aprobada. | Log de venta/stock. | Pendiente | `docs/evidencias/auditoria/` |  |
 | AUD-09 | Auditoria | Login de cliente no satura historial admin. | Login CUSTOMER y revisar historial. | No aparece LOGIN_USER cliente. | Pendiente | `docs/evidencias/auditoria/` |  |
 | AUD-10 | Auditoria | Historial separa seguridad y productos/inventario. | Revisar tabs/secciones. | Eventos separados por dominio. | Pendiente | `docs/evidencias/auditoria/` |  |

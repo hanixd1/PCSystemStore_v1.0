@@ -14,3 +14,10 @@ class StatisticsResponse(BaseModel):
     estimatedRevenue: float
     topCategories: list[dict]
     alerts: list[str]
+
+
+class InventoryStatisticsResponse(BaseModel):
+    available: bool = True
+    generatedBy: str = "ai-service"
+    riskProducts: list[dict] = Field(default_factory=list)
+    message: str = "Statistics service available"

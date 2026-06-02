@@ -63,12 +63,12 @@ const DEPARTMENTS = {
 const CPU_BRANDS = ['AMD', 'Intel'];
 const MOTHERBOARD_BRANDS = ['ASUS', 'MSI', 'Gigabyte', 'ASRock', 'Otros'];
 const CPU_SOCKETS_BY_BRAND: Record<string, string[]> = {
-  AMD: ['AM4', 'AM5'],
+  AMD: ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5'],
   Intel: ['LGA 1200', 'LGA 1700', 'LGA 1851'],
 };
-const SOCKETS = ['AM5', 'AM4', 'LGA 1700', 'LGA 1200', 'LGA 1851'];
+const SOCKETS = ['AM5', 'AM4', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5', 'LGA 1700', 'LGA 1200', 'LGA 1851'];
 const M2_FORM_FACTORS = ['2230', '2242', '2260', '2280', '22110'];
-const COOLER_SOCKET_OPTIONS = ['AM4', 'AM5', 'LGA 1200', 'LGA 1700', 'LGA 1851'];
+const COOLER_SOCKET_OPTIONS = ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5', 'LGA 1200', 'LGA 1700', 'LGA 1851'];
 const COOLER_BRANDS = ['MSI', 'DeepCool', 'Corsair', 'Gigabyte', 'ASUS', 'Otros'];
 const COOLER_RADIATOR_OPTIONS = ['120', '240', '280', '360', '460'];
 const FORM_FACTORS = ['ATX', 'Micro-ATX', 'Mini-ITX', 'E-ATX'];
@@ -706,7 +706,7 @@ export default function AddProductPage() {
         {/* === COLUMNA IZQUIERDA: FORMULARIOS (Ocupa 8 columnas) === */}
         <div className="lg:col-span-8 space-y-6">
           {/* 1. INFORMACION GENERAL (Siempre visible) */}
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-8">
             <h2 className="text-xl font-bold mb-6 text-gray-800 border-b pb-2">
               Informacion Basica
             </h2>
@@ -808,7 +808,7 @@ export default function AddProductPage() {
           </div>
 
           {/* 2. ESPECIFICACIONES TECNICAS (Dinamico) */}
-          <div className="bg-gray-50 p-8 rounded-2xl border border-gray-200 relative overflow-hidden">
+          <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50/70 p-8">
             <div className="absolute top-0 right-0 p-4 opacity-10">
               <FiZap size={100} />
             </div>
@@ -3327,7 +3327,7 @@ export default function AddProductPage() {
 
         {/* === COLUMNA DERECHA: SELECCION DE CATEGORIA (Ocupa 4 columnas) === */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 sticky top-4">
+          <div className="sticky top-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-6">
             <h3 className="text-lg font-black text-gray-800 mb-6">Clasificacion</h3>
 
             {/* 1. SELECCIONAR DEPARTAMENTO */}
@@ -3342,8 +3342,8 @@ export default function AddProductPage() {
                     className={`p-3 rounded-lg text-xs font-bold transition-all border
                        ${
                          selectedDept === deptKey
-                           ? 'bg-black text-white border-black shadow-lg transform scale-105'
-                           : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                           ? 'bg-black text-white border-black'
+                           : 'bg-transparent text-gray-500 border-gray-300 hover:border-brand-cyan hover:text-gray-900'
                        }
                      `}
                   >

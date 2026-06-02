@@ -69,6 +69,23 @@ async function seedUsersAndBranding() {
     },
   });
 
+  await prisma.user.upsert({
+    where: { email: 'editor@pcsystem.com' },
+    update: {
+      name: 'Editor Principal',
+      password: hashedPassword,
+      role: 'EDITOR',
+      status: 'ACTIVE',
+    },
+    create: {
+      email: 'editor@pcsystem.com',
+      name: 'Editor Principal',
+      password: hashedPassword,
+      role: 'EDITOR',
+      status: 'ACTIVE',
+    },
+  });
+
   const customerPassword = await bcrypt.hash('h12345', salt);
   const customer = await prisma.user.upsert({
     where: { email: 'hanny@test.com' },

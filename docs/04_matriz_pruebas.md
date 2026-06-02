@@ -81,7 +81,7 @@
 | AUD-04 | Auditoria | RF-14 | Cambio precio auditado | Admin | price nuevo | Guardar | UPDATE_PRICE | API/UI | Alta | Pendiente de ejecucion |
 | AUD-05 | Auditoria | RF-14 | Cambio imagen auditado | Admin | nueva imagen | Guardar | UPDATE_PRODUCT_IMAGE | API/UI | Media | Pendiente de ejecucion |
 | AUD-06 | Auditoria | RF-14 | Venta/reduccion stock auditada | Orden pagada | Pago aprobado | Revisar | SALE/STOCK_DECREASE | API/UI | Alta | Pendiente de ejecucion |
-| AUD-07 | Auditoria | RF-14 | Empleado auditado | Admin | Crear/editar/desactivar | Revisar seguridad | Evento empleado | API/UI | Media | Pendiente de ejecucion |
+| AUD-07 | Auditoria | RF-14 | Editor auditado | Admin | Crear/editar/desactivar | Revisar seguridad | Evento editor | API/UI | Media | Pendiente de ejecucion |
 | AUD-08 | Auditoria | RF-14 | Separar auditoria | Logs mixtos | Abrir historial | Revisar tabs | Seguridad y productos separados | UI | Media | Pendiente de ejecucion |
 | AI-01 | IA predictiva | RF-06 | Predictor con datos validos | Dataset valido | JSON/CSV | Ejecutar | Prediccion valida | pytest/manual | Alta | Pendiente de ejecucion |
 | AI-02 | IA predictiva | RF-06 | JSON valido | Predictor activo | Entrada correcta | Ejecutar API | Respuesta JSON parseable | API | Media | Pendiente de ejecucion |

@@ -16,10 +16,10 @@ import { normalizeLaptopStorage } from '@/lib/normalizers';
 const CPU_BRANDS = ['AMD', 'Intel'];
 const MOTHERBOARD_BRANDS = ['ASUS', 'MSI', 'Gigabyte', 'ASRock', 'Otros'];
 const CPU_SOCKETS_BY_BRAND: Record<string, string[]> = {
-  AMD: ['AM4', 'AM5'],
+  AMD: ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5'],
   Intel: ['LGA 1200', 'LGA 1700', 'LGA 1851'],
 };
-const SOCKETS = ['AM4', 'AM5', 'LGA 1200', 'LGA 1700', 'LGA 1851'];
+const SOCKETS = ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5', 'LGA 1200', 'LGA 1700', 'LGA 1851'];
 const M2_FORM_FACTORS = ['2230', '2242', '2260', '2280', '22110'];
 const COOLER_BRANDS = ['MSI', 'DeepCool', 'Corsair', 'Gigabyte', 'ASUS', 'Otros'];
 const COOLER_TYPES = ['Torre', 'Liquida'];
@@ -674,6 +674,7 @@ function mapProductToFormData(product: any): EditableForm {
     compatibleSockets: arrayFromSpecs(cooler.compatibleSockets ?? cooler.socketSupport, [
       'AM4',
       'AM5',
+      'sTR5',
     ]),
     tdpCapacity: String(cooler.tdpCapacity ?? ''),
     coolerHeight: String(cooler.coolerHeight ?? ''),

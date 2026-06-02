@@ -75,7 +75,7 @@ describe('AuditService API', () => {
     expect(prisma.actionLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          module: { in: ['SECURITY', 'EMPLOYEES'] },
+          module: { in: ['SECURITY', 'EDITORS'] },
           NOT: [
             { action: 'LOGIN', user: { role: 'CUSTOMER' } },
             { action: 'REGISTER', user: { role: 'CUSTOMER' } },

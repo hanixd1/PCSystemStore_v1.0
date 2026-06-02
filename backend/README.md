@@ -78,7 +78,7 @@ $ pnpm run test:cov
 ## QA credentials
 
 Las credenciales QA no deben estar hardcodeadas. Para pruebas locales, configurar
-`QA_ADMIN_PASSWORD`, `QA_EMPLOYEE_PASSWORD` y `QA_CLIENT_PASSWORD` en el entorno
+`QA_ADMIN_PASSWORD`, `QA_EDITOR_PASSWORD` y `QA_CLIENT_PASSWORD` en el entorno
 local o en `backend/.env.test`. Si no se definen, el fixture QA genera valores
 temporales aleatorios para evitar secretos codificados.
 

@@ -13,7 +13,7 @@ export type E2eContext = {
   prisma: PrismaService;
   tokens: {
     admin: string;
-    employee: string;
+    editor: string;
     customer: string;
   };
 };
@@ -48,9 +48,9 @@ export async function createQaApp(): Promise<E2eContext> {
   await seedQaDatabase(prisma);
 
   const http = app.getHttpServer();
-  const [adminLogin, employeeLogin, customerLogin] = await Promise.all([
+  const [adminLogin, editorLogin, customerLogin] = await Promise.all([
     request(http).post('/users/admin-login').send(qaUsers.admin),
-    request(http).post('/users/admin-login').send(qaUsers.employee),
+    request(http).post('/users/admin-login').send(qaUsers.editor),
     request(http).post('/users/customer-login').send(qaUsers.customer),
   ]);
 
@@ -59,7 +59,7 @@ export async function createQaApp(): Promise<E2eContext> {
     prisma,
     tokens: {
       admin: adminLogin.body.token,
-      employee: employeeLogin.body.token,
+      editor: editorLogin.body.token,
       customer: customerLogin.body.token,
     },
   };

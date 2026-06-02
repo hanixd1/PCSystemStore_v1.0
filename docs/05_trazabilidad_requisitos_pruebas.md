@@ -8,7 +8,7 @@ Este documento conecta requisitos funcionales, reglas de negocio, modulos, casos
 
 | RF/RN | Descripcion | Modulo | Casos de prueba | Norma relacionada | Evidencia esperada | Estado |
 |---|---|---|---|---|---|---|
-| RF-01 | Autenticacion y autorizacion separada para cliente, admin y empleado. | Auth, Users, Admin | AUTH-01 a AUTH-09, SEC-01, SEC-04 | ISO/IEC 25010 seguridad; ISO/IEC 27001 control de acceso | Logs API, capturas login, respuestas 401/403 | Pendiente de validacion |
+| RF-01 | Autenticacion y autorizacion separada para cliente, admin y editor. | Auth, Users, Admin | AUTH-01 a AUTH-09, SEC-01, SEC-04 | ISO/IEC 25010 seguridad; ISO/IEC 27001 control de acceso | Logs API, capturas login, respuestas 401/403 | Pendiente de validacion |
 | RF-02 | Gestion CRUD de productos con validaciones tecnicas. | Products, Admin | PROD-01 a PROD-08 | ISO/IEC 25010 funcionalidad, mantenibilidad | Capturas admin, respuestas API, AuditLog | Pendiente de validacion |
 | RF-03 | Catalogo publico con busqueda, categorias, detalle y filtros dinamicos por specs tecnicas. En CPU, los filtros publicos priorizan marca, socket, graficos integrados, precio, disponibilidad y oferta; TDP queda como especificacion tecnica y validacion interna del builder. En Motherboard, los filtros publicos priorizan marca, precio, plataforma, socket y formato; Tipo de RAM y Slots M.2 se conservan como specs y reglas de compatibilidad, pero no como filtros principales. En GPU, los filtros publicos priorizan marca ensambladora, precio, chipset, VRAM, disponibilidad y oferta; TDP/consumo queda como especificacion tecnica. | Frontend catalogo, Products API | CAT-01 a CAT-13, SEC-02, E2E-01, E2E-02 | ISO/IEC 25010 usabilidad, compatibilidad | Capturas catalogo, query params, logs API | Pendiente de validacion |
 | RF-04 | Compatibilidad tecnica de componentes. | Builder, Products | BLD-01 a BLD-08 | ISO/IEC 25010 adecuacion funcional | Matriz builder ejecutada | Pendiente de validacion |
@@ -35,7 +35,7 @@ Este documento conecta requisitos funcionales, reglas de negocio, modulos, casos
 | RN-01 | No vender si stock es 0. | CART-02, CART-06 | Pendiente de validacion |
 | RN-02 | Stock solo baja con pago aprobado. | PAY-02, PAY-03, PAY-04 | Pendiente de validacion |
 | RN-03 | Cliente no accede a rutas admin. | AUTH-07, SEC-04 | Pendiente de validacion |
-| RN-04 | Admin/empleado no debe mezclarse con sesion cliente. | AUTH-04, AUTH-05 | Pendiente de validacion |
+| RN-04 | Admin/editor no debe mezclarse con sesion cliente. | AUTH-04, AUTH-05 | Pendiente de validacion |
 | RN-05 | Oferta es posterior a la creacion; Agregar Producto no configura oferta y crea con `salePrice=null`. | SALE-01, SALE-04, SALE-06 | Pendiente de validacion |
 | RN-06 | Builder debe bloquear incompatibilidades criticas. | BLD-02 a BLD-07 | Pendiente de validacion |
 | RN-07 | IA no toma decisiones autonomas. | AI-01 a AI-07 | Pendiente de validacion |
