@@ -72,7 +72,9 @@ const Header = () => {
       return;
     }
 
-    router.push(`/categoria/${encodeURIComponent(normalizedTerm)}`);
+    router.push(
+      `/categoria/${encodeURIComponent(normalizedTerm)}?search=${encodeURIComponent(normalizedTerm)}`,
+    );
   };
 
   return (

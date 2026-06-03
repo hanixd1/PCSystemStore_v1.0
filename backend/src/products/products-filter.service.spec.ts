@@ -294,4 +294,71 @@ describe('ProductsService filtros de catalogo', () => {
       }),
     );
   });
+
+  it('busqueda publica por sinonimo devuelve CPU sin coincidencia literal en nombre', async () => {
+    const { service, prisma } = createService();
+    (prisma.product.findMany as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'cpu-1',
+        sku: 'CPU-9600X',
+        slug: 'amd-ryzen-5-9600x',
+        name: 'AMD Ryzen 5 9600X',
+        description: '6 nucleos para gaming',
+        category: 'CPU',
+        cpuSpecs: { brand: 'AMD', socket: 'AM5', frequency: '5.4 GHz' },
+      },
+      {
+        id: 'gpu-1',
+        sku: 'GPU-4060',
+        slug: 'rtx-4060',
+        name: 'GeForce RTX 4060',
+        description: 'Tarjeta de video',
+        category: 'GPU',
+        gpuSpecs: { brand: 'MSI', chipset: 'NVIDIA RTX 4060' },
+      },
+    ]);
+
+    await expect(service.findAll({ search: 'procesador', limit: '24' })).resolves.toEqual(
+      expect.objectContaining({
+        total: 1,
+        items: [expect.objectContaining({ category: 'CPU' })],
+      }),
+    );
+
+    expect(prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {},
+        take: 1000,
+      }),
+    );
+  });
+
+  it('busqueda publica por modelo tecnico prioriza el producto exacto', async () => {
+    const { service, prisma } = createService();
+    (prisma.product.findMany as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'cpu-1',
+        sku: 'CPU-7600X',
+        slug: 'amd-ryzen-5-7600x',
+        name: 'AMD Ryzen 5 7600X',
+        description: 'Procesador gaming',
+        category: 'CPU',
+        cpuSpecs: { brand: 'AMD', socket: 'AM5', frequency: '5.3 GHz' },
+      },
+      {
+        id: 'cpu-2',
+        sku: 'CPU-9600X',
+        slug: 'amd-ryzen-5-9600x',
+        name: 'AMD Ryzen 5 9600X',
+        description: 'Procesador gaming',
+        category: 'CPU',
+        cpuSpecs: { brand: 'AMD', socket: 'AM5', frequency: '5.4 GHz' },
+      },
+    ]);
+
+    const result = await service.findAll({ search: '9600x', limit: '24' });
+
+    expect(result.total).toBe(1);
+    expect(result.items[0]).toEqual(expect.objectContaining({ name: 'AMD Ryzen 5 9600X' }));
+  });
 });

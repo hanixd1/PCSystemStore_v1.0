@@ -159,6 +159,7 @@ export default function CategoryPage() {
     const rawSlugArray = Array.isArray(params?.slug) ? params.slug : [];
     return rawSlugArray.join('/');
   }, [params?.slug]);
+  const searchParamString = searchParams.toString();
   const slugArray = useMemo(
     () => slugKey.split('/').map(normalizeSearchText).filter(Boolean),
     [slugKey],
@@ -168,21 +169,28 @@ export default function CategoryPage() {
     [slugArray],
   );
   const lastSlug = useMemo(() => slugArray[slugArray.length - 1]?.toLowerCase() || '', [slugArray]);
+  const searchQuery = useMemo(() => {
+    const paramsSnapshot = new URLSearchParams(searchParamString);
+    return normalizeSearchText(paramsSnapshot.get('search') || '');
+  }, [searchParamString]);
+  const isSearchMode = Boolean(searchQuery);
   const selectedCategory = useMemo(
-    () => resolveCategory(slugArray, lastSlug, fullSlug),
-    [fullSlug, lastSlug, slugArray],
+    () => (isSearchMode ? undefined : resolveCategory(slugArray, lastSlug, fullSlug)),
+    [fullSlug, isSearchMode, lastSlug, slugArray],
   );
-  const isKnownRoute = Boolean(selectedCategory || CATEGORY_GROUPS[lastSlug]);
+  const isKnownRoute = Boolean(isSearchMode || selectedCategory || CATEGORY_GROUPS[lastSlug]);
   const routeFilters = useMemo(
     () => getInitialRouteFilters(fullSlug, lastSlug),
     [fullSlug, lastSlug],
   );
   const pageTitle = useMemo(
     () =>
-      DICTIONARY[lastSlug] ||
-      DICTIONARY[fullSlug] ||
-      formatDisplayText(slugArray[slugArray.length - 1] || ''),
-    [fullSlug, lastSlug, slugArray],
+      isSearchMode
+        ? `Resultados para: ${searchQuery}`
+        : DICTIONARY[lastSlug] ||
+          DICTIONARY[fullSlug] ||
+          formatDisplayText(slugArray[slugArray.length - 1] || ''),
+    [fullSlug, isSearchMode, lastSlug, searchQuery, slugArray],
   );
 
   const [products, setProducts] = useState<any[]>([]);
@@ -192,7 +200,6 @@ export default function CategoryPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<Record<string, string>>({});
 
-  const searchParamString = searchParams.toString();
   const filterConfig = useMemo(
     () => (selectedCategory ? PRODUCT_FILTERS_BY_CATEGORY[selectedCategory] || [] : []),
     [selectedCategory],
@@ -241,6 +248,11 @@ export default function CategoryPage() {
     query.set('page', query.get('page') || '1');
     query.set('limit', query.get('limit') || '24');
 
+    if (isSearchMode) {
+      query.set('search', searchQuery);
+      return query.toString();
+    }
+
     if (selectedCategory) {
       query.set('category', selectedCategory);
     } else if (CATEGORY_GROUPS[lastSlug]) {
@@ -252,7 +264,16 @@ export default function CategoryPage() {
     });
 
     return query.toString();
-  }, [fullSlug, isKnownRoute, lastSlug, routeFilters, searchParamString, selectedCategory]);
+  }, [
+    fullSlug,
+    isKnownRoute,
+    isSearchMode,
+    lastSlug,
+    routeFilters,
+    searchParamString,
+    searchQuery,
+    selectedCategory,
+  ]);
 
   useEffect(() => {
     if (!fullSlug || !productsQueryString) {
@@ -288,6 +309,7 @@ export default function CategoryPage() {
   }, [fullSlug, productsQueryString]);
 
   const filterOptionsQueryString = useMemo(() => {
+    if (isSearchMode) return '';
     if (!isKnownRoute) return '';
 
     const query = new URLSearchParams();
@@ -295,7 +317,7 @@ export default function CategoryPage() {
     if (!selectedCategory && CATEGORY_GROUPS[lastSlug])
       query.set('categories', CATEGORY_GROUPS[lastSlug].join(','));
     return query.toString();
-  }, [isKnownRoute, lastSlug, selectedCategory]);
+  }, [isKnownRoute, isSearchMode, lastSlug, selectedCategory]);
 
   useEffect(() => {
     if (!filterOptionsQueryString) {
@@ -350,6 +372,10 @@ export default function CategoryPage() {
     event?.preventDefault();
     const query = new URLSearchParams();
 
+    if (isSearchMode) {
+      query.set('search', searchQuery);
+    }
+
     Object.entries(draftFilters).forEach(([key, value]) => {
       if (!value) return;
       if (key === 'sortBy') {
@@ -370,7 +396,8 @@ export default function CategoryPage() {
 
   const clearFilters = () => {
     setDraftFilters({});
-    router.push(`/categoria/${slugArray.map((slug) => encodeURIComponent(slug)).join('/')}`);
+    const path = `/categoria/${slugArray.map((slug) => encodeURIComponent(slug)).join('/')}`;
+    router.push(isSearchMode ? `${path}?search=${encodeURIComponent(searchQuery)}` : path);
     setFiltersOpen(false);
   };
 

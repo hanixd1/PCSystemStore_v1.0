@@ -6,6 +6,12 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { AuditService } from '../audit/audit.service';
 import { ProductPricingService } from './services/product-pricing.service';
 import { parseBooleanLike } from '../common/dto/transformers';
+import {
+  compactSearchText,
+  expandProductSearchQuery,
+  rankProductMatch,
+  ProductSearchExpansion,
+} from './product-search';
 
 type ProductQuery = Record<string, string | string[] | undefined>;
 type ProductChangeLog = {
@@ -1316,6 +1322,125 @@ export class ProductsService {
     return { contains: value, mode: 'insensitive' as const };
   }
 
+  private buildPublicSearchWhere(search: string): Prisma.ProductWhereInput {
+    const expansion = expandProductSearchQuery(search);
+    const terms = expansion.terms.slice(0, 40);
+    const or: Prisma.ProductWhereInput[] = [];
+
+    if (expansion.candidateCategories.length > 0) {
+      or.push({ category: { in: expansion.candidateCategories } });
+    }
+
+    for (const term of terms) {
+      const compactTerm = compactSearchText(term);
+      const termVariants = Array.from(new Set([term, compactTerm].filter(Boolean)));
+
+      for (const variant of termVariants) {
+        or.push(...this.buildPublicSearchTextWhere(variant));
+      }
+    }
+
+    return { OR: or };
+  }
+
+  private buildPublicSearchTextWhere(term: string): Prisma.ProductWhereInput[] {
+    const contains = this.textContains(term);
+
+    return [
+      { name: contains },
+      { description: contains },
+      { sku: contains },
+      { slug: contains },
+      { category: contains },
+      { cpuSpecs: { is: { brand: contains } } },
+      { cpuSpecs: { is: { socket: contains } } },
+      { cpuSpecs: { is: { frequency: contains } } },
+      { motherboardSpecs: { is: { brand: contains } } },
+      { motherboardSpecs: { is: { socket: contains } } },
+      { motherboardSpecs: { is: { formFactor: contains } } },
+      { motherboardSpecs: { is: { memoryType: contains } } },
+      { motherboardSpecs: { is: { supportedM2FormFactors: { has: term } } } },
+      { ramSpecs: { is: { memoryType: contains } } },
+      { gpuSpecs: { is: { brand: contains } } },
+      { gpuSpecs: { is: { chipset: contains } } },
+      { psuSpecs: { is: { brand: contains } } },
+      { psuSpecs: { is: { certification: contains } } },
+      { psuSpecs: { is: { modular: contains } } },
+      { psuSpecs: { is: { formFactor: contains } } },
+      { caseSpecs: { is: { brand: contains } } },
+      { caseSpecs: { is: { formFactor: contains } } },
+      { coolerSpecs: { is: { brand: contains } } },
+      { coolerSpecs: { is: { type: contains } } },
+      { coolerSpecs: { is: { socketSupport: contains } } },
+      { coolerSpecs: { is: { compatibleSockets: { has: term } } } },
+      { storageSpecs: { is: { type: contains } } },
+      { storageSpecs: { is: { interface: contains } } },
+      { storageSpecs: { is: { m2FormFactor: contains } } },
+      { laptopSpecs: { is: { brand: contains } } },
+      { laptopSpecs: { is: { processor: contains } } },
+      { laptopSpecs: { is: { ram: contains } } },
+      { laptopSpecs: { is: { storage: contains } } },
+      { laptopSpecs: { is: { screenSize: contains } } },
+      { laptopSpecs: { is: { panelType: contains } } },
+      { laptopSpecs: { is: { gpuBrand: contains } } },
+      { laptopSpecs: { is: { gpuModel: contains } } },
+      { desktopSpecs: { is: { processor: contains } } },
+      { desktopSpecs: { is: { ram: contains } } },
+      { desktopSpecs: { is: { storage: contains } } },
+      { desktopSpecs: { is: { gpuBrand: contains } } },
+      { desktopSpecs: { is: { gpuModel: contains } } },
+      { desktopSpecs: { is: { coolerType: contains } } },
+      { desktopSpecs: { is: { caseModel: contains } } },
+      { monitorSpecs: { is: { brand: contains } } },
+      { monitorSpecs: { is: { screenSize: contains } } },
+      { monitorSpecs: { is: { resolution: contains } } },
+      { monitorSpecs: { is: { panelType: contains } } },
+      { monitorSpecs: { is: { ports: { has: term } } } },
+      { keyboardSpecs: { is: { brand: contains } } },
+      { keyboardSpecs: { is: { connection: contains } } },
+      { keyboardSpecs: { is: { switchType: contains } } },
+      { keyboardSpecs: { is: { layout: contains } } },
+      { keyboardSpecs: { is: { keyboardType: contains } } },
+      { keyboardSpecs: { is: { connections: { has: term } } } },
+      { keyboardSpecs: { is: { layoutLanguage: contains } } },
+      { keyboardSpecs: { is: { keyboardFormFactor: contains } } },
+      { mouseSpecs: { is: { brand: contains } } },
+      { mouseSpecs: { is: { connection: contains } } },
+      { mouseSpecs: { is: { sensor: contains } } },
+      { mouseSpecs: { is: { mouseType: contains } } },
+      { mouseSpecs: { is: { connections: { has: term } } } },
+      { mouseSpecs: { is: { powerType: contains } } },
+      { headsetSpecs: { is: { brand: contains } } },
+      { headsetSpecs: { is: { connection: contains } } },
+      { headsetSpecs: { is: { micType: contains } } },
+      { headsetSpecs: { is: { supportedConnections: { has: term } } } },
+      { microphoneSpecs: { is: { brand: contains } } },
+      { microphoneSpecs: { is: { connection: contains } } },
+      { microphoneSpecs: { is: { micType: contains } } },
+      { speakerSpecs: { is: { brand: contains } } },
+      { speakerSpecs: { is: { connection: contains } } },
+      { webcamSpecs: { is: { brand: contains } } },
+      { webcamSpecs: { is: { resolution: contains } } },
+      { captureCardSpecs: { is: { brand: contains } } },
+      { captureCardSpecs: { is: { resolution: contains } } },
+      { cableHubSpecs: { is: { brand: contains } } },
+      { cableHubSpecs: { is: { type: contains } } },
+      { cableHubSpecs: { is: { cableType: contains } } },
+      { cableHubSpecs: { is: { hubInputType: contains } } },
+      { laptopCoolingBaseSpecs: { is: { brand: contains } } },
+      { laptopCoolingBaseSpecs: { is: { connectivity: contains } } },
+      { backpackSpecs: { is: { brand: contains } } },
+      { backpackSpecs: { is: { color: contains } } },
+      { mousepadSpecs: { is: { brand: contains } } },
+      { chairSpecs: { is: { brand: contains } } },
+      { chairSpecs: { is: { color: contains } } },
+      { chairSpecs: { is: { material: contains } } },
+      { gamingDeskSpecs: { is: { brand: contains } } },
+      { gamingDeskSpecs: { is: { color: contains } } },
+      { gamingDeskSpecs: { is: { surface: contains } } },
+    ];
+  }
+
   private numberRange(query: ProductQuery, minKey: string, maxKey: string) {
     const min = this.getQueryNumber(query, minKey);
     const max = this.getQueryNumber(query, maxKey);
@@ -1382,36 +1507,13 @@ export class ProductsService {
   }
 
   private addSearchFilter(where: any, query: ProductQuery) {
-    const search = this.getQueryString(query, 'search');
+    const search = this.getPublicSearchQuery(query);
 
     if (!search) {
       return;
     }
 
-    this.addAnd(where, {
-      OR: [
-        { name: this.textContains(search) },
-        { description: this.textContains(search) },
-        { sku: this.textContains(search) },
-        { cpuSpecs: { is: { brand: this.textContains(search) } } },
-        { gpuSpecs: { is: { brand: this.textContains(search) } } },
-        { coolerSpecs: { is: { brand: this.textContains(search) } } },
-        { monitorSpecs: { is: { brand: this.textContains(search) } } },
-        { keyboardSpecs: { is: { brand: this.textContains(search) } } },
-        { mouseSpecs: { is: { brand: this.textContains(search) } } },
-        { webcamSpecs: { is: { brand: this.textContains(search) } } },
-        { captureCardSpecs: { is: { brand: this.textContains(search) } } },
-        { cableHubSpecs: { is: { brand: this.textContains(search) } } },
-        { laptopCoolingBaseSpecs: { is: { brand: this.textContains(search) } } },
-        { backpackSpecs: { is: { brand: this.textContains(search) } } },
-        { mousepadSpecs: { is: { brand: this.textContains(search) } } },
-        { chairSpecs: { is: { brand: this.textContains(search) } } },
-        { gamingDeskSpecs: { is: { brand: this.textContains(search) } } },
-        { headsetSpecs: { is: { brand: this.textContains(search) } } },
-        { microphoneSpecs: { is: { brand: this.textContains(search) } } },
-        { speakerSpecs: { is: { brand: this.textContains(search) } } },
-      ],
-    });
+    this.addAnd(where, this.buildPublicSearchWhere(search));
   }
 
   private addProductScalarFilters(where: any, query: ProductQuery) {
@@ -2249,6 +2351,11 @@ export class ProductsService {
 
     const page = Math.max(this.toInt(this.firstQueryValue(query.page)) || 1, 1);
     const limit = Math.min(Math.max(this.toInt(this.firstQueryValue(query.limit)) || 24, 1), 60);
+
+    if (this.getPublicSearchQuery(query)) {
+      return this.findAllWithPublicSearch(query, page, limit);
+    }
+
     const where = this.buildProductWhere(query);
     const orderBy = this.buildProductOrderBy(query);
     const [items, total] = await this.prisma.$transaction([
@@ -2269,6 +2376,53 @@ export class ProductsService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  private async findAllWithPublicSearch(query: ProductQuery, page: number, limit: number) {
+    const search = this.getPublicSearchQuery(query) || '';
+    const expansion = expandProductSearchQuery(search);
+    const where = this.buildProductWhere(this.omitSearchQuery(query));
+    const orderBy = this.buildProductOrderBy(query);
+    const candidates = await this.prisma.product.findMany({
+      where,
+      include: this.productInclude,
+      orderBy,
+      take: 1000,
+    });
+
+    const rankedItems = this.rankSearchCandidates(candidates, expansion);
+    const total = rankedItems.length;
+    const start = (page - 1) * limit;
+    const items = rankedItems.slice(start, start + limit);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  private rankSearchCandidates(products: any[], expansion: ProductSearchExpansion) {
+    return products
+      .map((product, index) => ({
+        product,
+        index,
+        score: rankProductMatch(product, expansion),
+      }))
+      .filter((entry) => entry.score > 0)
+      .sort((left, right) => right.score - left.score || left.index - right.index)
+      .map((entry) => entry.product);
+  }
+
+  private omitSearchQuery(query: ProductQuery): ProductQuery {
+    const { search: _search, query: _query, ...rest } = query;
+    return rest;
+  }
+
+  private getPublicSearchQuery(query: ProductQuery) {
+    return this.getQueryString(query, 'search') || this.getQueryString(query, 'query');
   }
 
   async getFilterOptions(query: ProductQuery = {}) {
@@ -2417,9 +2571,7 @@ export class ProductsService {
   }
 
   private isUuid(value: string) {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    );
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
 
   async findRelated(id: string) {
