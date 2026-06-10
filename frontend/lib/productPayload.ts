@@ -111,7 +111,15 @@ export function buildProductPayload(
     case 'RAM':
       Object.assign(
         payload,
-        pick(formData, ['memoryType', 'capacity', 'speed', 'modules', 'hasRGB']),
+        pick(formData, [
+          'brand',
+          'memoryType',
+          'capacity',
+          'speed',
+          'modules',
+          'latency',
+          'hasRGB',
+        ]),
       );
       break;
     case 'GPU':
@@ -121,6 +129,7 @@ export function buildProductPayload(
           'brand',
           'chipset',
           'vram',
+          'typeVram',
           'length',
           'gpuPowerWatts',
           'recommendedPsuWatts',
@@ -140,10 +149,13 @@ export function buildProductPayload(
         pick(formData, [
           'brand',
           'formFactor',
+          'supportedFormFactors',
           'maxGpuLength',
+          'maxCoolerHeight',
           'includesPsu',
           'includedFans',
           'radiatorSupportMm',
+          'radiatorSupportMmValues',
         ]),
       );
       break;
@@ -164,17 +176,11 @@ export function buildProductPayload(
       );
       break;
     case 'STORAGE':
-      Object.assign(
-        payload,
-        pick(formData, [
-          'type',
-          'capacity',
-          'interface',
-          'readSpeed',
-          'writeSpeed',
-          'm2FormFactor',
-        ]),
-      );
+      Object.assign(payload, {
+        ...pick(formData, ['type', 'capacity', 'readSpeed', 'writeSpeed']),
+        interface: formData.type === 'Sólido M.2' ? formData.interface : 'SATA',
+        m2FormFactor: formData.type === 'Sólido M.2' ? formData.m2FormFactor : '',
+      });
       break;
     case 'LAPTOP':
       Object.assign(

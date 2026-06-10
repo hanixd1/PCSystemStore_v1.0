@@ -9,6 +9,9 @@ import { AuthModule } from '../src/auth/auth.module';
 import { JwtAuthGuard } from '../src/auth/jwt-auth.guard';
 import { RolesGuard } from '../src/auth/roles.guard';
 import { ProductsController } from '../src/products/products.controller';
+import { ProductImportController } from '../src/products/import/product-import.controller';
+import { ProductImportService } from '../src/products/import/product-import.service';
+import { ProductTemplateService } from '../src/products/import/product-template.service';
 import { ProductsService } from '../src/products/products.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CloudinaryService } from '../src/uploads/cloudinary.service';
@@ -35,6 +38,17 @@ describe('Security (e2e)', () => {
     image: 'https://example.com/cpu.jpg',
   };
 
+  const parseBinaryResponse = (
+    response: NodeJS.ReadableStream,
+    callback: (error: Error | null, body: Buffer) => void,
+  ) => {
+    const chunks: Buffer[] = [];
+    response.on('data', (chunk: Buffer | string) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    response.on('end', () => callback(null, Buffer.concat(chunks)));
+  };
+
   const productsServiceMock = {
     create: jest.fn((body: unknown) => ({
       id: 'product-1',
@@ -52,6 +66,10 @@ describe('Security (e2e)', () => {
     uploadImage: jest.fn(async () => ({
       secureUrl: 'https://example.com/uploaded.jpg',
     })),
+  };
+  const productImportServiceMock = {
+    preview: jest.fn(),
+    confirm: jest.fn(),
   };
 
   const usersServiceMock = {
@@ -114,7 +132,7 @@ describe('Security (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AuthModule],
-      controllers: [AppController, ProductsController, UsersController],
+      controllers: [AppController, ProductsController, ProductImportController, UsersController],
       providers: [
         AppService,
         {
@@ -125,6 +143,8 @@ describe('Security (e2e)', () => {
           },
         },
         { provide: ProductsService, useValue: productsServiceMock },
+        { provide: ProductImportService, useValue: productImportServiceMock },
+        ProductTemplateService,
         { provide: CloudinaryService, useValue: cloudinaryServiceMock },
         { provide: UsersService, useValue: usersServiceMock },
         {
@@ -161,6 +181,85 @@ describe('Security (e2e)', () => {
 
   it('POST /products sin token devuelve 401', () => {
     return request(app.getHttpServer()).post('/products').send(validProduct).expect(401);
+  });
+
+  it('GET /products/import/template sin token devuelve 401', () => {
+    return request(app.getHttpServer())
+      .get('/products/import/template')
+      .query({ category: 'COMPONENTES', productType: 'Procesador (CPU)' })
+      .expect(401);
+  });
+
+  it('GET /products/import/template con token editor devuelve 403', async () => {
+    const editorToken = await jwtService.signAsync({
+      sub: 'editor-1',
+      email: 'editor@example.com',
+      role: 'EDITOR',
+    });
+
+    return request(app.getHttpServer())
+      .get('/products/import/template')
+      .query({ category: 'COMPONENTES', productType: 'Procesador (CPU)' })
+      .set('Authorization', `Bearer ${editorToken}`)
+      .expect(403);
+  });
+
+  it('GET /products/import/template con token admin devuelve Excel descargable', async () => {
+    const adminToken = await jwtService.signAsync({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/products/import/template')
+      .query({ category: 'COMPONENTES', productType: 'Procesador (CPU)' })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .buffer(true)
+      .parse(parseBinaryResponse)
+      .expect(200);
+
+    expect(response.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(response.headers['content-disposition']).toContain('plantilla-procesador.xlsx');
+    expect(response.headers['content-length']).toBeDefined();
+    expect(Buffer.isBuffer(response.body)).toBe(true);
+    expect(response.body.length).toBeGreaterThan(0);
+    expect(response.body[0]).toBe(0x50);
+    expect(response.body[1]).toBe(0x4b);
+  });
+
+  it('GET /products/import/template sin category o productType devuelve 400', async () => {
+    const adminToken = await jwtService.signAsync({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    });
+
+    return request(app.getHttpServer())
+      .get('/products/import/template')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+  });
+
+  it('GET /products/import/template con productType invalido devuelve 400', async () => {
+    const adminToken = await jwtService.signAsync({
+      sub: 'admin-1',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/products/import/template')
+      .query({ category: 'COMPONENTES', productType: 'Tipo inexistente' })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+
+    expect(response.headers['content-type']).toContain('application/json');
+    expect(response.headers['content-type']).not.toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
   });
 
   it('GET /users con token de cliente devuelve 403', async () => {

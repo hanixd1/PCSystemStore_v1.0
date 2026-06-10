@@ -6,11 +6,12 @@ import { UploadsModule } from '../uploads/uploads.module';
 import { ProductPricingService } from './services/product-pricing.service';
 import { ProductImportController } from './import/product-import.controller';
 import { ProductImportService } from './import/product-import.service';
+import { ProductTemplateService } from './import/product-template.service';
 
 @Module({
   imports: [AuditModule, UploadsModule],
   controllers: [ProductImportController, ProductsController],
-  providers: [ProductsService, ProductPricingService, ProductImportService],
+  providers: [ProductsService, ProductPricingService, ProductImportService, ProductTemplateService],
   exports: [ProductPricingService],
 })
 export class ProductsModule {}

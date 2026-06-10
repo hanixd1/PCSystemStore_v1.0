@@ -3,6 +3,9 @@ import { ProductImportController } from './product-import.controller';
 
 describe('ProductImportController roles', () => {
   it('restringe preview y confirm solo a ADMIN', () => {
+    expect(
+      Reflect.getMetadata(ROLES_KEY, ProductImportController.prototype.downloadTemplate),
+    ).toEqual(['ADMIN']);
     expect(Reflect.getMetadata(ROLES_KEY, ProductImportController.prototype.preview)).toEqual([
       'ADMIN',
     ]);

@@ -67,7 +67,46 @@ function normalizeCoolerType(product: any) {
 
 function getCaseMaxCoolerHeight(product: any) {
   const specs = product.caseSpecs || {};
-  return Number(specs.maxCoolerHeightMm ?? specs.coolerHeightMm ?? specs.alturaMaximaCoolerMm ?? 0);
+  return Number(
+    specs.maxCoolerHeight ??
+      specs.maxCoolerHeightMm ??
+      specs.coolerHeightMm ??
+      specs.alturaMaximaCoolerMm ??
+      0,
+  );
+}
+
+function normalizeText(value: unknown) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function getCaseFormFactors(product: any) {
+  const specs = product.caseSpecs || {};
+  const values =
+    Array.isArray(specs.supportedFormFactors) && specs.supportedFormFactors.length
+      ? specs.supportedFormFactors
+      : specs.formFactor;
+
+  return (Array.isArray(values) ? values : String(values || '').split(/[;,]/))
+    .map((item) => normalizeText(item))
+    .filter(Boolean);
+}
+
+function getCaseRadiatorSizes(product: any) {
+  const specs = product.caseSpecs || {};
+  const values =
+    Array.isArray(specs.radiatorSupportMmValues) && specs.radiatorSupportMmValues.length
+      ? specs.radiatorSupportMmValues
+      : specs.radiatorSupportMm;
+
+  return (Array.isArray(values) ? values : String(values || '').split(/[;,]/))
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
 }
 
 function validateCpuMotherboardCompatibility(build: Record<string, any>) {
@@ -127,14 +166,45 @@ function validateTowerCoolerCaseCompatibility(build: Record<string, any>) {
 
 function validateLiquidCoolerCaseCompatibility(build: Record<string, any>) {
   const radiatorSize = Number(build.cooler.coolerSpecs?.radiatorSize || 0);
-  const caseRadiator = Number(build.case.caseSpecs?.radiatorSupportMm || 0);
-  if (radiatorSize > 0 && caseRadiator > 0 && radiatorSize > caseRadiator) {
+  const caseRadiators = getCaseRadiatorSizes(build.case);
+  if (radiatorSize > 0 && caseRadiators.length > 0 && !caseRadiators.includes(radiatorSize)) {
     return [
-      `Este gabinete no soporta el radiador seleccionado. El cooler requiere radiador de ${radiatorSize} mm y el gabinete soporta hasta ${caseRadiator} mm.`,
+      `Este gabinete no soporta el radiador seleccionado. El cooler requiere radiador de ${radiatorSize} mm.`,
     ];
   }
 
   return [];
+}
+
+function caseSupportsMotherboard(pcCase: any, motherboard: any) {
+  if (!pcCase || !motherboard) return true;
+  const motherboardFormFactor = normalizeText(motherboard.motherboardSpecs?.formFactor);
+  const caseFormFactors = getCaseFormFactors(pcCase);
+  return (
+    !motherboardFormFactor ||
+    caseFormFactors.length === 0 ||
+    caseFormFactors.includes(motherboardFormFactor)
+  );
+}
+
+function caseSupportsGpu(pcCase: any, gpu: any) {
+  if (!pcCase || !gpu) return true;
+  const caseMaxGpu = Number(pcCase.caseSpecs?.maxGpuLength || 0);
+  const gpuLength = Number(gpu.gpuSpecs?.length || 0);
+  return caseMaxGpu <= 0 || gpuLength <= 0 || gpuLength <= caseMaxGpu;
+}
+
+function caseSupportsCooler(pcCase: any, cooler: any) {
+  if (!pcCase || !cooler) return true;
+  if (normalizeCoolerType(cooler) === 'Torre') {
+    const coolerHeight = Number(cooler.coolerSpecs?.coolerHeight || 0);
+    const caseHeight = getCaseMaxCoolerHeight(pcCase);
+    return coolerHeight <= 0 || caseHeight <= 0 || coolerHeight <= caseHeight;
+  }
+
+  const radiatorSize = Number(cooler.coolerSpecs?.radiatorSize || 0);
+  const caseRadiators = getCaseRadiatorSizes(pcCase);
+  return radiatorSize <= 0 || caseRadiators.length === 0 || caseRadiators.includes(radiatorSize);
 }
 
 function validateStorageCompatibility(build: Record<string, any>) {
@@ -334,19 +404,13 @@ export default function PCBuilderPage() {
       filtered = filtered.filter((p) => Number(p.psuSpecs?.wattage || 0) >= requiredWatts);
     }
 
-    if (stepDef.id === 'case' && build.cooler) {
-      const coolerType = normalizeCoolerType(build.cooler);
-      filtered = filtered.filter((p) => {
-        if (coolerType === 'Torre') {
-          const coolerHeight = Number(build.cooler.coolerSpecs?.coolerHeight || 0);
-          const caseHeight = getCaseMaxCoolerHeight(p);
-          return coolerHeight <= 0 || caseHeight <= 0 || coolerHeight <= caseHeight;
-        }
-
-        const radiatorSize = Number(build.cooler.coolerSpecs?.radiatorSize || 0);
-        const caseRadiator = Number(p.caseSpecs?.radiatorSupportMm || 0);
-        return radiatorSize <= 0 || caseRadiator <= 0 || radiatorSize <= caseRadiator;
-      });
+    if (stepDef.id === 'case') {
+      filtered = filtered.filter(
+        (p) =>
+          caseSupportsMotherboard(p, build.motherboard) &&
+          caseSupportsGpu(p, build.gpu) &&
+          caseSupportsCooler(p, build.cooler),
+      );
     }
 
     return filtered;

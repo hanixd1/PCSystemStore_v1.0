@@ -250,8 +250,20 @@ export class CreateProductDto {
   @Transform(toTrimmedString)
   @IsOptional()
   @IsString()
+  @MaxLength(50)
+  latency?: string;
+
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
   @MaxLength(100)
   chipset?: string;
+
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  typeVram?: string;
 
   @Transform(toOptionalNumber)
   @IsOptional()
@@ -307,6 +319,18 @@ export class CreateProductDto {
   @Min(0)
   maxGpuLength?: number;
 
+  @Transform(toOptionalStringArray)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  supportedFormFactors?: string[];
+
+  @Transform(toOptionalNumber)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  maxCoolerHeight?: number;
+
   @Transform(toOptionalBoolean)
   @IsOptional()
   @IsBoolean()
@@ -323,6 +347,12 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   radiatorSupportMm?: number;
+
+  @Transform(toOptionalStringArray)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  radiatorSupportMmValues?: string[];
 
   @Transform(toTrimmedString)
   @IsOptional()

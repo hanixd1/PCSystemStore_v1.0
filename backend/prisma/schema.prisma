@@ -80,10 +80,12 @@ model MotherboardSpecs {
 model RamSpecs {
   id         String  @id @default(uuid())
   productId  String  @unique
+  brand      String?
   memoryType String
   capacity   Int
   speed      Int
   modules    Int
+  latency    String?
   hasRGB     Boolean
   product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
@@ -94,6 +96,7 @@ model GpuSpecs {
   brand               String?
   chipset             String
   vram                Int
+  typeVram            String?
   length              Int
   tdp                 Int
   gpuPowerWatts       Int?
@@ -114,15 +117,18 @@ model PsuSpecs {
 }
 
 model CaseSpecs {
-  id                String  @id @default(uuid())
-  productId         String  @unique
-  brand             String?
-  formFactor        String
-  maxGpuLength      Int
-  includesPsu       Boolean
-  includedFans      Int
-  radiatorSupportMm Int?
-  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                       String   @id @default(uuid())
+  productId                String   @unique
+  brand                    String?
+  formFactor               String
+  supportedFormFactors     String[] @default([])
+  maxGpuLength             Int
+  maxCoolerHeight          Int?
+  includesPsu              Boolean
+  includedFans             Int
+  radiatorSupportMm        Int?
+  radiatorSupportMmValues  String[] @default([])
+  product                  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model CoolerSpecs {

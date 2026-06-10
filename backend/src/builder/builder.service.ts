@@ -41,13 +41,20 @@ type BuilderProduct = {
   psuSpecs?: { wattage?: number | null } | null;
   caseSpecs?: {
     formFactor?: string | null;
+    supportedFormFactors?: string[] | null;
     maxGpuLength?: number | null;
+    maxCoolerHeight?: number | null;
     includedFans?: number | null;
+    radiatorSupportMm?: number | null;
+    radiatorSupportMmValues?: string[] | null;
   } | null;
   coolerSpecs?: {
     socketSupport?: string | null;
     compatibleSockets?: string[] | null;
     tdpCapacity?: number | null;
+    type?: string | null;
+    coolerHeight?: number | null;
+    radiatorSize?: number | null;
   } | null;
   storageSpecs?: {
     type?: string | null;
@@ -187,6 +194,7 @@ export class BuilderService {
     this.validateCooler(cpu, cooler, cpuTdp, errors, warnings);
     this.validateCaseAndMotherboard(pcCase, motherboard, errors, warnings);
     this.validateGpuAndCase(gpu, pcCase, errors, warnings);
+    this.validateCoolerAndCase(cooler, pcCase, errors, warnings);
     this.validateStorageAndMotherboard(storage, motherboard, errors, warnings);
 
     return {
@@ -378,10 +386,10 @@ export class BuilderService {
       return;
     }
 
-    const caseFormFactor = this.normalizeText(pcCase.caseSpecs?.formFactor);
+    const caseFormFactors = this.getCaseFormFactors(pcCase);
     const motherboardFormFactor = this.normalizeText(motherboard.motherboardSpecs?.formFactor);
 
-    if (!caseFormFactor || !motherboardFormFactor) {
+    if (caseFormFactors.length === 0 || !motherboardFormFactor) {
       warnings.push({
         code: 'CASE_MOTHERBOARD_FORM_FACTOR_METADATA_MISSING',
         message: 'Falta metadata de factor de forma para validar gabinete y placa madre.',
@@ -390,12 +398,65 @@ export class BuilderService {
       return;
     }
 
-    if (caseFormFactor !== motherboardFormFactor) {
+    if (!caseFormFactors.includes(motherboardFormFactor)) {
       errors.push({
         code: 'CASE_MOTHERBOARD_FORM_FACTOR_MISMATCH',
         message:
           'El gabinete seleccionado no declara soporte para el factor de forma de la placa madre.',
         products: [pcCase.id, motherboard.id],
+      });
+    }
+  }
+
+  private validateCoolerAndCase(
+    cooler: BuilderProduct | undefined,
+    pcCase: BuilderProduct | undefined,
+    errors: BuildValidationIssue[],
+    warnings: BuildValidationIssue[],
+  ) {
+    if (!cooler || !pcCase) {
+      return;
+    }
+
+    const coolerType = this.normalizeCoolerType(cooler.coolerSpecs?.type);
+    if (coolerType === 'TORRE') {
+      const coolerHeight = this.toNumber(cooler.coolerSpecs?.coolerHeight);
+      const caseMaxCoolerHeight = this.toNumber(pcCase.caseSpecs?.maxCoolerHeight);
+      if (!coolerHeight || !caseMaxCoolerHeight) {
+        warnings.push({
+          code: 'COOLER_CASE_HEIGHT_METADATA_MISSING',
+          message: 'Falta metadata para validar altura de cooler contra gabinete.',
+          products: [cooler.id, pcCase.id],
+        });
+        return;
+      }
+
+      if (coolerHeight > caseMaxCoolerHeight) {
+        errors.push({
+          code: 'COOLER_CASE_HEIGHT_EXCEEDED',
+          message: 'El cooler seleccionado excede la altura maxima soportada por el gabinete.',
+          products: [cooler.id, pcCase.id],
+        });
+      }
+      return;
+    }
+
+    const radiatorSize = this.toNumber(cooler.coolerSpecs?.radiatorSize);
+    const supportedRadiators = this.getCaseRadiators(pcCase);
+    if (!radiatorSize || supportedRadiators.length === 0) {
+      warnings.push({
+        code: 'COOLER_CASE_RADIATOR_METADATA_MISSING',
+        message: 'Falta metadata para validar radiador de refrigeracion liquida contra gabinete.',
+        products: [cooler.id, pcCase.id],
+      });
+      return;
+    }
+
+    if (!supportedRadiators.includes(radiatorSize)) {
+      errors.push({
+        code: 'COOLER_CASE_RADIATOR_UNSUPPORTED',
+        message: 'El gabinete seleccionado no declara soporte para el radiador del cooler.',
+        products: [cooler.id, pcCase.id],
       });
     }
   }
@@ -483,6 +544,27 @@ export class BuilderService {
     return String(value ?? '')
       .trim()
       .toUpperCase();
+  }
+
+  private normalizeCoolerType(value: unknown) {
+    const normalized = this.normalizeText(value);
+    return normalized.includes('LIQU') ? 'LIQUIDA' : 'TORRE';
+  }
+
+  private getCaseFormFactors(product?: BuilderProduct) {
+    const values = product?.caseSpecs?.supportedFormFactors?.length
+      ? product.caseSpecs.supportedFormFactors
+      : product?.caseSpecs?.formFactor;
+    const list = Array.isArray(values) ? values : String(values ?? '').split(/[;,]/);
+    return list.map((value) => this.normalizeText(value)).filter(Boolean);
+  }
+
+  private getCaseRadiators(product?: BuilderProduct) {
+    const values = product?.caseSpecs?.radiatorSupportMmValues?.length
+      ? product.caseSpecs.radiatorSupportMmValues
+      : product?.caseSpecs?.radiatorSupportMm;
+    const list = Array.isArray(values) ? values : [values];
+    return list.map((value) => this.toNumber(value)).filter((value) => value > 0);
   }
 
   private toNumber(value: unknown) {

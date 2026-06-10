@@ -3,10 +3,7 @@ import AdmZip from 'adm-zip';
 import * as XLSX from 'xlsx';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
-import {
-  CLOUDINARY_UPLOAD_FOLDERS,
-  CloudinaryService,
-} from '../../uploads/cloudinary.service';
+import { CLOUDINARY_UPLOAD_FOLDERS, CloudinaryService } from '../../uploads/cloudinary.service';
 import { ProductsService } from '../products.service';
 import {
   ProductImportBody,
@@ -16,6 +13,7 @@ import {
   PreparedImport,
   PreparedImportRow,
 } from './product-import.types';
+import { REQUIRED_GENERAL_COLUMNS, resolveImportProductType } from './product-import-catalog';
 import {
   isAllowedImageFile,
   isAmdSocket,
@@ -43,52 +41,6 @@ type ImportFiles = {
 
 type RawRow = Record<string, unknown>;
 type NormalizedRow = Record<string, unknown>;
-
-const PRODUCT_TYPES_BY_GROUP: Record<string, Array<{ label: string; category: string }>> = {
-  COMPONENTES: [
-    { label: 'Procesador (CPU)', category: 'CPU' },
-    { label: 'Placa Madre', category: 'MOTHERBOARD' },
-    { label: 'Memoria RAM', category: 'RAM' },
-    { label: 'Tarjeta de Video', category: 'GPU' },
-    { label: 'Fuente de Poder', category: 'PSU' },
-    { label: 'Gabinete / Case', category: 'CASE' },
-    { label: 'Refrigeracion', category: 'COOLER' },
-    { label: 'Almacenamiento', category: 'STORAGE' },
-  ],
-  ORDENADORES: [
-    { label: 'Laptop / Portatil', category: 'LAPTOP' },
-    { label: 'PC de Escritorio', category: 'PC_DESKTOP' },
-    { label: 'Software / Licencia', category: 'SOFTWARE' },
-    { label: 'Base refrigeradora', category: 'LAPTOP_COOLING_BASE' },
-    { label: 'Mochila', category: 'BACKPACK' },
-  ],
-  PERIFERICOS: [
-    { label: 'Monitor', category: 'MONITOR' },
-    { label: 'Teclado', category: 'KEYBOARD' },
-    { label: 'Mouse', category: 'MOUSE' },
-    { label: 'Mousepad', category: 'MOUSEPAD' },
-    { label: 'Silla Gaming', category: 'CHAIR' },
-    { label: 'Mesa Gamer', category: 'GAMING_DESK' },
-    { label: 'Webcam', category: 'WEBCAM' },
-    { label: 'Capturadora', category: 'CAPTURE_CARD' },
-    { label: 'Cables y Hub', category: 'CABLE_HUB' },
-  ],
-  AUDIO: [
-    { label: 'Audifonos / Headset', category: 'HEADSET' },
-    { label: 'Microfono', category: 'MICROPHONE' },
-    { label: 'Parlantes', category: 'SPEAKER' },
-  ],
-};
-
-const REQUIRED_GENERAL_COLUMNS = [
-  'nombre',
-  'numeroParte',
-  'marca',
-  'precio',
-  'stock',
-  'descripcion',
-  'imagenPrincipal',
-];
 
 @Injectable()
 export class ProductImportService {
@@ -265,7 +217,10 @@ export class ProductImportService {
     };
   }
 
-  private async prepareImport(body: ProductImportBody, files: ImportFiles): Promise<PreparedImport> {
+  private async prepareImport(
+    body: ProductImportBody,
+    files: ImportFiles,
+  ): Promise<PreparedImport> {
     const productCategory = this.resolveProductCategory(body);
     const excelFile = this.getRequiredFile(files.excel, 'archivo Excel');
     const zipFile = this.getRequiredFile(files.imagesZip, 'ZIP de imagenes');
@@ -273,7 +228,7 @@ export class ProductImportService {
 
     const rawRows = this.readExcelRows(excelFile);
     const zipEntries = this.buildZipEntryMap(this.readZip(zipFile));
-    const missingColumns = this.getMissingColumns(rawRows);
+    const missingColumns = this.getMissingColumns(rawRows, productCategory);
     const errors: ProductImportIssue[] = [];
     const warnings: ProductImportIssue[] = [];
     const preparedRows: PreparedImportRow[] = [];
@@ -286,7 +241,7 @@ export class ProductImportService {
       errors.push({
         row: 1,
         field: column,
-        message: `Falta la columna obligatoria ${column}.`,
+        message: `Falta la columna obligatoria ${this.getFieldLabel(column)}.`,
       });
     }
 
@@ -299,18 +254,16 @@ export class ProductImportService {
       const row = this.normalizeRow(rawRows[index]);
       const rowErrors: ProductImportIssue[] = [];
       const rowWarnings: ProductImportIssue[] = [];
-      const payload = this.buildPayload(row, productCategory, rowNumber, rowErrors);
+      const payload = this.buildPayload(row, productCategory, rowNumber, rowErrors, rowWarnings);
       const imageFiles = this.resolveRowImages(row, rowNumber, zipEntries, rowErrors, rowWarnings);
       const sku = String(payload.sku ?? '');
-      const existingProduct = sku
-        ? await this.prisma.product.findUnique({ where: { sku } })
-        : null;
+      const existingProduct = sku ? await this.prisma.product.findUnique({ where: { sku } }) : null;
       const action = existingProduct ? 'update' : 'create';
 
       if (existingProduct) {
         rowWarnings.push({
           row: rowNumber,
-          field: 'numeroParte',
+          field: 'sku',
           message: 'El producto ya existe y sera actualizado.',
         });
       }
@@ -344,7 +297,7 @@ export class ProductImportService {
         status: rowErrors.length > 0 ? 'invalid' : 'valid',
         action,
         name: String(payload.name ?? ''),
-        numeroParte: String(row.numeroParte ?? ''),
+        numeroParte: String(payload.sku ?? ''),
         imageCount: imageFiles.length,
       });
     }
@@ -453,10 +406,17 @@ export class ProductImportService {
     return entries;
   }
 
-  private getMissingColumns(rawRows: RawRow[]) {
+  private getMissingColumns(rawRows: RawRow[], category: string) {
     const firstRow = rawRows[0] ?? {};
     const headers = new Set(Object.keys(firstRow).map((key) => normalizeHeader(key)));
-    return REQUIRED_GENERAL_COLUMNS.filter((column) => !headers.has(normalizeHeader(column)));
+    const requiredColumns = REQUIRED_GENERAL_COLUMNS.filter(
+      (column) => !(category === 'CPU' && column === 'marca'),
+    );
+    const missing = requiredColumns.filter((column) => !headers.has(normalizeHeader(column)));
+    if (!headers.has('sku') && !headers.has('numeroparte')) {
+      missing.splice(1, 0, 'sku');
+    }
+    return missing;
   }
 
   private normalizeRow(row: RawRow): NormalizedRow {
@@ -468,19 +428,7 @@ export class ProductImportService {
   }
 
   private resolveProductCategory(body: ProductImportBody) {
-    const group = normalizeText(body.category).toUpperCase();
-    const productType = normalizeHeader(body.productType);
-    const options = PRODUCT_TYPES_BY_GROUP[group];
-    if (!options) {
-      throw new BadRequestException('Selecciona una categoria principal valida.');
-    }
-
-    const resolved = options.find((option) => normalizeHeader(option.label) === productType);
-    if (!resolved) {
-      throw new BadRequestException('Selecciona un tipo de producto valido para la categoria.');
-    }
-
-    return resolved.category;
+    return resolveImportProductType(body.category, body.productType).category;
   }
 
   private buildPayload(
@@ -488,13 +436,17 @@ export class ProductImportService {
     category: string,
     rowNumber: number,
     errors: ProductImportIssue[],
+    warnings: ProductImportIssue[],
   ) {
     const name = normalizeText(row.nombre);
-    const sku = normalizePartNumber(row.numeroparte);
+    const rawSku = normalizeText(row.sku);
+    const rawNumeroParte = normalizeText(row.numeroparte);
+    const sku = normalizePartNumber(rawSku || rawNumeroParte);
     const description = normalizeText(row.descripcion);
     const price = parseRequiredNumber(row.precio);
     const stock = parseRequiredInteger(row.stock);
-    const brand = normalizeText(row.marca);
+    const brand =
+      category === 'CPU' ? normalizeText(row.marcaprocesador) : normalizeText(row.marca);
     const payload: Record<string, unknown> = {
       sku,
       name,
@@ -506,9 +458,35 @@ export class ProductImportService {
     };
 
     if (!name) this.pushError(errors, rowNumber, 'nombre', 'El nombre es obligatorio.');
-    if (!sku) this.pushError(errors, rowNumber, 'numeroParte', 'El numero de parte es obligatorio.');
-    if (!brand) this.pushError(errors, rowNumber, 'marca', 'La marca es obligatoria.');
-    if (!description) this.pushError(errors, rowNumber, 'descripcion', 'La descripcion es obligatoria.');
+    if (!sku) this.pushError(errors, rowNumber, 'sku', 'El SKU del Producto es obligatorio.');
+    if (rawNumeroParte && !rawSku) {
+      warnings.push({
+        row: rowNumber,
+        field: 'sku',
+        message: 'numeroParte fue normalizado a sku.',
+      });
+    }
+    if (
+      rawSku &&
+      rawNumeroParte &&
+      normalizePartNumber(rawSku) !== normalizePartNumber(rawNumeroParte)
+    ) {
+      warnings.push({
+        row: rowNumber,
+        field: 'sku',
+        message: 'sku y numeroParte difieren; se usara sku como fuente principal.',
+      });
+    }
+    if (!brand) {
+      this.pushError(
+        errors,
+        rowNumber,
+        category === 'CPU' ? 'marcaProcesador' : 'marca',
+        category === 'CPU' ? 'La marca del procesador es obligatoria.' : 'La marca es obligatoria.',
+      );
+    }
+    if (!description)
+      this.pushError(errors, rowNumber, 'descripcion', 'La descripcion es obligatoria.');
     if (price === undefined || price <= 0) {
       this.pushError(errors, rowNumber, 'precio', 'El precio debe ser mayor a 0.');
     }
@@ -516,7 +494,7 @@ export class ProductImportService {
       this.pushError(errors, rowNumber, 'stock', 'El stock debe ser un entero mayor o igual a 0.');
     }
 
-    this.applyCategoryPayload(row, category, payload, rowNumber, errors);
+    this.applyCategoryPayload(row, category, payload, rowNumber, errors, warnings);
     return payload;
   }
 
@@ -526,25 +504,75 @@ export class ProductImportService {
     payload: Record<string, unknown>,
     rowNumber: number,
     errors: ProductImportIssue[],
+    warnings: ProductImportIssue[],
   ) {
     switch (category) {
       case 'CPU':
         this.applyCpuPayload(row, payload, rowNumber, errors);
         break;
       case 'MOTHERBOARD':
+        if (row.frecuenciaram !== undefined) {
+          warnings.push({
+            row: rowNumber,
+            field: 'frecuenciaRam',
+            message: 'La columna frecuenciaRam ya no se usa para Placa Madre.',
+          });
+        }
         this.applyMotherboardPayload(row, payload, rowNumber, errors);
         break;
       case 'RAM':
+        payload.brand = this.requiredText(row.marca, 'marca', rowNumber, errors);
         payload.memoryType = this.requiredText(row.tiporam, 'tipoRam', rowNumber, errors);
-        payload.capacity = this.requiredInteger(row.capacidad, 'capacidad', rowNumber, errors);
+        if (normalizeText(row.cantidad) && !normalizeText(row.capacidadpormodulo)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'capacidadPorModulo',
+            message: 'cantidad fue normalizado a capacidadPorModulo.',
+          });
+        }
+        payload.capacity = this.requiredInteger(
+          normalizeText(row.capacidadpormodulo) ? row.capacidadpormodulo : row.cantidad,
+          'capacidadPorModulo',
+          rowNumber,
+          errors,
+        );
         payload.speed = this.requiredInteger(row.frecuencia, 'frecuencia', rowNumber, errors);
         payload.modules = this.requiredInteger(row.modulos, 'modulos', rowNumber, errors);
+        payload.latency = normalizeText(row.latencia) || undefined;
         payload.hasRGB = parseImportBoolean(row.rgb) ?? false;
         break;
       case 'GPU':
-        payload.chipset = normalizeText(row.chipset) || normalizeText(row.marca);
+        payload.chipset = this.requiredGpuChipset(row.chipset, 'chipset', rowNumber, errors);
         payload.vram = this.requiredInteger(row.vram, 'vram', rowNumber, errors);
-        payload.length = this.requiredInteger(row.longitudmm, 'longitudMm', rowNumber, errors);
+        payload.typeVram = this.requiredGpuVramType(row.tipovram, 'tipoVram', rowNumber, errors);
+        if (normalizeText(row.longitudmm) && !normalizeText(row.largomm)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'largoMm',
+            message: 'longitudMm fue normalizado a largoMm.',
+          });
+        }
+        if (
+          normalizeText(row.longitud) &&
+          !normalizeText(row.largomm) &&
+          !normalizeText(row.longitudmm)
+        ) {
+          warnings.push({
+            row: rowNumber,
+            field: 'largoMm',
+            message: 'longitud fue normalizado a largoMm.',
+          });
+        }
+        payload.length = this.requiredInteger(
+          normalizeText(row.largomm)
+            ? row.largomm
+            : normalizeText(row.longitudmm)
+              ? row.longitudmm
+              : row.longitud,
+          'largoMm',
+          rowNumber,
+          errors,
+        );
         payload.gpuPowerWatts = this.requiredInteger(row.tdp, 'tdp', rowNumber, errors);
         payload.recommendedPsuWatts = this.requiredInteger(
           row.fuenterecomendada,
@@ -552,24 +580,88 @@ export class ProductImportService {
           rowNumber,
           errors,
         );
-        payload.fans = this.optionalInteger(row.ventiladores) ?? 1;
+        payload.fans = this.requiredInteger(row.ventiladores, 'ventiladores', rowNumber, errors);
         break;
       case 'PSU':
-        payload.wattage = this.requiredInteger(row.watts, 'watts', rowNumber, errors);
-        payload.certification = this.requiredText(row.certificacion, 'certificacion', rowNumber, errors);
+        if (normalizeText(row.watts) && !normalizeText(row.potenciawatts)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'potenciaWatts',
+            message: 'watts fue normalizado a potenciaWatts.',
+          });
+        }
+        payload.wattage = this.requiredInteger(
+          normalizeText(row.potenciawatts) ? row.potenciawatts : row.watts,
+          'potenciaWatts',
+          rowNumber,
+          errors,
+        );
+        payload.certification = this.requiredText(
+          row.certificacion,
+          'certificacion',
+          rowNumber,
+          errors,
+        );
         payload.modular = this.requiredText(row.modularidad, 'modularidad', rowNumber, errors);
         payload.formFactor = normalizeText(row.formato) || 'ATX';
         break;
       case 'CASE':
-        payload.formFactor = this.requiredText(row.formatosoportado, 'formatoSoportado', rowNumber, errors);
-        payload.maxGpuLength = this.requiredInteger(row.longitudgpumax, 'longitudGpuMax', rowNumber, errors);
-        payload.coolerHeight = this.optionalInteger(row.alturacoolermax);
+        if (normalizeText(row.formatosoportado) && !normalizeText(row.soporteplaca)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'soportePlaca',
+            message: 'formatoSoportado fue normalizado a soportePlaca.',
+          });
+        }
+        if (normalizeText(row.tipocase)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'tipoCase',
+            message: 'tipoCase ya no se usa y fue ignorado.',
+          });
+        }
+        if (normalizeText(row.longitudgpumax) && !normalizeText(row.largogpumax)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'largoGpuMax',
+            message: 'longitudGpuMax fue normalizado a largoGpuMax.',
+          });
+        }
+        payload.supportedFormFactors = this.requiredFormFactorList(
+          normalizeText(row.soporteplaca) ? row.soporteplaca : row.formatosoportado,
+          'soportePlaca',
+          rowNumber,
+          errors,
+        );
+        payload.formFactor = (payload.supportedFormFactors as string[])[0] ?? 'ATX';
+        payload.maxGpuLength = this.requiredInteger(
+          normalizeText(row.largogpumax) ? row.largogpumax : row.longitudgpumax,
+          'largoGpuMax',
+          rowNumber,
+          errors,
+        );
+        payload.maxCoolerHeight = this.requiredInteger(
+          row.alturacoolermax,
+          'alturaCoolerMax',
+          rowNumber,
+          errors,
+        );
         payload.includesPsu = parseImportBoolean(row.fuenteincluida) ?? false;
-        payload.includedFans = this.optionalInteger(row.coolersincluidos) ?? 0;
-        payload.radiatorSupportMm = this.optionalInteger(row.radiadormm) ?? 0;
+        payload.includedFans =
+          this.optionalInteger(
+            normalizeText(row.ventiladoresincluidos)
+              ? row.ventiladoresincluidos
+              : row.coolersincluidos,
+          ) ?? 0;
+        payload.radiatorSupportMmValues = this.normalizeRadiatorValues(
+          normalizeText(row.soporteradiadorliquido) ? row.soporteradiadorliquido : row.radiadormm,
+        );
+        payload.radiatorSupportMm = this.getMaxRadiatorValue(
+          payload.radiatorSupportMmValues as string[],
+        );
         break;
       case 'COOLER':
-        payload.type = this.requiredText(row.tipo, 'tipo', rowNumber, errors);
+        payload.type = this.requiredCoolerType(row.tipo, 'tipo', rowNumber, errors, warnings);
         payload.compatibleSockets = this.requiredSocketList(
           row.socketsoportado,
           'socketSoportado',
@@ -581,16 +673,75 @@ export class ProductImportService {
         payload.radiatorSize = this.optionalInteger(row.radiadormm) ?? 0;
         payload.fanCount = this.optionalInteger(row.ventiladores) ?? 1;
         payload.hasRGB = parseImportBoolean(row.rgb) ?? false;
-        payload.hasScreen = parseImportBoolean(row.pantalla) ?? false;
+        payload.hasScreen =
+          parseImportBoolean(normalizeText(row.pantallalcd) ? row.pantallalcd : row.pantalla) ??
+          false;
         payload.tdpCapacity = this.optionalInteger(row.tdpsoportado) ?? 1;
         break;
       case 'STORAGE':
-        payload.type = this.requiredText(row.tipoalmacenamiento, 'tipoAlmacenamiento', rowNumber, errors);
-        payload.capacity = this.requiredInteger(row.capacidad, 'capacidad', rowNumber, errors);
-        payload.interface = this.requiredText(row.interfaz, 'interfaz', rowNumber, errors);
-        payload.m2FormFactor = normalizeText(row.formato) || null;
-        payload.readSpeed = this.optionalInteger(row.lecturambs) ?? 0;
-        payload.writeSpeed = this.optionalInteger(row.escriturambs) ?? 0;
+        payload.type = this.requiredStorageType(
+          row.tipoalmacenamiento,
+          'tipoAlmacenamiento',
+          rowNumber,
+          errors,
+          warnings,
+        );
+        if (normalizeText(row.capacidad) && !normalizeText(row.capacidadgb)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'capacidadGB',
+            message: 'capacidad fue normalizado a capacidadGB.',
+          });
+        }
+        payload.capacity = this.requiredStorageCapacityGb(
+          normalizeText(row.capacidadgb) ? row.capacidadgb : row.capacidad,
+          'capacidadGB',
+          rowNumber,
+          errors,
+        );
+        if (normalizeText(row.interfaz) && !normalizeText(row.generacion)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'generacion',
+            message: 'interfaz fue normalizado a generacion.',
+          });
+        }
+        payload.interface = normalizeText(row.generacion)
+          ? normalizeText(row.generacion)
+          : this.normalizeStorageGeneration(
+              row.interfaz,
+              row.tipoalmacenamiento,
+              payload.type as string,
+              warnings,
+              rowNumber,
+            );
+        if (payload.type !== 'Sólido M.2' && payload.interface !== 'SATA') {
+          warnings.push({
+            row: rowNumber,
+            field: 'generacion',
+            message:
+              'La generacion solo aplica para Sólido M.2. Fue normalizada a SATA para este tipo de almacenamiento.',
+          });
+          payload.interface = 'SATA';
+        }
+        payload.m2FormFactor = this.normalizeStorageM2FormFactor(
+          normalizeText(row.tamanofisicom2) ? row.tamanofisicom2 : row.formato,
+          payload.type as string,
+          rowNumber,
+          errors,
+        );
+        payload.readSpeed = this.requiredInteger(
+          normalizeText(row.velocidadlecturambs) ? row.velocidadlecturambs : row.lecturambs,
+          'velocidadLecturaMBs',
+          rowNumber,
+          errors,
+        );
+        payload.writeSpeed = this.requiredInteger(
+          normalizeText(row.velocidadescriturambs) ? row.velocidadescriturambs : row.escriturambs,
+          'velocidadEscrituraMBs',
+          rowNumber,
+          errors,
+        );
         break;
       default:
         this.applyGenericPayload(category, payload);
@@ -632,7 +783,12 @@ export class ProductImportService {
     payload.includesCooler = includesCooler;
 
     if (socket && isAmdSocket(socket) && !/amd/i.test(cpuBrand)) {
-      this.pushError(errors, rowNumber, 'marcaProcesador', 'El socket seleccionado pertenece a AMD.');
+      this.pushError(
+        errors,
+        rowNumber,
+        'marcaProcesador',
+        'El socket seleccionado pertenece a AMD.',
+      );
     }
   }
 
@@ -663,6 +819,187 @@ export class ProductImportService {
     if ((payload.supportedM2FormFactors as string[]).length === 0) {
       payload.supportedM2FormFactors = ['2280'];
     }
+  }
+
+  private requiredFormFactorList(
+    value: unknown,
+    field: string,
+    row: number,
+    errors: ProductImportIssue[],
+  ) {
+    const formFactors = normalizeText(value)
+      .split(';')
+      .map((item) => normalizeFormFactor(item))
+      .filter(Boolean);
+
+    if (formFactors.length === 0) {
+      this.pushError(errors, row, field, `El campo ${this.getFieldLabel(field)} es obligatorio.`);
+    }
+
+    return [...new Set(formFactors)];
+  }
+
+  private normalizeRadiatorValues(value: unknown) {
+    const values = normalizeText(value)
+      .split(';')
+      .map((item) => {
+        const text = normalizeText(item);
+        const match = text.match(/\d+/);
+        if (!match) return /no/i.test(text) ? '0' : '';
+        return match[0];
+      })
+      .filter(Boolean);
+
+    if (values.length === 0 || values.includes('0')) return ['0'];
+    return [...new Set(values)];
+  }
+
+  private getMaxRadiatorValue(values: string[]) {
+    if (values.includes('0')) return 0;
+    return Math.max(0, ...values.map((value) => Number(value)).filter(Number.isFinite));
+  }
+
+  private requiredCoolerType(
+    value: unknown,
+    field: string,
+    row: number,
+    errors: ProductImportIssue[],
+    warnings: ProductImportIssue[],
+  ) {
+    const rawType = normalizeText(value);
+    if (!rawType) {
+      this.pushError(errors, row, field, `El campo ${this.getFieldLabel(field)} es obligatorio.`);
+      return 'Torre';
+    }
+
+    const normalized = rawType
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (normalized === 'aire') {
+      warnings.push({
+        row,
+        field,
+        message: 'Aire fue normalizado a Torre.',
+      });
+      return 'Torre';
+    }
+
+    if (normalized.includes('liqu')) return 'Líquida';
+    if (normalized === 'torre') return 'Torre';
+
+    this.pushError(errors, row, field, 'El tipo de refrigeracion debe ser Torre o Liquida.');
+    return rawType;
+  }
+
+  private requiredStorageType(
+    value: unknown,
+    field: string,
+    row: number,
+    errors: ProductImportIssue[],
+    warnings: ProductImportIssue[],
+  ) {
+    const rawType = normalizeText(value);
+    if (!rawType) {
+      this.pushError(errors, row, field, `El campo ${this.getFieldLabel(field)} es obligatorio.`);
+      return 'SSD 2.5';
+    }
+
+    const normalized = rawType
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (normalized.includes('NVME') || normalized.includes('M.2')) {
+      if (normalized.includes('NVME')) {
+        warnings.push({
+          row,
+          field,
+          message: 'NVMe M.2 fue normalizado a Sólido M.2.',
+        });
+      }
+      return 'Sólido M.2';
+    }
+    if (normalized === 'SSD' || normalized.includes('SSD 2.5')) return 'SSD 2.5';
+    if (normalized === 'HDD' || normalized.includes('HDD 3.5')) return 'HDD 3.5';
+
+    this.pushError(
+      errors,
+      row,
+      field,
+      'El tipo de almacenamiento debe ser SSD 2.5, Sólido M.2 o HDD 3.5.',
+    );
+    return rawType;
+  }
+
+  private requiredStorageCapacityGb(
+    value: unknown,
+    field: string,
+    row: number,
+    errors: ProductImportIssue[],
+  ) {
+    const text = normalizeText(value).toUpperCase();
+    const parsed = parseRequiredNumber(text);
+    if (parsed === undefined) {
+      this.pushError(
+        errors,
+        row,
+        field,
+        `El campo ${this.getFieldLabel(field)} debe ser numerico.`,
+      );
+      return 0;
+    }
+
+    return text.includes('TB') ? Math.round(parsed * 1000) : Math.round(parsed);
+  }
+
+  private normalizeStorageGeneration(
+    value: unknown,
+    rawStorageType: unknown,
+    storageType: string,
+    warnings: ProductImportIssue[],
+    row: number,
+  ) {
+    const rawGeneration = normalizeText(value);
+    const rawType = normalizeText(rawStorageType).toUpperCase();
+
+    if (!rawGeneration && rawType.includes('M.2') && rawType.includes('SATA')) {
+      warnings.push({
+        row,
+        field: 'generacion',
+        message: 'M.2 SATA fue normalizado a Sólido M.2 con generacion SATA.',
+      });
+      return 'SATA';
+    }
+
+    if (!rawGeneration) return storageType === 'Sólido M.2' ? 'PCIe 4.0' : 'SATA';
+
+    const normalized = rawGeneration.toUpperCase();
+    if (normalized.includes('SATA')) return 'SATA';
+    if (normalized.includes('5.0')) return 'PCIe 5.0';
+    if (normalized.includes('4.0') || normalized.includes('NVME') || normalized.includes('PCIE')) {
+      return normalized.includes('3.0') ? 'PCIe 3.0' : 'PCIe 4.0';
+    }
+    if (normalized.includes('3.0')) return 'PCIe 3.0';
+    return rawGeneration;
+  }
+
+  private normalizeStorageM2FormFactor(
+    value: unknown,
+    storageType: string,
+    row: number,
+    errors: ProductImportIssue[],
+  ) {
+    if (storageType !== 'Sólido M.2') return null;
+
+    const match = normalizeText(value).match(/2230|2242|2260|2280|22110/);
+    if (!match) {
+      this.pushError(errors, row, 'tamanoFisicoM2', 'El tamaño fisico M.2 es obligatorio.');
+      return null;
+    }
+
+    return match[0];
   }
 
   private applyGenericPayload(category: string, payload: Record<string, unknown>) {
@@ -751,7 +1088,12 @@ export class ProductImportService {
       this.pushError(errors, rowNumber, 'imagenPrincipal', 'La imagen principal es obligatoria.');
     }
 
-    if (primary && !listedImages.some((fileName) => normalizeZipFileName(fileName) === normalizeZipFileName(primary))) {
+    if (
+      primary &&
+      !listedImages.some(
+        (fileName) => normalizeZipFileName(fileName) === normalizeZipFileName(primary),
+      )
+    ) {
       warnings.push({
         row: rowNumber,
         field: 'imagenPrincipal',
@@ -781,10 +1123,7 @@ export class ProductImportService {
     ).filter(Boolean);
   }
 
-  private async uploadRowImages(
-    row: PreparedImportRow,
-    zipEntries: Map<string, AdmZip.IZipEntry>,
-  ) {
+  private async uploadRowImages(row: PreparedImportRow, zipEntries: Map<string, AdmZip.IZipEntry>) {
     const uploaded: string[] = [];
     for (const fileName of row.imageFiles) {
       const entry = zipEntries.get(normalizeZipFileName(fileName) ?? '');
@@ -806,14 +1145,10 @@ export class ProductImportService {
     return uploaded;
   }
 
-  private requiredText(
-    value: unknown,
-    field: string,
-    row: number,
-    errors: ProductImportIssue[],
-  ) {
+  private requiredText(value: unknown, field: string, row: number, errors: ProductImportIssue[]) {
     const text = normalizeText(value);
-    if (!text) this.pushError(errors, row, field, `El campo ${field} es obligatorio.`);
+    if (!text)
+      this.pushError(errors, row, field, `El campo ${this.getFieldLabel(field)} es obligatorio.`);
     return text;
   }
 
@@ -824,18 +1159,22 @@ export class ProductImportService {
     errors: ProductImportIssue[],
   ) {
     const parsed = parseRequiredInteger(value);
-    if (parsed === undefined) this.pushError(errors, row, field, `El campo ${field} debe ser entero.`);
+    if (parsed === undefined) {
+      this.pushError(errors, row, field, `El campo ${this.getFieldLabel(field)} debe ser entero.`);
+    }
     return parsed ?? 0;
   }
 
-  private requiredNumber(
-    value: unknown,
-    field: string,
-    row: number,
-    errors: ProductImportIssue[],
-  ) {
+  private requiredNumber(value: unknown, field: string, row: number, errors: ProductImportIssue[]) {
     const parsed = parseRequiredNumber(value);
-    if (parsed === undefined) this.pushError(errors, row, field, `El campo ${field} debe ser numerico.`);
+    if (parsed === undefined) {
+      this.pushError(
+        errors,
+        row,
+        field,
+        `El campo ${this.getFieldLabel(field)} debe ser numerico.`,
+      );
+    }
     return parsed ?? 0;
   }
 
@@ -851,17 +1190,50 @@ export class ProductImportService {
   ) {
     const parsed = parseImportBoolean(value);
     if (parsed === undefined) {
-      this.pushError(errors, row, field, `El campo ${field} debe ser SI/NO, true/false o 1/0.`);
+      this.pushError(
+        errors,
+        row,
+        field,
+        `El campo ${this.getFieldLabel(field)} debe ser SI/NO, true/false o 1/0.`,
+      );
     }
     return parsed ?? false;
   }
 
-  private requiredSocket(
+  private requiredGpuChipset(
     value: unknown,
     field: string,
     row: number,
     errors: ProductImportIssue[],
   ) {
+    const chipset = this.requiredText(value, field, row, errors);
+    const allowed = ['NVIDIA GeForce', 'AMD Radeon', 'Intel Arc'];
+    if (chipset && !allowed.some((option) => option.toLowerCase() === chipset.toLowerCase())) {
+      this.pushError(
+        errors,
+        row,
+        field,
+        'El chipset debe ser NVIDIA GeForce, AMD Radeon o Intel Arc.',
+      );
+    }
+    return allowed.find((option) => option.toLowerCase() === chipset.toLowerCase()) ?? chipset;
+  }
+
+  private requiredGpuVramType(
+    value: unknown,
+    field: string,
+    row: number,
+    errors: ProductImportIssue[],
+  ) {
+    const typeVram = this.requiredText(value, field, row, errors).toUpperCase();
+    const allowed = ['GDDR6', 'GDDR6X', 'GDDR7'];
+    if (typeVram && !allowed.includes(typeVram)) {
+      this.pushError(errors, row, field, 'El tipo de VRAM debe ser GDDR6, GDDR6X o GDDR7.');
+    }
+    return typeVram;
+  }
+
+  private requiredSocket(value: unknown, field: string, row: number, errors: ProductImportIssue[]) {
     const socket = normalizeSocket(value);
     if (!socket || !isKnownSocket(socket)) {
       this.pushError(errors, row, field, `El socket ${normalizeText(value)} no es valido.`);
@@ -887,12 +1259,43 @@ export class ProductImportService {
     return sockets;
   }
 
-  private pushError(
-    errors: ProductImportIssue[],
-    row: number,
-    field: string,
-    message: string,
-  ) {
+  private pushError(errors: ProductImportIssue[], row: number, field: string, message: string) {
     errors.push({ row, field, message });
+  }
+
+  private getFieldLabel(field: string) {
+    const labels: Record<string, string> = {
+      sku: 'SKU del Producto',
+      numeroparte: 'SKU del Producto',
+      numeroParte: 'SKU del Producto',
+      marca: 'Marca',
+      marcaProcesador: 'Marca del procesador',
+      descripcion: 'Descripcion',
+      imagenPrincipal: 'Imagen principal',
+      imagenesArchivos: 'Imagenes',
+      tipoRam: 'Tipo de RAM',
+      capacidadPorModulo: 'Capacidad por modulo',
+      frecuencia: 'Frecuencia',
+      modulos: 'Modulos',
+      latencia: 'Latencia',
+      tipoVram: 'Tipo de VRAM',
+      fuenteRecomendada: 'Fuente recomendada',
+      largoMm: 'Largo (mm)',
+      ventiladores: 'Ventiladores',
+      potenciaWatts: 'Potencia (Watts)',
+      soportePlaca: 'Soporte de placa',
+      largoGpuMax: 'Max largo GPU (mm)',
+      alturaCoolerMax: 'Altura maxima de cooler (mm)',
+      soporteRadiadorLiquido: 'Soporte radiador liquido',
+      ventiladoresIncluidos: 'Ventiladores incluidos',
+      pantallaLcd: 'Pantalla LCD',
+      capacidadGB: 'Capacidad (GB)',
+      generacion: 'Generacion',
+      velocidadLecturaMBs: 'Velocidad lectura (MB/s)',
+      velocidadEscrituraMBs: 'Velocidad escritura (MB/s)',
+      tamanoFisicoM2: 'Tamano fisico M.2',
+    };
+
+    return labels[field] ?? field;
   }
 }

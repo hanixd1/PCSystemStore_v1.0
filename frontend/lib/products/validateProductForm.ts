@@ -118,6 +118,24 @@ export function validateProductForm(
     return 'Selecciona la marca de la placa madre.';
   }
 
+  if (formData.category === 'RAM') {
+    if (!String(formData.brand || '').trim()) {
+      return 'Selecciona la marca de la memoria RAM.';
+    }
+    if (!String(formData.memoryType || '').trim()) {
+      return 'Selecciona el tipo de RAM.';
+    }
+    if (!String(formData.capacity || '').trim()) {
+      return 'Selecciona la capacidad por modulo de la memoria RAM.';
+    }
+    if (!String(formData.speed || '').trim() || Number(formData.speed) <= 0) {
+      return 'La frecuencia de la memoria RAM debe ser mayor a 0.';
+    }
+    if (!String(formData.modules || '').trim() || Number(formData.modules) <= 0) {
+      return 'Selecciona los modulos de la memoria RAM.';
+    }
+  }
+
   if (formData.category === 'GPU') {
     if (!String(formData.brand || '').trim()) {
       return 'Selecciona la marca ensambladora de la tarjeta grafica.';
@@ -127,6 +145,12 @@ export function validateProductForm(
     }
     if (Number(formData.vram) <= 0) {
       return 'Selecciona la VRAM de la tarjeta grafica.';
+    }
+    if (!String(formData.typeVram || '').trim()) {
+      return 'Selecciona el tipo de VRAM de la tarjeta grafica.';
+    }
+    if (Number(formData.length) <= 0) {
+      return 'El largo de la tarjeta grafica debe ser mayor a 0.';
     }
     if (Number(formData.gpuPowerWatts || formData.tdp) <= 0) {
       return 'El consumo real de la GPU debe ser mayor a 0.';
@@ -168,8 +192,17 @@ export function validateProductForm(
     if (!String(formData.brand || '').trim()) {
       return 'Selecciona la marca del gabinete.';
     }
+    if (
+      !Array.isArray(formData.supportedFormFactors) ||
+      formData.supportedFormFactors.length === 0
+    ) {
+      return 'Selecciona al menos un soporte de placa para el gabinete.';
+    }
     if (Number(formData.maxGpuLength) <= 0) {
       return 'El largo maximo de GPU del gabinete debe ser mayor a 0.';
+    }
+    if (Number(formData.maxCoolerHeight) <= 0) {
+      return 'La altura maxima de cooler del gabinete debe ser mayor a 0.';
     }
     if (
       formData.includedFans !== '' &&
@@ -179,11 +212,10 @@ export function validateProductForm(
       return 'La cantidad de ventiladores incluidos no puede ser negativa.';
     }
     if (
-      formData.radiatorSupportMm !== '' &&
-      formData.radiatorSupportMm !== undefined &&
-      Number(formData.radiatorSupportMm) < 0
+      !Array.isArray(formData.radiatorSupportMmValues) ||
+      formData.radiatorSupportMmValues.length === 0
     ) {
-      return 'El soporte de radiador liquido no puede ser negativo.';
+      return 'Selecciona el soporte de radiador liquido del gabinete.';
     }
   }
 
@@ -205,13 +237,18 @@ export function validateProductForm(
   }
 
   if (formData.category === 'STORAGE') {
-    const isM2 =
-      String(formData.type || '').includes('M.2') ||
-      String(formData.type || '')
-        .toUpperCase()
-        .includes('NVME');
+    const isM2 = String(formData.type || '').includes('M.2');
     if (isM2 && !formData.m2FormFactor) {
       return 'Selecciona el tamano fisico M.2 del almacenamiento.';
+    }
+    if (Number(formData.capacity) <= 0) {
+      return 'La capacidad del almacenamiento debe ser mayor a 0.';
+    }
+    if (Number(formData.readSpeed) <= 0) {
+      return 'La velocidad de lectura debe ser mayor a 0.';
+    }
+    if (Number(formData.writeSpeed) <= 0) {
+      return 'La velocidad de escritura debe ser mayor a 0.';
     }
   }
 

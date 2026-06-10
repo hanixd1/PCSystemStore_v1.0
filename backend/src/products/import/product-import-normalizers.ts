@@ -78,7 +78,11 @@ export function parseImportBoolean(value: unknown) {
 }
 
 export function parseRequiredNumber(value: unknown) {
-  const parsed = Number(String(value ?? '').replace(',', '.').trim());
+  const normalized = String(value ?? '')
+    .replace(',', '.')
+    .trim();
+  const match = normalized.match(/-?\d+(?:\.\d+)?/);
+  const parsed = Number(match?.[0] ?? normalized);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 

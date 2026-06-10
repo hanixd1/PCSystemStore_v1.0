@@ -1,4 +1,4 @@
-﻿import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -100,21 +100,51 @@ export class ProductsService {
       }
     } catch {
       return String(val)
-        .split(',')
+        .split(/[;,]/)
         .map((item) => item.trim())
         .filter(Boolean);
     }
     return [];
   }
 
-  private normalizeCoolerType(val: any): 'Torre' | 'LÃ­quida' {
+  private normalizeCoolerType(val: any): 'Torre' | 'Líquida' {
     const value = String(val || '')
       .trim()
       .toLowerCase();
-    if (value === 'aio' || value.includes('liqu') || value.includes('lÃ­qu')) {
-      return 'LÃ­quida';
+    if (value === 'aio' || value.includes('liqu') || value.includes('líqu')) {
+      return 'Líquida';
     }
     return 'Torre';
+  }
+
+  private normalizeStorageType(val: any): string {
+    const normalized = String(val || '')
+      .trim()
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (normalized.includes('M.2') || normalized.includes('NVME')) return 'Sólido M.2';
+    if (normalized === 'SSD' || normalized.includes('SSD 2.5')) return 'SSD 2.5';
+    if (normalized === 'HDD' || normalized.includes('HDD 3.5')) return 'HDD 3.5';
+    return String(val || '').trim() || 'SSD 2.5';
+  }
+
+  private isM2StorageType(val: any): boolean {
+    return this.normalizeStorageType(val) === 'Sólido M.2';
+  }
+
+  private normalizeRadiatorValues(val: any): string[] {
+    const values = this.toStringArray(val)
+      .map((item) => {
+        const match = String(item).match(/\d+/);
+        if (!match) return /no/i.test(String(item)) ? '0' : '';
+        return match[0];
+      })
+      .filter(Boolean);
+
+    if (values.includes('0')) return ['0'];
+    return [...new Set(values)];
   }
 
   private buildCoolerTypeWhere(value: string) {
@@ -122,7 +152,7 @@ export class ProductsService {
     const variants =
       normalized === 'Torre'
         ? ['Torre', 'AIR', 'Air', 'aire', 'Aire (Torre)']
-        : ['LÃ­quida', 'Liquida', 'AIO', 'aio', 'Liquida (AIO)', 'LÃ­quida (AIO)'];
+        : ['Líquida', 'Liquida', 'AIO', 'aio', 'Liquida (AIO)', 'Líquida (AIO)'];
     return {
       OR: variants.map((variant) => ({
         type: { equals: variant, mode: 'insensitive' as const },
@@ -439,15 +469,13 @@ export class ProductsService {
       throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
     }
 
-    if (coolerType === 'LÃ­quida' && this.toInt(data.radiatorSize) <= 0) {
-      throw new BadRequestException('Selecciona el tamaÃ±o de radiador del cooler lÃ­quido');
+    if (coolerType === 'Líquida' && this.toInt(data.radiatorSize) <= 0) {
+      throw new BadRequestException('Selecciona el tamaño de radiador del cooler líquido');
     }
   }
 
   private validateStorageCategory(data: any) {
-    const storageType = String(data.type || '').toUpperCase();
-    const isM2 = storageType.includes('M.2') || storageType.includes('NVME');
-    if (isM2 && !data.m2FormFactor) {
+    if (this.isM2StorageType(data.type) && !data.m2FormFactor) {
       throw new BadRequestException(
         'El tamaÃ±o fisico M.2 es obligatorio para almacenamientos M.2',
       );
@@ -472,9 +500,22 @@ export class ProductsService {
 
   private validateCaseCategory(data: any) {
     this.validateBrandRequired(data, 'Selecciona la marca del gabinete.');
+    const supportedFormFactors = this.toStringArray(data.supportedFormFactors ?? data.formFactor);
+
+    if (supportedFormFactors.length === 0) {
+      throw new BadRequestException('Selecciona al menos un soporte de placa para el gabinete.');
+    }
+
+    if (this.toInt(data.maxGpuLength) <= 0) {
+      throw new BadRequestException('El max largo GPU del gabinete debe ser mayor a 0.');
+    }
 
     if (data.radiatorSupportMm !== undefined && data.radiatorSupportMm !== '') {
       this.ensureNonNegative('radiatorSupportMm', data.radiatorSupportMm, false);
+    }
+
+    if (data.maxCoolerHeight !== undefined && data.maxCoolerHeight !== '') {
+      this.ensureNonNegative('maxCoolerHeight', data.maxCoolerHeight, false);
     }
   }
   private validatePeripheralCategoryFields(category: string, data: any) {
@@ -887,10 +928,12 @@ export class ProductsService {
     return {
       ramSpecs: {
         create: {
+          brand: data.brand || 'Otros',
           memoryType: data.memoryType || 'DDR4',
           capacity: this.toInt(data.capacity),
           speed: this.toInt(data.speed),
           modules: this.toInt(data.modules),
+          ...(data.latency !== undefined ? { latency: data.latency } : {}),
           hasRGB: this.toBool(data.hasRGB),
         },
       },
@@ -907,6 +950,7 @@ export class ProductsService {
           brand: data.brand || 'Otros',
           chipset: data.chipset || 'N/A',
           vram: this.toInt(data.vram),
+          ...(data.typeVram !== undefined ? { typeVram: data.typeVram } : {}),
           length: this.toInt(data.length),
           tdp: gpuPowerWatts,
           gpuPowerWatts,
@@ -934,17 +978,27 @@ export class ProductsService {
   }
 
   private buildCreateCaseSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    const supportedFormFactors = this.toStringArray(data.supportedFormFactors ?? data.formFactor);
+    const radiatorValues = this.normalizeRadiatorValues(
+      data.radiatorSupportMmValues ?? data.radiatorSupportMm,
+    );
+    const maxRadiator = radiatorValues.includes('0')
+      ? 0
+      : Math.max(0, ...radiatorValues.map((value) => this.toInt(value)));
+
     return {
       caseSpecs: {
         create: {
           brand: data.brand || 'Otros',
-          formFactor: data.formFactor || 'ATX',
+          formFactor: supportedFormFactors[0] || data.formFactor || 'ATX',
+          supportedFormFactors,
           maxGpuLength: this.toInt(data.maxGpuLength),
+          maxCoolerHeight:
+            data.maxCoolerHeight !== undefined ? this.toInt(data.maxCoolerHeight) : null,
           includesPsu: this.toBool(data.includesPsu),
           includedFans: this.toInt(data.includedFans),
-          ...(data.radiatorSupportMm !== undefined
-            ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) }
-            : {}),
+          radiatorSupportMm: maxRadiator,
+          radiatorSupportMmValues: radiatorValues,
         },
       },
     };
@@ -960,7 +1014,7 @@ export class ProductsService {
           socketSupport: this.toStringArray(data.compatibleSockets).join(', '),
           compatibleSockets: this.toStringArray(data.compatibleSockets),
           fanCount: this.toInt(data.fanCount),
-          radiatorSize: coolerType === 'LÃ­quida' ? this.toInt(data.radiatorSize) : null,
+          radiatorSize: coolerType === 'Líquida' ? this.toInt(data.radiatorSize) : null,
           hasScreen: this.toBool(data.hasScreen),
           hasRGB: this.toBool(data.hasRGB),
           tdpCapacity: this.toInt(data.tdpCapacity),
@@ -971,15 +1025,16 @@ export class ProductsService {
   }
 
   private buildCreateStorageSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    const storageType = this.normalizeStorageType(data.type);
     return {
       storageSpecs: {
         create: {
-          type: data.type || 'SSD',
+          type: storageType,
           capacity: this.toInt(data.capacity),
           interface: data.interface || 'SATA',
           readSpeed: this.toInt(data.readSpeed),
           writeSpeed: this.toInt(data.writeSpeed),
-          m2FormFactor: data.m2FormFactor || null,
+          m2FormFactor: this.isM2StorageType(storageType) ? data.m2FormFactor || null : null,
         },
       },
     };
@@ -2574,24 +2629,709 @@ export class ProductsService {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
 
+  private normalizeRelatedText(value: unknown) {
+    return String(value || '')
+      .trim()
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Z0-9]+/g, '');
+  }
+
+  private normalizeRelatedSocket(value: unknown) {
+    const normalized = this.normalizeRelatedText(value);
+    if (normalized.includes('STR5')) return 'STR5';
+    if (normalized.includes('AM5')) return 'AM5';
+    if (normalized.includes('AM4')) return 'AM4';
+    if (normalized.includes('LGA1851')) return 'LGA1851';
+    if (normalized.includes('LGA1700')) return 'LGA1700';
+    if (normalized.includes('LGA1200')) return 'LGA1200';
+    return normalized;
+  }
+
+  private normalizeRelatedRamType(value: unknown) {
+    const normalized = this.normalizeRelatedText(value);
+    if (normalized.includes('DDR5')) return 'DDR5';
+    if (normalized.includes('DDR4')) return 'DDR4';
+    if (normalized.includes('DDR3')) return 'DDR3';
+    return normalized;
+  }
+
+  private normalizeRelatedBrand(value: unknown) {
+    const normalized = this.normalizeRelatedText(value);
+    if (normalized.includes('AMD') || normalized.includes('RADEON')) return 'AMD';
+    if (normalized.includes('INTEL') || normalized.includes('ARC')) return 'INTEL';
+    if (
+      normalized.includes('NVIDIA') ||
+      normalized.includes('GEFORCE') ||
+      normalized.includes('RTX')
+    ) {
+      return 'NVIDIA';
+    }
+    return normalized;
+  }
+
+  private normalizeRelatedCategory(value: unknown) {
+    const normalized = this.normalizeRelatedText(value);
+
+    if (
+      normalized === 'CPU' ||
+      normalized.includes('PROCESADOR') ||
+      normalized.includes('PROCESSOR')
+    ) {
+      return 'CPU';
+    }
+    if (
+      normalized === 'MOTHERBOARD' ||
+      normalized.includes('PLACAMADRE') ||
+      normalized.includes('PLACABASE') ||
+      normalized.includes('MOBO')
+    ) {
+      return 'MOTHERBOARD';
+    }
+    if (normalized === 'RAM' || normalized.includes('MEMORIARAM')) return 'RAM';
+    if (
+      normalized === 'GPU' ||
+      normalized.includes('TARJETADEVIDEO') ||
+      normalized.includes('TARJETAGRAFICA') ||
+      normalized.includes('GRAFICA')
+    ) {
+      return 'GPU';
+    }
+    if (normalized === 'PSU' || normalized.includes('FUENTEDEPODER')) return 'PSU';
+    if (normalized === 'CASE' || normalized.includes('GABINETE')) return 'CASE';
+    if (normalized === 'COOLER' || normalized.includes('REFRIGERACION')) return 'COOLER';
+    if (normalized === 'STORAGE' || normalized.includes('ALMACENAMIENTO')) return 'STORAGE';
+
+    return normalized;
+  }
+
+  private relatedSpec(product: any, keys: string[]) {
+    const sources = [
+      product,
+      product?.specs,
+      product?.specifications,
+      product?.cpuSpecs,
+      product?.motherboardSpecs,
+      product?.ramSpecs,
+      product?.gpuSpecs,
+      product?.psuSpecs,
+      product?.caseSpecs,
+      product?.coolerSpecs,
+      product?.storageSpecs,
+    ];
+
+    for (const source of sources) {
+      if (!source) continue;
+      for (const key of keys) {
+        const value = source[key];
+        if (value !== undefined && value !== null && value !== '') {
+          return value;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  private relatedCategory(product: any) {
+    const category = this.normalizeRelatedCategory(
+      product?.category ??
+        product?.productType ??
+        product?.type ??
+        this.relatedSpec(product, ['category', 'productType', 'tipoProducto']),
+    );
+
+    if (
+      ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'PSU', 'CASE', 'COOLER', 'STORAGE'].includes(category)
+    ) {
+      return category;
+    }
+
+    if (product?.cpuSpecs) return 'CPU';
+    if (product?.motherboardSpecs) return 'MOTHERBOARD';
+    if (product?.ramSpecs) return 'RAM';
+    if (product?.gpuSpecs) return 'GPU';
+    if (product?.psuSpecs) return 'PSU';
+    if (product?.caseSpecs) return 'CASE';
+    if (product?.coolerSpecs) return 'COOLER';
+    if (product?.storageSpecs) return 'STORAGE';
+
+    return category;
+  }
+
+  private relatedCpuSocket(product: any) {
+    return this.normalizeRelatedSocket(this.relatedSpec(product, ['socket', 'cpuSocket']));
+  }
+
+  private relatedCpuBrand(product: any) {
+    return this.normalizeRelatedBrand(
+      this.relatedSpec(product, [
+        'brand',
+        'marcaProcesador',
+        'processorBrand',
+        'cpuBrand',
+        'marca',
+      ]) ?? product?.name,
+    );
+  }
+
+  private relatedMotherboardSocket(product: any) {
+    return this.normalizeRelatedSocket(this.relatedSpec(product, ['socket', 'motherboardSocket']));
+  }
+
+  private relatedMotherboardRamType(product: any) {
+    return this.normalizeRelatedRamType(
+      this.relatedSpec(product, ['memoryType', 'tipoRam', 'ramType']),
+    );
+  }
+
+  private relatedRamType(product: any) {
+    return this.normalizeRelatedRamType(
+      this.relatedSpec(product, ['memoryType', 'tipoRam', 'ramType']),
+    );
+  }
+
+  private relatedList(value: unknown) {
+    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+    return String(value || '')
+      .split(/[;,]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  private relatedNumber(value: unknown) {
+    const match = String(value ?? '').match(/\d+(\.\d+)?/);
+    return match ? Number(match[0]) : 0;
+  }
+
+  private relatedStorageIsM2(product: any) {
+    const type = this.normalizeRelatedText(
+      this.relatedSpec(product, ['type', 'tipoAlmacenamiento']),
+    );
+    return type.includes('M2') || type.includes('NVME');
+  }
+
+  private relatedCaseFormFactors(product: any) {
+    const values = product.caseSpecs?.supportedFormFactors?.length
+      ? product.caseSpecs.supportedFormFactors
+      : product.caseSpecs?.formFactor;
+    return this.relatedList(values).map((item) => this.normalizeRelatedText(item));
+  }
+
+  private relatedCaseRadiators(product: any) {
+    const values = product.caseSpecs?.radiatorSupportMmValues?.length
+      ? product.caseSpecs.radiatorSupportMmValues
+      : product.caseSpecs?.radiatorSupportMm;
+    return this.relatedList(values)
+      .map((item) => this.relatedNumber(item))
+      .filter((item) => item > 0);
+  }
+
+  private relatedCoolerSockets(product: any) {
+    const values = product.coolerSpecs?.compatibleSockets?.length
+      ? product.coolerSpecs.compatibleSockets
+      : product.coolerSpecs?.socketSupport;
+    return this.relatedList(values).map((item) => this.normalizeRelatedSocket(item));
+  }
+
+  private relatedCoolerIsLiquid(product: any) {
+    const type = this.normalizeRelatedText(product.coolerSpecs?.type);
+    return type.includes('LIQ') || type.includes('AIO');
+  }
+
+  private relatedCandidateCategories(category: string) {
+    const normalizedCategory = this.normalizeRelatedCategory(category);
+    const map: Record<string, string[]> = {
+      CPU: ['MOTHERBOARD', 'CPU', 'RAM'],
+      MOTHERBOARD: ['CPU', 'RAM', 'MOTHERBOARD'],
+      RAM: ['MOTHERBOARD', 'RAM'],
+      GPU: ['PSU', 'CASE', 'GPU'],
+      CASE: ['MOTHERBOARD', 'GPU', 'COOLER', 'CASE'],
+      COOLER: ['CPU', 'CASE', 'COOLER'],
+      STORAGE: ['MOTHERBOARD', 'STORAGE', 'CASE'],
+    };
+    return map[normalizedCategory] ?? [category];
+  }
+
+  private isAllowedTechnicalRelated(current: any, product: any) {
+    const currentCategory = this.relatedCategory(current);
+    const productCategory = this.relatedCategory(product);
+
+    if (currentCategory === 'CPU') {
+      const currentSocket = this.relatedCpuSocket(current);
+      const currentBrand = this.relatedCpuBrand(current);
+
+      if (productCategory === 'MOTHERBOARD') {
+        return Boolean(currentSocket && this.relatedMotherboardSocket(product) === currentSocket);
+      }
+
+      if (productCategory === 'CPU') {
+        const productSocket = this.relatedCpuSocket(product);
+        const productBrand = this.relatedCpuBrand(product);
+        const socketMatches = currentSocket && productSocket === currentSocket;
+        const brandMatches = currentBrand && productBrand === currentBrand;
+
+        return Boolean(socketMatches && brandMatches);
+      }
+
+      if (productCategory === 'RAM') {
+        return true;
+      }
+
+      return false;
+    }
+
+    if (currentCategory === 'MOTHERBOARD') {
+      const currentSocket = this.relatedMotherboardSocket(current);
+      const currentRamType = this.relatedMotherboardRamType(current);
+
+      if (productCategory === 'CPU') {
+        return Boolean(currentSocket && this.relatedCpuSocket(product) === currentSocket);
+      }
+
+      if (productCategory === 'RAM') {
+        return Boolean(currentRamType && this.relatedRamType(product) === currentRamType);
+      }
+
+      if (productCategory === 'MOTHERBOARD') {
+        const socketMatches =
+          currentSocket && this.relatedMotherboardSocket(product) === currentSocket;
+        const ramTypeMatches =
+          currentRamType && this.relatedMotherboardRamType(product) === currentRamType;
+
+        return Boolean(socketMatches && ramTypeMatches);
+      }
+
+      return false;
+    }
+
+    return true;
+  }
+
+  private buildTechnicalRelated(current: any, candidates: any[]) {
+    const ranked: Array<{ product: any; priority: number }> = [];
+    const addMatches = (priority: number, predicate: (product: any) => boolean) => {
+      for (const product of candidates) {
+        if (predicate(product)) ranked.push({ product, priority });
+      }
+    };
+    const currentCategory = this.relatedCategory(current);
+
+    if (currentCategory === 'CPU') {
+      const socket = this.relatedCpuSocket(current);
+      const brand = this.relatedCpuBrand(current);
+      const compatibleMotherboards = socket
+        ? candidates.filter(
+            (product) =>
+              this.relatedCategory(product) === 'MOTHERBOARD' &&
+              this.relatedMotherboardSocket(product) === socket,
+          )
+        : [];
+      const ramTypes = new Set(
+        compatibleMotherboards
+          .map((product) => this.relatedMotherboardRamType(product))
+          .filter(Boolean),
+      );
+
+      if (socket) {
+        addMatches(
+          10,
+          (product) =>
+            this.relatedCategory(product) === 'MOTHERBOARD' &&
+            this.relatedMotherboardSocket(product) === socket,
+        );
+      }
+      if (socket && brand) {
+        addMatches(
+          20,
+          (product) =>
+            this.relatedCategory(product) === 'CPU' &&
+            this.relatedCpuSocket(product) === socket &&
+            this.relatedCpuBrand(product) === brand,
+        );
+      }
+      if (ramTypes.size > 0) {
+        addMatches(
+          30,
+          (product) =>
+            this.relatedCategory(product) === 'RAM' && ramTypes.has(this.relatedRamType(product)),
+        );
+      }
+      if (ranked.length === 0 && brand) {
+        addMatches(
+          80,
+          (product) =>
+            this.relatedCategory(product) === 'CPU' && this.relatedCpuBrand(product) === brand,
+        );
+      }
+      if (ranked.length === 0 && socket) {
+        addMatches(
+          85,
+          (product) =>
+            this.relatedCategory(product) === 'CPU' && this.relatedCpuSocket(product) === socket,
+        );
+      }
+      return ranked;
+    }
+
+    if (currentCategory === 'MOTHERBOARD') {
+      const socket = this.relatedMotherboardSocket(current);
+      const ramType = this.relatedMotherboardRamType(current);
+      if (socket) {
+        addMatches(
+          10,
+          (product) =>
+            this.relatedCategory(product) === 'CPU' && this.relatedCpuSocket(product) === socket,
+        );
+      }
+      if (ramType) {
+        addMatches(
+          20,
+          (product) =>
+            this.relatedCategory(product) === 'RAM' && this.relatedRamType(product) === ramType,
+        );
+      }
+      if (socket && ramType) {
+        addMatches(
+          30,
+          (product) =>
+            this.relatedCategory(product) === 'MOTHERBOARD' &&
+            this.relatedMotherboardSocket(product) === socket &&
+            this.relatedMotherboardRamType(product) === ramType,
+        );
+      }
+      if (ranked.length === 0 && socket) {
+        addMatches(
+          80,
+          (product) =>
+            this.relatedCategory(product) === 'MOTHERBOARD' &&
+            this.relatedMotherboardSocket(product) === socket,
+        );
+      }
+      if (ranked.length === 0 && ramType) {
+        addMatches(
+          85,
+          (product) =>
+            this.relatedCategory(product) === 'MOTHERBOARD' &&
+            this.relatedMotherboardRamType(product) === ramType,
+        );
+      }
+      return ranked;
+    }
+
+    if (currentCategory === 'RAM') {
+      const ramType = this.relatedRamType(current);
+      if (ramType) {
+        addMatches(
+          10,
+          (product) =>
+            this.relatedCategory(product) === 'MOTHERBOARD' &&
+            this.relatedMotherboardRamType(product) === ramType,
+        );
+        addMatches(
+          20,
+          (product) =>
+            this.relatedCategory(product) === 'RAM' && this.relatedRamType(product) === ramType,
+        );
+      }
+    }
+
+    if (currentCategory === 'GPU') {
+      const requiredWatts =
+        this.relatedNumber(current.gpuSpecs?.recommendedPsuWatts) ||
+        this.relatedNumber(current.gpuSpecs?.gpuPowerWatts) ||
+        this.relatedNumber(current.gpuSpecs?.tdp) + 150;
+      const gpuLength = this.relatedNumber(current.gpuSpecs?.length);
+      const chipset = this.normalizeRelatedBrand(current.gpuSpecs?.chipset);
+      addMatches(
+        10,
+        (product) =>
+          product.category === 'PSU' &&
+          this.relatedNumber(product.psuSpecs?.wattage) >= requiredWatts,
+      );
+      addMatches(
+        20,
+        (product) =>
+          product.category === 'CASE' &&
+          (!gpuLength || this.relatedNumber(product.caseSpecs?.maxGpuLength) >= gpuLength),
+      );
+      addMatches(
+        30,
+        (product) =>
+          product.category === 'GPU' &&
+          this.normalizeRelatedBrand(product.gpuSpecs?.chipset) === chipset,
+      );
+    }
+
+    if (currentCategory === 'CASE') {
+      const formFactors = this.relatedCaseFormFactors(current);
+      const maxGpuLength = this.relatedNumber(current.caseSpecs?.maxGpuLength);
+      const maxCoolerHeight = this.relatedNumber(current.caseSpecs?.maxCoolerHeight);
+      const radiators = this.relatedCaseRadiators(current);
+      addMatches(
+        10,
+        (product) =>
+          product.category === 'MOTHERBOARD' &&
+          formFactors.includes(this.normalizeRelatedText(product.motherboardSpecs?.formFactor)),
+      );
+      addMatches(
+        20,
+        (product) =>
+          product.category === 'GPU' &&
+          (!maxGpuLength || this.relatedNumber(product.gpuSpecs?.length) <= maxGpuLength),
+      );
+      addMatches(30, (product) => {
+        if (product.category !== 'COOLER') return false;
+        if (this.relatedCoolerIsLiquid(product)) {
+          return radiators.includes(this.relatedNumber(product.coolerSpecs?.radiatorSize));
+        }
+        return (
+          !maxCoolerHeight ||
+          this.relatedNumber(product.coolerSpecs?.coolerHeight) <= maxCoolerHeight
+        );
+      });
+    }
+
+    if (currentCategory === 'COOLER') {
+      const sockets = this.relatedCoolerSockets(current);
+      const coolerHeight = this.relatedNumber(current.coolerSpecs?.coolerHeight);
+      const radiatorSize = this.relatedNumber(current.coolerSpecs?.radiatorSize);
+      const isLiquid = this.relatedCoolerIsLiquid(current);
+      addMatches(
+        10,
+        (product) =>
+          product.category === 'CPU' &&
+          sockets.includes(this.normalizeRelatedSocket(product.cpuSpecs?.socket)),
+      );
+      addMatches(20, (product) => {
+        if (product.category !== 'CASE') return false;
+        if (isLiquid) return this.relatedCaseRadiators(product).includes(radiatorSize);
+        const maxCoolerHeight = this.relatedNumber(product.caseSpecs?.maxCoolerHeight);
+        return !coolerHeight || !maxCoolerHeight || coolerHeight <= maxCoolerHeight;
+      });
+    }
+
+    if (currentCategory === 'STORAGE') {
+      const storageType = this.normalizeRelatedText(current.storageSpecs?.type);
+      const generation = this.normalizeRelatedText(current.storageSpecs?.interface);
+      const m2Size = String(current.storageSpecs?.m2FormFactor || '').trim();
+      if (this.relatedStorageIsM2(current) && m2Size) {
+        addMatches(
+          10,
+          (product) =>
+            product.category === 'MOTHERBOARD' &&
+            this.relatedList(product.motherboardSpecs?.supportedM2FormFactors).includes(m2Size),
+        );
+      }
+      addMatches(
+        20,
+        (product) =>
+          product.category === 'STORAGE' &&
+          this.normalizeRelatedText(product.storageSpecs?.type) === storageType &&
+          (!generation ||
+            this.normalizeRelatedText(product.storageSpecs?.interface) === generation),
+      );
+    }
+
+    if (ranked.length === 0) {
+      addMatches(90, (product) => this.relatedCategory(product) === currentCategory);
+    }
+    return ranked;
+  }
+
   async findRelated(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      select: { id: true, category: true },
+      include: this.productInclude,
     });
 
     if (!product) {
       return [];
     }
 
+    const currentCategory = this.relatedCategory(product);
+    const candidates = await this.fetchRelatedCandidates(product, currentCategory);
+
+    const seen = new Set<string>();
+    return this.buildTechnicalRelated(product, candidates)
+      .sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        if (a.product.stock !== b.product.stock) return b.product.stock - a.product.stock;
+        return new Date(b.product.updatedAt).getTime() - new Date(a.product.updatedAt).getTime();
+      })
+      .filter(({ product: relatedProduct }) => {
+        if (seen.has(relatedProduct.id)) return false;
+        if (!this.isAllowedTechnicalRelated(product, relatedProduct)) return false;
+        seen.add(relatedProduct.id);
+        return true;
+      })
+      .slice(0, 10)
+      .map(({ product }) => product);
+  }
+
+  private async fetchRelatedCandidates(product: any, currentCategory: string) {
+    const targetCategories = this.relatedCandidateCategories(currentCategory);
+    const baseWhere = { id: { not: product.id } };
+    const orderBy: any = [{ stock: 'desc' }, { updatedAt: 'desc' }];
+    const perCategoryLimit = 30;
+
+    if (currentCategory === 'CPU') {
+      return this.fetchCpuRelatedCandidates(product, targetCategories, baseWhere, orderBy, perCategoryLimit);
+    }
+
+    if (currentCategory === 'MOTHERBOARD') {
+      return this.fetchMotherboardRelatedCandidates(product, targetCategories, baseWhere, orderBy, perCategoryLimit);
+    }
+
     return this.prisma.product.findMany({
-      where: {
-        id: { not: product.id },
-        category: product.category,
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
+      where: { ...baseWhere, category: { in: targetCategories } },
+      include: this.productInclude,
+      orderBy,
+      take: 80,
     });
+  }
+
+  private async fetchCpuRelatedCandidates(
+    product: any,
+    targetCategories: string[],
+    baseWhere: any,
+    orderBy: any,
+    perCategoryLimit: number,
+  ) {
+    const rawSocket = product.cpuSpecs?.socket as string | undefined;
+    const rawBrand = product.cpuSpecs?.brand as string | undefined;
+
+    const queries: Promise<any[]>[] = [];
+
+    if (targetCategories.includes('MOTHERBOARD') && rawSocket) {
+      queries.push(
+        this.prisma.product.findMany({
+          where: {
+            ...baseWhere,
+            category: 'MOTHERBOARD',
+            motherboardSpecs: { socket: rawSocket },
+          },
+          include: this.productInclude,
+          orderBy,
+          take: perCategoryLimit,
+        }),
+      );
+    }
+
+    if (targetCategories.includes('CPU')) {
+      const cpuFilter: any = { ...baseWhere, category: 'CPU' };
+      if (rawSocket && rawBrand) {
+        cpuFilter.cpuSpecs = { socket: rawSocket, brand: rawBrand };
+      } else if (rawSocket) {
+        cpuFilter.cpuSpecs = { socket: rawSocket };
+      } else if (rawBrand) {
+        cpuFilter.cpuSpecs = { brand: rawBrand };
+      }
+      queries.push(
+        this.prisma.product.findMany({
+          where: cpuFilter,
+          include: this.productInclude,
+          orderBy,
+          take: perCategoryLimit,
+        }),
+      );
+    }
+
+    if (targetCategories.includes('RAM')) {
+      queries.push(
+        this.prisma.product.findMany({
+          where: { ...baseWhere, category: 'RAM' },
+          include: this.productInclude,
+          orderBy,
+          take: perCategoryLimit,
+        }),
+      );
+    }
+
+    const results = await Promise.all(queries);
+    const seen = new Set<string>();
+    const merged: any[] = [];
+    for (const group of results) {
+      for (const item of group) {
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          merged.push(item);
+        }
+      }
+    }
+    return merged;
+  }
+
+  private async fetchMotherboardRelatedCandidates(
+    product: any,
+    targetCategories: string[],
+    baseWhere: any,
+    orderBy: any,
+    perCategoryLimit: number,
+  ) {
+    const rawSocket = product.motherboardSpecs?.socket as string | undefined;
+    const rawMemoryType = product.motherboardSpecs?.memoryType as string | undefined;
+
+    const queries: Promise<any[]>[] = [];
+
+    if (targetCategories.includes('CPU') && rawSocket) {
+      queries.push(
+        this.prisma.product.findMany({
+          where: {
+            ...baseWhere,
+            category: 'CPU',
+            cpuSpecs: { socket: rawSocket },
+          },
+          include: this.productInclude,
+          orderBy,
+          take: perCategoryLimit,
+        }),
+      );
+    }
+
+    if (targetCategories.includes('RAM') && rawMemoryType) {
+      queries.push(
+        this.prisma.product.findMany({
+          where: {
+            ...baseWhere,
+            category: 'RAM',
+            ramSpecs: { memoryType: rawMemoryType },
+          },
+          include: this.productInclude,
+          orderBy,
+          take: perCategoryLimit,
+        }),
+      );
+    }
+
+    if (targetCategories.includes('MOTHERBOARD') && rawSocket) {
+      queries.push(
+        this.prisma.product.findMany({
+          where: {
+            ...baseWhere,
+            category: 'MOTHERBOARD',
+            motherboardSpecs: { socket: rawSocket },
+          },
+          include: this.productInclude,
+          orderBy,
+          take: perCategoryLimit,
+        }),
+      );
+    }
+
+    const results = await Promise.all(queries);
+    const seen = new Set<string>();
+    const merged: any[] = [];
+    for (const group of results) {
+      for (const item of group) {
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          merged.push(item);
+        }
+      }
+    }
+    return merged;
   }
 
   async update(id: string, data: UpdateProductDto, actorId?: string) {
@@ -2789,6 +3529,8 @@ export class ProductsService {
         return this.buildCpuSpecUpdate(currentProduct, data);
       case 'MOTHERBOARD':
         return this.buildMotherboardSpecUpdate(currentProduct, data);
+      case 'RAM':
+        return this.buildRamSpecUpdate(currentProduct, data);
       case 'GPU':
         return this.buildGpuSpecUpdate(currentProduct, data);
       case 'CASE':
@@ -2917,11 +3659,45 @@ export class ProductsService {
     };
   }
 
+  private buildRamSpecUpdate(currentProduct: any, data: UpdateProductDto) {
+    if (
+      data.brand === undefined &&
+      data.memoryType === undefined &&
+      data.capacity === undefined &&
+      data.speed === undefined &&
+      data.modules === undefined &&
+      data.latency === undefined &&
+      data.hasRGB === undefined
+    ) {
+      return {};
+    }
+
+    const nextRamBrand = String(data.brand ?? currentProduct.ramSpecs?.brand ?? '').trim();
+    if (!nextRamBrand) {
+      throw new BadRequestException('Selecciona la marca de la memoria RAM.');
+    }
+
+    return {
+      ramSpecs: {
+        update: {
+          ...(data.brand !== undefined ? { brand: data.brand } : {}),
+          ...(data.memoryType !== undefined ? { memoryType: data.memoryType } : {}),
+          ...(data.capacity !== undefined ? { capacity: this.toInt(data.capacity) } : {}),
+          ...(data.speed !== undefined ? { speed: this.toInt(data.speed) } : {}),
+          ...(data.modules !== undefined ? { modules: this.toInt(data.modules) } : {}),
+          ...(data.latency !== undefined ? { latency: data.latency || null } : {}),
+          ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+        },
+      },
+    };
+  }
+
   private buildGpuSpecUpdate(currentProduct: any, data: UpdateProductDto) {
     if (
       data.brand === undefined &&
       data.chipset === undefined &&
       data.vram === undefined &&
+      data.typeVram === undefined &&
       data.length === undefined &&
       data.gpuPowerWatts === undefined &&
       data.tdp === undefined &&
@@ -2960,6 +3736,7 @@ export class ProductsService {
           ...(data.brand !== undefined ? { brand: data.brand } : {}),
           ...(data.chipset !== undefined ? { chipset: data.chipset } : {}),
           ...(data.vram !== undefined ? { vram: this.toInt(data.vram) } : {}),
+          ...(data.typeVram !== undefined ? { typeVram: data.typeVram || null } : {}),
           ...(data.length !== undefined ? { length: this.toInt(data.length) } : {}),
           ...(data.gpuPowerWatts !== undefined || data.tdp !== undefined
             ? { gpuPowerWatts: nextGpuPower, tdp: nextGpuPower }
@@ -2985,10 +3762,13 @@ export class ProductsService {
     if (
       data.brand === undefined &&
       data.formFactor === undefined &&
+      data.supportedFormFactors === undefined &&
       data.maxGpuLength === undefined &&
+      data.maxCoolerHeight === undefined &&
       data.includesPsu === undefined &&
       data.includedFans === undefined &&
-      data.radiatorSupportMm === undefined
+      data.radiatorSupportMm === undefined &&
+      data.radiatorSupportMmValues === undefined
     ) {
       return {};
     }
@@ -2998,20 +3778,48 @@ export class ProductsService {
       throw new BadRequestException('Selecciona la marca del gabinete.');
     }
 
+    const nextSupportedFormFactors =
+      data.supportedFormFactors !== undefined || data.formFactor !== undefined
+        ? this.toStringArray(data.supportedFormFactors ?? data.formFactor)
+        : this.toStringArray(
+            currentProduct.caseSpecs?.supportedFormFactors?.length
+              ? currentProduct.caseSpecs.supportedFormFactors
+              : currentProduct.caseSpecs?.formFactor,
+          );
+    const nextRadiatorValues =
+      data.radiatorSupportMmValues !== undefined || data.radiatorSupportMm !== undefined
+        ? this.normalizeRadiatorValues(data.radiatorSupportMmValues ?? data.radiatorSupportMm)
+        : this.normalizeRadiatorValues(
+            currentProduct.caseSpecs?.radiatorSupportMmValues?.length
+              ? currentProduct.caseSpecs.radiatorSupportMmValues
+              : currentProduct.caseSpecs?.radiatorSupportMm,
+          );
+    const maxRadiator = nextRadiatorValues.includes('0')
+      ? 0
+      : Math.max(0, ...nextRadiatorValues.map((value) => this.toInt(value)));
+
     return {
       caseSpecs: {
         update: {
           ...(data.brand !== undefined ? { brand: data.brand } : {}),
-          ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
+          ...(data.supportedFormFactors !== undefined || data.formFactor !== undefined
+            ? {
+                formFactor: nextSupportedFormFactors[0] || 'ATX',
+                supportedFormFactors: nextSupportedFormFactors,
+              }
+            : {}),
           ...(data.maxGpuLength !== undefined
             ? { maxGpuLength: this.toInt(data.maxGpuLength) }
+            : {}),
+          ...(data.maxCoolerHeight !== undefined
+            ? { maxCoolerHeight: this.toInt(data.maxCoolerHeight) }
             : {}),
           ...(data.includesPsu !== undefined ? { includesPsu: this.toBool(data.includesPsu) } : {}),
           ...(data.includedFans !== undefined
             ? { includedFans: this.toInt(data.includedFans) }
             : {}),
-          ...(data.radiatorSupportMm !== undefined
-            ? { radiatorSupportMm: this.toInt(data.radiatorSupportMm) }
+          ...(data.radiatorSupportMmValues !== undefined || data.radiatorSupportMm !== undefined
+            ? { radiatorSupportMm: maxRadiator, radiatorSupportMmValues: nextRadiatorValues }
             : {}),
         },
       },
@@ -3071,8 +3879,8 @@ export class ProductsService {
       throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
     }
 
-    if (nextCoolerType === 'LÃ­quida' && nextRadiatorSize <= 0) {
-      throw new BadRequestException('Selecciona el tamaÃ±o de radiador del cooler lÃ­quido');
+    if (nextCoolerType === 'Líquida' && nextRadiatorSize <= 0) {
+      throw new BadRequestException('Selecciona el tamaño de radiador del cooler líquido');
     }
 
     return {
@@ -3094,7 +3902,7 @@ export class ProductsService {
             : {}),
           ...(data.radiatorSize !== undefined || data.type !== undefined
             ? {
-                radiatorSize: nextCoolerType === 'LÃ­quida' ? nextRadiatorSize : null,
+                radiatorSize: nextCoolerType === 'Líquida' ? nextRadiatorSize : null,
               }
             : {}),
           ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
@@ -3154,11 +3962,11 @@ export class ProductsService {
       return {};
     }
 
-    const nextStorageType = String(
-      data.type ?? currentProduct.storageSpecs?.type ?? '',
-    ).toUpperCase();
+    const nextStorageType = this.normalizeStorageType(
+      data.type ?? currentProduct.storageSpecs?.type,
+    );
     const nextM2FormFactor = data.m2FormFactor ?? currentProduct.storageSpecs?.m2FormFactor;
-    const isM2 = nextStorageType.includes('M.2') || nextStorageType.includes('NVME');
+    const isM2 = this.isM2StorageType(nextStorageType);
     if (isM2 && !nextM2FormFactor) {
       throw new BadRequestException(
         'El tamaÃ±o fisico M.2 es obligatorio para almacenamientos M.2',
@@ -3167,12 +3975,14 @@ export class ProductsService {
     return {
       storageSpecs: {
         update: {
-          ...(data.type !== undefined ? { type: data.type } : {}),
+          ...(data.type !== undefined ? { type: nextStorageType } : {}),
           ...(data.capacity !== undefined ? { capacity: this.toInt(data.capacity) } : {}),
           ...(data.interface !== undefined ? { interface: data.interface } : {}),
           ...(data.readSpeed !== undefined ? { readSpeed: this.toInt(data.readSpeed) } : {}),
           ...(data.writeSpeed !== undefined ? { writeSpeed: this.toInt(data.writeSpeed) } : {}),
-          ...(data.m2FormFactor !== undefined ? { m2FormFactor: data.m2FormFactor || null } : {}),
+          ...(data.m2FormFactor !== undefined || data.type !== undefined
+            ? { m2FormFactor: isM2 ? data.m2FormFactor || nextM2FormFactor || null : null }
+            : {}),
         },
       },
     };

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   FiAlertTriangle,
   FiCheckCircle,
+  FiDownload,
   FiFileText,
   FiGrid,
   FiLock,
@@ -50,6 +51,8 @@ type ConfirmResult = {
   errors: ImportIssue[];
   warnings: ImportIssue[];
 };
+
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 const PRODUCT_TYPES: Record<CategoryGroup, string[]> = {
   COMPONENTES: [
@@ -114,6 +117,42 @@ function readAdminRole() {
 function hasExtension(file: File | null, extension: string) {
   if (!file) return false;
   return file.name.toLowerCase().endsWith(extension);
+}
+
+function getTemplateFileName(productType: string) {
+  const fallback = productType
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return `plantilla-${fallback || 'producto'}.xlsx`;
+}
+
+function getFileNameFromDisposition(disposition: unknown) {
+  if (typeof disposition !== 'string') return null;
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  return match?.[1] || null;
+}
+
+function getArrayBufferErrorMessage(error: unknown) {
+  const responseData = (error as { response?: { data?: unknown } })?.response?.data;
+  if (!(responseData instanceof ArrayBuffer)) {
+    return null;
+  }
+
+  try {
+    const text = new TextDecoder().decode(responseData);
+    if (!text.trim()) return null;
+    const parsed = JSON.parse(text) as { message?: unknown };
+    if (typeof parsed.message === 'string') return parsed.message;
+    if (Array.isArray(parsed.message)) return parsed.message.join('\n');
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
@@ -241,6 +280,7 @@ export default function ImportProductsPage() {
   const [error, setError] = useState('');
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
 
   useEffect(() => {
     setAccess(readAdminRole() === 'ADMIN' ? 'allowed' : 'denied');
@@ -249,6 +289,7 @@ export default function ImportProductsPage() {
   const productTypeOptions = useMemo(() => PRODUCT_TYPES[category], [category]);
   const hasValidExcel = hasExtension(excelFile, '.xlsx');
   const hasValidZip = hasExtension(zipFile, '.zip');
+  const canDownloadTemplate = Boolean(category && productType && !isDownloadingTemplate);
   const canPreview = Boolean(productType && hasValidExcel && hasValidZip && !isPreviewing);
   const canConfirm = Boolean(
     preview && preview.errors.length === 0 && preview.validRows > 0 && !isConfirming,
@@ -280,6 +321,47 @@ export default function ImportProductsPage() {
       setError(getApiErrorMessage(err, 'No se pudo validar la importacion.'));
     } finally {
       setIsPreviewing(false);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    if (!canDownloadTemplate) return;
+    setError('');
+    setIsDownloadingTemplate(true);
+
+    try {
+      const response = await api.get('/products/import/template', {
+        params: { category, productType },
+        responseType: 'arraybuffer',
+        transformResponse: [(data) => data],
+        headers: {
+          Accept: XLSX_MIME,
+        },
+      });
+      const fileName =
+        getFileNameFromDisposition(response.headers['content-disposition']) ||
+        getTemplateFileName(productType);
+      const bytes = new Uint8Array(response.data);
+      if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+        throw new Error('La respuesta no es un XLSX valido');
+      }
+
+      const blob = new Blob([bytes], { type: XLSX_MIME });
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      setError(
+        getArrayBufferErrorMessage(err) ||
+          getApiErrorMessage(err, 'No se pudo descargar la plantilla.'),
+      );
+    } finally {
+      setIsDownloadingTemplate(false);
     }
   };
 
@@ -440,6 +522,15 @@ export default function ImportProductsPage() {
 
           <div className="mt-7 flex flex-col gap-3 md:flex-row md:justify-end">
             <button
+              type="button"
+              disabled={!canDownloadTemplate}
+              onClick={handleDownloadTemplate}
+              className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl border-2 border-gray-300 bg-transparent px-8 py-4 text-sm font-black uppercase tracking-wide text-gray-800 transition hover:border-brand-cyan hover:text-gray-950 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 md:min-w-64"
+            >
+              <FiDownload size={20} />
+              {isDownloadingTemplate ? 'Descargando...' : 'Descargar plantilla'}
+            </button>
+            <button
               type="submit"
               disabled={!canPreview}
               className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl bg-brand-cyan px-8 py-4 text-sm font-black uppercase tracking-wide text-gray-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 md:min-w-72"
@@ -496,7 +587,7 @@ export default function ImportProductsPage() {
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3">Accion</th>
                     <th className="px-4 py-3">Nombre</th>
-                    <th className="px-4 py-3">Numero parte</th>
+                    <th className="px-4 py-3">SKU del Producto</th>
                     <th className="px-4 py-3">Imagenes</th>
                   </tr>
                 </thead>
@@ -518,9 +609,7 @@ export default function ImportProductsPage() {
                       <td className="px-4 py-3">
                         {row.action === 'create' ? 'Crear' : 'Actualizar'}
                       </td>
-                      <td className="max-w-md px-4 py-3 font-semibold text-gray-900">
-                        {row.name}
-                      </td>
+                      <td className="max-w-md px-4 py-3 font-semibold text-gray-900">{row.name}</td>
                       <td className="px-4 py-3">{row.numeroParte}</td>
                       <td className="px-4 py-3">{row.imageCount}</td>
                     </tr>

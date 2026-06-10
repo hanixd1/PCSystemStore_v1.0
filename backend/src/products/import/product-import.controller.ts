@@ -1,19 +1,23 @@
 import {
   Body,
   Controller,
+  Get,
   Post,
+  Query,
   Req,
+  Res,
   UploadedFiles,
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { Request } from 'express';
+import type { Request, Response } from 'express';
 import { Roles } from '../../auth/roles.decorator';
 import { JwtUserPayload } from '../../auth/auth.constants';
 import { MulterUploadExceptionFilter } from '../../uploads/multer-upload-exception.filter';
 import { ProductImportService } from './product-import.service';
+import { ProductTemplateService } from './product-template.service';
 import type { ProductImportBody } from './product-import.types';
 
 const IMPORT_UPLOAD_OPTIONS = {
@@ -46,7 +50,24 @@ const IMPORT_UPLOAD_OPTIONS = {
 
 @Controller('products/import')
 export class ProductImportController {
-  constructor(private readonly productImportService: ProductImportService) {}
+  constructor(
+    private readonly productImportService: ProductImportService,
+    private readonly productTemplateService: ProductTemplateService,
+  ) {}
+
+  @Roles('ADMIN')
+  @Get('template')
+  async downloadTemplate(
+    @Query() query: ProductImportBody,
+    @Res({ passthrough: false }) response: Response,
+  ): Promise<void> {
+    const template = this.productTemplateService.generateTemplate(query);
+    response.status(200);
+    response.setHeader('Content-Type', template.contentType);
+    response.setHeader('Content-Disposition', `attachment; filename="${template.filename}"`);
+    response.setHeader('Content-Length', String(template.buffer.length));
+    response.send(template.buffer);
+  }
 
   @Roles('ADMIN')
   @Post('preview')

@@ -9,6 +9,58 @@ import { api } from '@/lib/api';
 
 const HeroCarousel = dynamic(() => import('@/components/HeroCarousel'));
 
+function normalizeBrand(value: unknown) {
+  const text = String(value || '')
+    .trim()
+    .toUpperCase();
+  if (text.includes('AMD') || text.includes('RADEON')) return 'AMD';
+  if (text.includes('INTEL') || text.includes('ARC')) return 'INTEL';
+  if (text.includes('NVIDIA') || text.includes('GEFORCE') || text.includes('RTX')) return 'NVIDIA';
+  return text || 'OTROS';
+}
+
+function getCpuBrand(product: any) {
+  const source =
+    product.cpuSpecs?.brand ??
+    product.cpuSpecs?.marcaProcesador ??
+    product.brand ??
+    product.marca ??
+    product.name;
+  return normalizeBrand(source);
+}
+
+function balanceProductsByBrand<T>(products: T[], getBrand: (product: T) => string, maxItems = 15) {
+  const groups = new Map<string, T[]>();
+  for (const product of products) {
+    const brand = getBrand(product);
+    groups.set(brand, [...(groups.get(brand) ?? []), product]);
+  }
+
+  const preferredBrands = ['AMD', 'INTEL', 'NVIDIA'];
+  const brands = [
+    ...preferredBrands.filter((brand) => groups.has(brand)),
+    ...Array.from(groups.keys())
+      .filter((brand) => !preferredBrands.includes(brand))
+      .sort(),
+  ];
+  const balanced: T[] = [];
+  let index = 0;
+
+  while (
+    balanced.length < maxItems &&
+    brands.some((brand) => (groups.get(brand)?.length ?? 0) > index)
+  ) {
+    for (const brand of brands) {
+      const product = groups.get(brand)?.[index];
+      if (product) balanced.push(product);
+      if (balanced.length >= maxItems) break;
+    }
+    index += 1;
+  }
+
+  return balanced;
+}
+
 export default function Home() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +89,11 @@ export default function Home() {
     void fetchProducts();
   }, []);
 
-  const cpuProducts = products.filter((product) => product.category === 'CPU').slice(0, 15);
+  const cpuProducts = balanceProductsByBrand(
+    products.filter((product) => product.category === 'CPU'),
+    getCpuBrand,
+    15,
+  );
   const moboProducts = products
     .filter((product) => product.category === 'MOTHERBOARD')
     .slice(0, 15);
@@ -106,7 +162,11 @@ export default function Home() {
           </div>
         ) : (
           <>
-            <HomeProductCarousel title="Procesadores" products={cpuProducts} link="/categoria/cpu" />
+            <HomeProductCarousel
+              title="Procesadores"
+              products={cpuProducts}
+              link="/categoria/cpu"
+            />
             <HomeProductCarousel
               title="Placas Base Recomendadas"
               products={moboProducts}
@@ -122,7 +182,11 @@ export default function Home() {
               products={gpuProducts}
               link="/categoria/graficas"
             />
-            <HomeProductCarousel title="Laptops" products={laptopProducts} link="/categoria/laptops" />
+            <HomeProductCarousel
+              title="Laptops"
+              products={laptopProducts}
+              link="/categoria/laptops"
+            />
             <HomeProductCarousel
               title="Periféricos"
               products={periProducts}

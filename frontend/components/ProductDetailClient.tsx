@@ -296,7 +296,12 @@ export default function ProductDetailClient({ identifier }: { identifier: string
   const breadcrumbs = generateBreadcrumbs(product);
   const productName = String(product.name || 'Producto sin nombre');
   const productCategory = String(product.category || 'producto');
-  const productSku = product.sku || String(product.id || '').slice(0, 8).toUpperCase() || 'SIN-SKU';
+  const productSku =
+    product.sku ||
+    String(product.id || '')
+      .slice(0, 8)
+      .toUpperCase() ||
+    'SIN-SKU';
   const productStock = Number(product.stock) || 0;
   const hasStock = productStock > 0;
   const specificationRows = buildSpecificationRows(product);
@@ -509,7 +514,7 @@ export default function ProductDetailClient({ identifier }: { identifier: string
             <div className="mb-6 flex items-end justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-widest text-brand-cyan">
-                  Misma categoria
+                  Compatibles y relacionados
                 </p>
                 <h2 className="text-2xl font-black text-gray-900">Productos relacionados</h2>
               </div>

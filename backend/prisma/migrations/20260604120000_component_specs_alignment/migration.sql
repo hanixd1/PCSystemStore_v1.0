@@ -1,0 +1,3 @@
+ALTER TABLE "RamSpecs" ADD COLUMN "brand" TEXT;
+ALTER TABLE "RamSpecs" ADD COLUMN "latency" TEXT;
+ALTER TABLE "GpuSpecs" ADD COLUMN "typeVram" TEXT;

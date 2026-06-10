@@ -66,9 +66,29 @@ const CPU_SOCKETS_BY_BRAND: Record<string, string[]> = {
   AMD: ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5'],
   Intel: ['LGA 1200', 'LGA 1700', 'LGA 1851'],
 };
-const SOCKETS = ['AM5', 'AM4', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5', 'LGA 1700', 'LGA 1200', 'LGA 1851'];
+const SOCKETS = [
+  'AM5',
+  'AM4',
+  'sTR4',
+  'sTRX4',
+  'sWRX8',
+  'sTR5',
+  'LGA 1700',
+  'LGA 1200',
+  'LGA 1851',
+];
 const M2_FORM_FACTORS = ['2230', '2242', '2260', '2280', '22110'];
-const COOLER_SOCKET_OPTIONS = ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5', 'LGA 1200', 'LGA 1700', 'LGA 1851'];
+const COOLER_SOCKET_OPTIONS = [
+  'AM4',
+  'AM5',
+  'sTR4',
+  'sTRX4',
+  'sWRX8',
+  'sTR5',
+  'LGA 1200',
+  'LGA 1700',
+  'LGA 1851',
+];
 const COOLER_BRANDS = ['MSI', 'DeepCool', 'Corsair', 'Gigabyte', 'ASUS', 'Otros'];
 const COOLER_RADIATOR_OPTIONS = ['120', '240', '280', '360', '460'];
 const FORM_FACTORS = ['ATX', 'Micro-ATX', 'Mini-ITX', 'E-ATX'];
@@ -86,12 +106,14 @@ const CASE_BRANDS = [
 const CASE_RADIATOR_SUPPORT_OPTIONS = [
   { value: '0', label: 'No soporta' },
   { value: '120', label: '120 mm' },
+  { value: '140', label: '140 mm' },
   { value: '240', label: '240 mm' },
   { value: '280', label: '280 mm' },
   { value: '360', label: '360 mm' },
-  { value: '460', label: '460 mm' },
+  { value: '420', label: '420 mm' },
 ];
 const RAM_TYPES = ['DDR4', 'DDR5'];
+const RAM_BRANDS = ['Kingston', 'TeamGroup', 'ADATA', 'Corsair', 'Otros'];
 const RAM_CAPACITIES = [8, 16, 24, 32];
 const PSU_BRANDS = [
   'MSI',
@@ -130,7 +152,9 @@ const PSU_CERTS = [
 const GPU_BRANDS = ['Gigabyte', 'ASUS', 'MSI', 'PNY', 'Otros'];
 const GPU_CHIPSETS = ['NVIDIA GeForce', 'AMD Radeon', 'Intel Arc'];
 const GPU_VRAM_OPTIONS = ['4', '6', '8', '12', '16', '24', '32'];
-const STORAGE_TYPES = ['SSD 2.5', 'NVMe M.2', 'M.2 SATA', 'HDD 3.5'];
+const GPU_VRAM_TYPES = ['GDDR6', 'GDDR6X', 'GDDR7'];
+const GPU_FAN_OPTIONS = ['1', '2', '3', '4'];
+const STORAGE_TYPES = ['SSD 2.5', 'Sólido M.2', 'HDD 3.5'];
 const NVME_GENS = ['SATA', 'PCIe 3.0', 'PCIe 4.0', 'PCIe 5.0'];
 const PANEL_TYPES = ['IPS', 'VA', 'TN', 'OLED'];
 const LAPTOP_BRANDS = ['ASUS', 'Lenovo', 'HP', 'Acer', 'Dell', 'MSI', 'Otra'];
@@ -263,9 +287,11 @@ const INITIAL_FORM_DATA = {
   capacity: '16',
   speed: '5200',
   modules: '1',
+  latency: '',
   hasRGB: 'false',
   chipset: 'NVIDIA GeForce',
   vram: '8',
+  typeVram: 'GDDR6',
   length: '',
   gpuPowerWatts: '',
   recommendedPsuWatts: '',
@@ -274,9 +300,12 @@ const INITIAL_FORM_DATA = {
   certification: '80+ Bronze',
   modular: 'No Modular',
   maxGpuLength: '',
+  maxCoolerHeight: '',
+  supportedFormFactors: ['ATX'],
   includesPsu: 'false',
   includedFans: '0',
   radiatorSupportMm: '0',
+  radiatorSupportMmValues: ['0'],
   type: 'Torre',
   fanCount: '1',
   radiatorSize: '240',
@@ -352,6 +381,7 @@ const createInitialFormData = (category = '') => ({
   category,
   type:
     category === 'COOLER' ? 'Torre' : category === 'STORAGE' ? 'SSD 2.5' : INITIAL_FORM_DATA.type,
+  interface: category === 'STORAGE' ? 'SATA' : INITIAL_FORM_DATA.interface,
   resolution:
     category === 'WEBCAM' || category === 'CAPTURE_CARD' ? 'FHD' : INITIAL_FORM_DATA.resolution,
   fps: category === 'WEBCAM' || category === 'CAPTURE_CARD' ? '30' : INITIAL_FORM_DATA.fps,
@@ -364,6 +394,8 @@ const createInitialFormData = (category = '') => ({
   cableType: category === 'CABLE_HUB' ? 'HDMI a HDMI' : INITIAL_FORM_DATA.cableType,
   cableLengthMeters: category === 'CABLE_HUB' ? '1' : INITIAL_FORM_DATA.cableLengthMeters,
   hubInputType: category === 'CABLE_HUB' ? 'USB-C' : INITIAL_FORM_DATA.hubInputType,
+  supportedFormFactors: [...INITIAL_FORM_DATA.supportedFormFactors],
+  radiatorSupportMmValues: [...INITIAL_FORM_DATA.radiatorSupportMmValues],
   supportedM2FormFactors: [...INITIAL_FORM_DATA.supportedM2FormFactors],
   compatibleSockets: [...INITIAL_FORM_DATA.compatibleSockets],
   ports: [...INITIAL_FORM_DATA.ports],
@@ -389,6 +421,7 @@ const NON_NEGATIVE_FIELDS = new Set([
   'fans',
   'wattage',
   'maxGpuLength',
+  'maxCoolerHeight',
   'includedFans',
   'radiatorSupportMm',
   'fanCount',
@@ -615,12 +648,24 @@ export default function AddProductPage() {
       return;
     }
 
+    if (name === 'type' && formData.category === 'STORAGE') {
+      setFormData((prev) => ({
+        ...prev,
+        type: value,
+        interface: value === 'Sólido M.2' ? prev.interface || 'PCIe 4.0' : 'SATA',
+        m2FormFactor: value === 'Sólido M.2' ? prev.m2FormFactor || '2280' : '',
+      }));
+      return;
+    }
+
     updateFormField(event.target);
   };
   const handleMultiSelectChange = (
     field:
       | 'compatibleSockets'
       | 'supportedM2FormFactors'
+      | 'supportedFormFactors'
+      | 'radiatorSupportMmValues'
       | 'ports'
       | 'connections'
       | 'supportedConnections',
@@ -628,6 +673,17 @@ export default function AddProductPage() {
   ) => {
     setFormData((prev) => {
       const currentValues = prev[field];
+      if (field === 'radiatorSupportMmValues') {
+        const nextValues =
+          value === '0'
+            ? ['0']
+            : currentValues.includes(value)
+              ? currentValues.filter((item) => item !== value && item !== '0')
+              : [...currentValues.filter((item) => item !== '0'), value];
+
+        return { ...prev, [field]: nextValues.length ? nextValues : ['0'] };
+      }
+
       const nextValues = currentValues.includes(value)
         ? currentValues.filter((item) => item !== value)
         : [...currentValues, value];
@@ -1102,8 +1158,28 @@ export default function AddProductPage() {
                     <FiZap /> Datos de Memoria
                   </div>
                   <div>
+                    <label htmlFor={fieldId('brand')} className="label-admin">
+                      Marca
+                    </label>
+                    <select
+                      id={fieldId('brand')}
+                      name="brand"
+                      value={formData.brand}
+                      onChange={handleChange}
+                      className="input-admin"
+                      required
+                    >
+                      <option value="">Selecciona marca</option>
+                      {RAM_BRANDS.map((brand) => (
+                        <option key={brand} value={brand}>
+                          {brand}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor={fieldId('memoryType')} className="label-admin">
-                      Tipo
+                      Tipo de RAM
                     </label>
                     <select
                       id={fieldId('memoryType')}
@@ -1120,7 +1196,7 @@ export default function AddProductPage() {
                   </div>
                   <div>
                     <label htmlFor={fieldId('capacity')} className="label-admin">
-                      Cantidad por modulo (GB)
+                      Capacidad por modulo (GB)
                     </label>
                     <select
                       id={fieldId('capacity')}
@@ -1141,7 +1217,7 @@ export default function AddProductPage() {
                   </div>
                   <div>
                     <label htmlFor={fieldId('modules')} className="label-admin">
-                      Kit (Modulos)
+                      Modulos
                     </label>
                     <select
                       id={fieldId('modules')}
@@ -1156,7 +1232,7 @@ export default function AddProductPage() {
                   </div>
                   <div>
                     <label htmlFor={fieldId('speed')} className="label-admin">
-                      Velocidad (MHz)
+                      Frecuencia (MHz)
                     </label>
                     <input
                       id={fieldId('speed')}
@@ -1165,6 +1241,19 @@ export default function AddProductPage() {
                       onChange={handleChange}
                       className="input-admin"
                       placeholder="Ej: 6000"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('latency')} className="label-admin">
+                      Latencia
+                    </label>
+                    <input
+                      id={fieldId('latency')}
+                      name="latency"
+                      value={formData.latency}
+                      onChange={handleChange}
+                      className="input-admin"
+                      placeholder="Ej: CL36"
                     />
                   </div>
                   <div>
@@ -1248,6 +1337,25 @@ export default function AddProductPage() {
                     </select>
                   </div>
                   <div>
+                    <label htmlFor={fieldId('typeVram')} className="label-admin">
+                      Tipo de VRAM
+                    </label>
+                    <select
+                      id={fieldId('typeVram')}
+                      name="typeVram"
+                      value={formData.typeVram}
+                      onChange={handleChange}
+                      className="input-admin"
+                      required
+                    >
+                      {GPU_VRAM_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor={fieldId('length')} className="label-admin">
                       Largo (mm)
                     </label>
@@ -1301,15 +1409,19 @@ export default function AddProductPage() {
                     <label htmlFor={fieldId('fans')} className="label-admin">
                       Ventiladores
                     </label>
-                    <input
+                    <select
                       id={fieldId('fans')}
                       name="fans"
-                      type="number"
                       value={formData.fans}
                       onChange={handleChange}
                       className="input-admin"
-                      placeholder="Ej: 2 o 3"
-                    />
+                    >
+                      {GPU_FAN_OPTIONS.map((fans) => (
+                        <option key={fans} value={fans}>
+                          {fans}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </>
               )}
@@ -1435,22 +1547,27 @@ export default function AddProductPage() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('formFactor')} className="label-admin">
-                      Soporte Placa
-                    </label>
-                    <select
-                      id={fieldId('formFactor')}
-                      name="formFactor"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {FORM_FACTORS.map((f) => (
-                        <option key={f} value={f}>
-                          {f}
-                        </option>
+                  <div className="col-span-2">
+                    <span className="label-admin">Soporte de placa</span>
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                      {FORM_FACTORS.map((formFactor) => (
+                        <label
+                          htmlFor={fieldOptionId('supportedFormFactors', formFactor)}
+                          key={formFactor}
+                          className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
+                        >
+                          <input
+                            id={fieldOptionId('supportedFormFactors', formFactor)}
+                            type="checkbox"
+                            checked={formData.supportedFormFactors.includes(formFactor)}
+                            onChange={() =>
+                              handleMultiSelectChange('supportedFormFactors', formFactor)
+                            }
+                          />
+                          <span>{formFactor}</span>
+                        </label>
                       ))}
-                    </select>
+                    </div>
                   </div>
                   <div>
                     <label htmlFor={fieldId('maxGpuLength')} className="label-admin">
@@ -1463,6 +1580,21 @@ export default function AddProductPage() {
                       onChange={handleChange}
                       className="input-admin"
                       placeholder="Ej: 340"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('maxCoolerHeight')} className="label-admin">
+                      Altura maxima de cooler (mm)
+                    </label>
+                    <input
+                      id={fieldId('maxCoolerHeight')}
+                      name="maxCoolerHeight"
+                      type="number"
+                      value={formData.maxCoolerHeight}
+                      onChange={handleChange}
+                      className="input-admin"
+                      placeholder="Ej: 160"
                       required
                     />
                   </div>
@@ -1480,23 +1612,27 @@ export default function AddProductPage() {
                       <option value="true">Si (Generica)</option>
                     </select>
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('radiatorSupportMm')} className="label-admin">
-                      Soporte Radiador Liquido
-                    </label>
-                    <select
-                      id={fieldId('radiatorSupportMm')}
-                      name="radiatorSupportMm"
-                      value={formData.radiatorSupportMm}
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
+                  <div className="col-span-2">
+                    <span className="label-admin">Soporte radiador liquido</span>
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                       {CASE_RADIATOR_SUPPORT_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
+                        <label
+                          htmlFor={fieldOptionId('radiatorSupportMmValues', option.value)}
+                          key={option.value}
+                          className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
+                        >
+                          <input
+                            id={fieldOptionId('radiatorSupportMmValues', option.value)}
+                            type="checkbox"
+                            checked={formData.radiatorSupportMmValues.includes(option.value)}
+                            onChange={() =>
+                              handleMultiSelectChange('radiatorSupportMmValues', option.value)
+                            }
+                          />
+                          <span>{option.label}</span>
+                        </label>
                       ))}
-                    </select>
+                    </div>
                   </div>
                   <div>
                     <label htmlFor={fieldId('includedFans')} className="label-admin">
@@ -1558,18 +1694,18 @@ export default function AddProductPage() {
                         <span>Torre</span>
                       </label>
                       <label
-                        htmlFor={fieldOptionId('type', 'Liquida')}
+                        htmlFor={fieldOptionId('type', 'Líquida')}
                         className="inline-flex items-center gap-2 border p-3 rounded-lg cursor-pointer hover:bg-blue-50"
                       >
                         <input
-                          id={fieldOptionId('type', 'Liquida')}
+                          id={fieldOptionId('type', 'Líquida')}
                           type="radio"
                           name="type"
-                          value="Liquida"
-                          checked={formData.type === 'Liquida'}
+                          value="Líquida"
+                          checked={formData.type === 'Líquida'}
                           onChange={handleChange}
                         />
-                        <span>Liquida</span>
+                        <span>Líquida</span>
                       </label>
                     </div>
                   </div>
@@ -1630,7 +1766,7 @@ export default function AddProductPage() {
                     </div>
                   )}
 
-                  {formData.type === 'Liquida' && (
+                  {formData.type === 'Líquida' && (
                     <div>
                       <label htmlFor={fieldId('radiatorSize')} className="label-admin">
                         Tamano Radiador
@@ -1707,7 +1843,7 @@ export default function AddProductPage() {
                     </select>
                   </div>
 
-                  {(formData.type === 'NVMe M.2' || formData.type === 'M.2 SATA') && (
+                  {formData.type === 'Sólido M.2' && (
                     <div>
                       <label htmlFor={fieldId('interface')} className="label-admin">
                         Generacion
@@ -1715,6 +1851,7 @@ export default function AddProductPage() {
                       <select
                         id={fieldId('interface')}
                         name="interface"
+                        value={formData.interface}
                         onChange={handleChange}
                         className="input-admin"
                       >
@@ -1767,7 +1904,7 @@ export default function AddProductPage() {
                       placeholder="Ej: 5000"
                     />
                   </div>
-                  {(formData.type === 'NVMe M.2' || formData.type === 'M.2 SATA') && (
+                  {formData.type === 'Sólido M.2' && (
                     <div>
                       <label htmlFor={fieldId('m2FormFactor')} className="label-admin">
                         Tamano fisico M.2

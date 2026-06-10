@@ -19,12 +19,22 @@ const CPU_SOCKETS_BY_BRAND: Record<string, string[]> = {
   AMD: ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5'],
   Intel: ['LGA 1200', 'LGA 1700', 'LGA 1851'],
 };
-const SOCKETS = ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5', 'LGA 1200', 'LGA 1700', 'LGA 1851'];
+const SOCKETS = [
+  'AM4',
+  'AM5',
+  'sTR4',
+  'sTRX4',
+  'sWRX8',
+  'sTR5',
+  'LGA 1200',
+  'LGA 1700',
+  'LGA 1851',
+];
 const M2_FORM_FACTORS = ['2230', '2242', '2260', '2280', '22110'];
 const COOLER_BRANDS = ['MSI', 'DeepCool', 'Corsair', 'Gigabyte', 'ASUS', 'Otros'];
-const COOLER_TYPES = ['Torre', 'Liquida'];
-const COOLER_RADIATOR_OPTIONS = ['120', '240', '280', '360', '460'];
-const STORAGE_TYPES = ['SSD 2.5', 'NVMe M.2', 'M.2 SATA', 'HDD 3.5'];
+const COOLER_TYPES = ['Torre', 'Líquida'];
+const COOLER_RADIATOR_OPTIONS = ['120', '140', '240', '280', '360', '420'];
+const STORAGE_TYPES = ['SSD 2.5', 'Sólido M.2', 'HDD 3.5'];
 const NVME_GENS = ['SATA', 'PCIe 3.0', 'PCIe 4.0', 'PCIe 5.0'];
 const FORM_FACTORS = ['ATX', 'Micro-ATX', 'Mini-ITX', 'E-ATX'];
 const CASE_BRANDS = [
@@ -38,20 +48,24 @@ const CASE_BRANDS = [
   'Lian Li',
   'Otros',
 ];
-const CASE_RADIATOR_SUPPORT_OPTIONS = ['0', '120', '240', '280', '360', '460'];
+const CASE_RADIATOR_SUPPORT_OPTIONS = ['0', '120', '140', '240', '280', '360', '420'];
 const CASE_RADIATOR_SUPPORT_LABELS: Record<string, string> = {
   0: 'No soporta',
   120: '120 mm',
+  140: '140 mm',
   240: '240 mm',
   280: '280 mm',
   360: '360 mm',
-  460: '460 mm',
+  420: '420 mm',
 };
 const RAM_TYPES = ['DDR4', 'DDR5'];
+const RAM_BRANDS = ['Kingston', 'TeamGroup', 'ADATA', 'Corsair', 'Otros'];
 const RAM_CAPACITIES = ['8', '16', '24', '32'];
 const GPU_BRANDS = ['Gigabyte', 'ASUS', 'MSI', 'PNY', 'Otros'];
 const GPU_CHIPSETS = ['NVIDIA GeForce', 'AMD Radeon', 'Intel Arc'];
 const GPU_VRAM_OPTIONS = ['4', '6', '8', '12', '16', '24', '32'];
+const GPU_VRAM_TYPES = ['GDDR6', 'GDDR6X', 'GDDR7'];
+const GPU_FAN_OPTIONS = ['1', '2', '3', '4'];
 const PSU_BRANDS = [
   'MSI',
   'ASUS',
@@ -212,10 +226,13 @@ type EditableForm = {
   integratedGraphics: string;
   includesCooler: string;
   formFactor: string;
+  supportedFormFactors: string[];
   maxGpuLength: string;
+  maxCoolerHeight: string;
   includesPsu: string;
   includedFans: string;
   radiatorSupportMm: string;
+  radiatorSupportMmValues: string[];
   memoryType: string;
   memorySlots: string;
   m2Slots: string;
@@ -230,6 +247,7 @@ type EditableForm = {
   fanCount: string;
   chipset: string;
   vram: string;
+  typeVram: string;
   length: string;
   gpuPowerWatts: string;
   recommendedPsuWatts: string;
@@ -240,6 +258,7 @@ type EditableForm = {
   capacity: string;
   speed: string;
   modules: string;
+  latency: string;
   interface: string;
   readSpeed: string;
   writeSpeed: string;
@@ -317,10 +336,13 @@ const INITIAL_FORM: EditableForm = {
   integratedGraphics: 'false',
   includesCooler: 'false',
   formFactor: 'ATX',
+  supportedFormFactors: ['ATX'],
   maxGpuLength: '',
+  maxCoolerHeight: '',
   includesPsu: 'false',
   includedFans: '0',
   radiatorSupportMm: '0',
+  radiatorSupportMmValues: ['0'],
   memoryType: 'DDR5',
   memorySlots: '4',
   m2Slots: '2',
@@ -335,6 +357,7 @@ const INITIAL_FORM: EditableForm = {
   fanCount: '1',
   chipset: 'NVIDIA GeForce',
   vram: '8',
+  typeVram: 'GDDR6',
   length: '',
   gpuPowerWatts: '',
   recommendedPsuWatts: '',
@@ -345,6 +368,7 @@ const INITIAL_FORM: EditableForm = {
   capacity: '',
   speed: '',
   modules: '1',
+  latency: '',
   interface: 'PCIe 4.0',
   readSpeed: '',
   writeSpeed: '',
@@ -411,7 +435,7 @@ function normalizeCoolerType(value: unknown) {
   const text = String(value || '')
     .trim()
     .toLowerCase();
-  if (text === 'aio' || text.includes('liqu') || text.includes('liqu')) return 'Liquida';
+  if (text === 'aio' || text.includes('liqu') || text.includes('líqu')) return 'Líquida';
   return 'Torre';
 }
 
@@ -485,7 +509,7 @@ function arrayFromSpecs(value: unknown, fallback: string[] = []) {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
   if (typeof value === 'string')
     return value
-      .split(',')
+      .split(/[;,]/)
       .map((item) => item.trim())
       .filter(Boolean);
   return fallback;
@@ -509,6 +533,12 @@ function getLoadedWattage(product: any, speaker: any, psu: any) {
 
 function getLoadedType(product: any, cooler: any, storage: any) {
   if (product.category === 'COOLER') return normalizeCoolerType(cooler.type);
+  const rawType = String(storage.type ?? '')
+    .trim()
+    .toLowerCase();
+  if (rawType.includes('nvme') || rawType.includes('m.2')) return 'Sólido M.2';
+  if (rawType === 'ssd') return 'SSD 2.5';
+  if (rawType === 'hdd') return 'HDD 3.5';
   return storage.type ?? 'SSD 2.5';
 }
 
@@ -560,6 +590,7 @@ function getLoadedResolution(product: any, monitor: any, webcam: any, captureCar
 function getLoadedBrand(product: any, specs: Record<string, any>) {
   const {
     motherboard,
+    ramSpecs,
     gpu,
     caseSpecs,
     cooler,
@@ -582,6 +613,7 @@ function getLoadedBrand(product: any, specs: Record<string, any>) {
   } = specs;
 
   if (product.category === 'MOTHERBOARD') return motherboard.brand ?? 'Otros';
+  if (product.category === 'RAM') return ramSpecs.brand ?? 'Otros';
   if (product.category === 'GPU') return gpu.brand ?? 'Otros';
   if (product.category === 'CASE') return caseSpecs.brand ?? '';
   if (product.category === 'COOLER') return cooler.brand ?? '';
@@ -653,16 +685,26 @@ function mapProductToFormData(product: any): EditableForm {
     integratedGraphics: boolToString(cpu.integratedGraphics),
     includesCooler: boolToString(cpu.includesCooler),
     formFactor: getLoadedFormFactor(product, caseSpecs, psu, motherboard),
+    supportedFormFactors: arrayFromSpecs(
+      caseSpecs.supportedFormFactors,
+      caseSpecs.formFactor ? [String(caseSpecs.formFactor)] : ['ATX'],
+    ),
     maxGpuLength: String(caseSpecs.maxGpuLength ?? ''),
+    maxCoolerHeight: String(caseSpecs.maxCoolerHeight ?? ''),
     includesPsu: boolToString(caseSpecs.includesPsu),
     includedFans: String(caseSpecs.includedFans ?? '0'),
     radiatorSupportMm: String(caseSpecs.radiatorSupportMm ?? '0'),
+    radiatorSupportMmValues: arrayFromSpecs(
+      caseSpecs.radiatorSupportMmValues,
+      caseSpecs.radiatorSupportMm ? [String(caseSpecs.radiatorSupportMm)] : ['0'],
+    ),
     memoryType: getLoadedMemoryType(product, ramSpecs, motherboard),
     memorySlots: String(motherboard.memorySlots ?? '4'),
     m2Slots: String(motherboard.m2Slots ?? '2'),
     supportedM2FormFactors: arrayFromSpecs(motherboard.supportedM2FormFactors, ['2280']),
     chipset: gpu.chipset ?? 'NVIDIA GeForce',
     vram: String(gpu.vram ?? '8'),
+    typeVram: gpu.typeVram ?? 'GDDR6',
     length: String(gpu.length ?? ''),
     gpuPowerWatts: String(gpu.gpuPowerWatts ?? gpu.tdp ?? ''),
     recommendedPsuWatts: String(gpu.recommendedPsuWatts ?? ''),
@@ -684,6 +726,7 @@ function mapProductToFormData(product: any): EditableForm {
     capacity: getLoadedCapacity(product, ramSpecs, storage),
     speed: String(ramSpecs.speed ?? ''),
     modules: String(ramSpecs.modules ?? '1'),
+    latency: String(ramSpecs.latency ?? ''),
     interface: storage.interface ?? 'PCIe 4.0',
     readSpeed: String(storage.readSpeed ?? ''),
     writeSpeed: String(storage.writeSpeed ?? ''),
@@ -707,6 +750,7 @@ function mapProductToFormData(product: any): EditableForm {
     hasSpeakers: boolToString(monitor.hasSpeakers),
     brand: getLoadedBrand(product, {
       motherboard,
+      ramSpecs,
       gpu,
       caseSpecs,
       cooler,
@@ -863,6 +907,16 @@ export default function EditProductPage() {
       return;
     }
 
+    if (name === 'type' && formData.category === 'STORAGE') {
+      setFormData((prev) => ({
+        ...prev,
+        type: value,
+        interface: value === 'Sólido M.2' ? prev.interface || 'PCIe 4.0' : 'SATA',
+        m2FormFactor: value === 'Sólido M.2' ? prev.m2FormFactor || '2280' : '',
+      }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -870,17 +924,32 @@ export default function EditProductPage() {
     field:
       | 'compatibleSockets'
       | 'supportedM2FormFactors'
+      | 'supportedFormFactors'
+      | 'radiatorSupportMmValues'
       | 'ports'
       | 'connections'
       | 'supportedConnections',
     value: string,
   ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: prev[field].includes(value)
-        ? prev[field].filter((item) => item !== value)
-        : [...prev[field], value],
-    }));
+    setFormData((prev) => {
+      if (field === 'radiatorSupportMmValues') {
+        const nextValues =
+          value === '0'
+            ? ['0']
+            : prev[field].includes(value)
+              ? prev[field].filter((item) => item !== value && item !== '0')
+              : [...prev[field].filter((item) => item !== '0'), value];
+
+        return { ...prev, [field]: nextValues.length ? nextValues : ['0'] };
+      }
+
+      return {
+        ...prev,
+        [field]: prev[field].includes(value)
+          ? prev[field].filter((item) => item !== value)
+          : [...prev[field], value],
+      };
+    });
   };
 
   const uploadImage = async (file: File) => {
@@ -1102,7 +1171,7 @@ export default function EditProductPage() {
             <h2 className="mb-4 font-black text-gray-800">Especificaciones CPU</h2>
             <div className="grid grid-cols-2 gap-4">
               <SelectField
-                label="Marca"
+                label="Marca del procesador"
                 value={formData.cpuBrand}
                 onChange={(value) => updateField('cpuBrand', value)}
                 options={CPU_BRANDS}
@@ -1209,20 +1278,26 @@ export default function EditProductPage() {
             <h2 className="mb-4 font-black text-gray-800">Especificaciones RAM</h2>
             <div className="grid grid-cols-2 gap-4">
               <SelectField
-                label="Tipo"
+                label="Marca"
+                value={formData.brand}
+                onChange={(value) => updateField('brand', value)}
+                options={RAM_BRANDS}
+              />
+              <SelectField
+                label="Tipo de RAM"
                 value={formData.memoryType}
                 onChange={(value) => updateField('memoryType', value)}
                 options={RAM_TYPES}
               />
               <SelectField
-                label="Cantidad por modulo (GB)"
+                label="Capacidad por modulo (GB)"
                 value={formData.capacity}
                 onChange={(value) => updateField('capacity', value)}
                 options={RAM_CAPACITIES}
                 labels={Object.fromEntries(RAM_CAPACITIES.map((value) => [value, `${value} GB`]))}
               />
               <SelectField
-                label="Kit (Modulos)"
+                label="Modulos"
                 value={formData.modules}
                 onChange={(value) => updateField('modules', value)}
                 options={['1', '2', '4']}
@@ -1233,9 +1308,15 @@ export default function EditProductPage() {
                 }}
               />
               <NumberField
-                label="Velocidad (MHz)"
+                label="Frecuencia (MHz)"
                 value={formData.speed}
                 onChange={(value) => updateField('speed', value)}
+              />
+              <TextField
+                label="Latencia"
+                value={formData.latency}
+                onChange={(value) => updateField('latency', value)}
+                placeholder="Ej: CL36"
               />
               <SelectField
                 label="Iluminacion RGB"
@@ -1271,6 +1352,12 @@ export default function EditProductPage() {
                 options={GPU_VRAM_OPTIONS}
                 labels={Object.fromEntries(GPU_VRAM_OPTIONS.map((value) => [value, `${value} GB`]))}
               />
+              <SelectField
+                label="Tipo de VRAM"
+                value={formData.typeVram}
+                onChange={(value) => updateField('typeVram', value)}
+                options={GPU_VRAM_TYPES}
+              />
               <NumberField
                 label="Largo (mm)"
                 value={formData.length}
@@ -1288,10 +1375,11 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('recommendedPsuWatts', value)}
                 helper="Referencia del fabricante para la fuente minima sugerida."
               />
-              <NumberField
+              <SelectField
                 label="Ventiladores"
                 value={formData.fans}
                 onChange={(value) => updateField('fans', value)}
+                options={GPU_FAN_OPTIONS}
               />
             </div>
           </section>
@@ -1346,16 +1434,21 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('brand', value)}
                 options={CASE_BRANDS}
               />
-              <SelectField
-                label="Soporte placa"
-                value={formData.formFactor}
-                onChange={(value) => updateField('formFactor', value)}
+              <MultiCheckField
+                label="Soporte de placa"
                 options={FORM_FACTORS}
+                values={formData.supportedFormFactors}
+                onToggle={(value) => toggleArrayValue('supportedFormFactors', value)}
               />
               <NumberField
                 label="Max largo GPU (mm)"
                 value={formData.maxGpuLength}
                 onChange={(value) => updateField('maxGpuLength', value)}
+              />
+              <NumberField
+                label="Altura máxima de cooler (mm)"
+                value={formData.maxCoolerHeight}
+                onChange={(value) => updateField('maxCoolerHeight', value)}
               />
               <SelectField
                 label="Incluye fuente?"
@@ -1364,12 +1457,12 @@ export default function EditProductPage() {
                 options={['false', 'true']}
                 labels={{ false: 'No', true: 'Si' }}
               />
-              <SelectField
+              <MultiCheckField
                 label="Soporte radiador liquido"
-                value={formData.radiatorSupportMm}
-                onChange={(value) => updateField('radiatorSupportMm', value)}
                 options={CASE_RADIATOR_SUPPORT_OPTIONS}
+                values={formData.radiatorSupportMmValues}
                 labels={CASE_RADIATOR_SUPPORT_LABELS}
+                onToggle={(value) => toggleArrayValue('radiatorSupportMmValues', value)}
               />
               <NumberField
                 label="Ventiladores incluidos"
@@ -1408,7 +1501,7 @@ export default function EditProductPage() {
                   onChange={(value) => updateField('coolerHeight', value)}
                 />
               )}
-              {formData.type === 'Liquida' && (
+              {formData.type === 'Líquida' && (
                 <SelectField
                   label="Radiador"
                   value={formData.radiatorSize}
@@ -1457,12 +1550,14 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('type', value)}
                 options={STORAGE_TYPES}
               />
-              <SelectField
-                label="Interfaz / Generacion"
-                value={formData.interface}
-                onChange={(value) => updateField('interface', value)}
-                options={NVME_GENS}
-              />
+              {formData.type === 'Sólido M.2' && (
+                <SelectField
+                  label="Generacion"
+                  value={formData.interface}
+                  onChange={(value) => updateField('interface', value)}
+                  options={NVME_GENS}
+                />
+              )}
               <NumberField
                 label="Capacidad (GB)"
                 value={formData.capacity}
@@ -1478,7 +1573,7 @@ export default function EditProductPage() {
                 value={formData.writeSpeed}
                 onChange={(value) => updateField('writeSpeed', value)}
               />
-              {(formData.type.includes('M.2') || formData.type.toUpperCase().includes('NVME')) && (
+              {formData.type === 'Sólido M.2' && (
                 <SelectField
                   label="Tamaño físico M.2"
                   value={formData.m2FormFactor}
@@ -2222,10 +2317,12 @@ function TextField({
   label,
   value,
   onChange,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
 }) {
   const id = fieldId(label);
   return (
@@ -2236,6 +2333,7 @@ function TextField({
       <input
         id={id}
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-lg border border-gray-300 p-3 outline-none focus:ring-2 focus:ring-brand-cyan"
       />
@@ -2312,11 +2410,13 @@ function MultiCheckField({
   label,
   options,
   values,
+  labels = {},
   onToggle,
 }: {
   label: string;
   options: string[];
   values: string[];
+  labels?: Record<string, string>;
   onToggle: (value: string) => void;
 }) {
   const groupId = fieldId(label);
@@ -2338,7 +2438,7 @@ function MultiCheckField({
                 checked={values.includes(option)}
                 onChange={() => onToggle(option)}
               />
-              <span>{option}</span>
+              <span>{labels[option] ?? option}</span>
             </label>
           );
         })}
