@@ -46,15 +46,15 @@ const DEPARTMENTS = {
     { label: 'Teclado', value: 'KEYBOARD' },
     { label: 'Mouse', value: 'MOUSE' },
     { label: 'Mousepad', value: 'MOUSEPAD' },
-    { label: 'Silla Gaming', value: 'CHAIR' },
+    { label: 'Silla Gamer', value: 'CHAIR' },
     { label: 'Mesa Gamer', value: 'GAMING_DESK' },
     { label: 'Webcam', value: 'WEBCAM' },
     { label: 'Capturadora', value: 'CAPTURE_CARD' },
     { label: 'Cables y Hub', value: 'CABLE_HUB' },
   ],
   AUDIO: [
-    { label: 'Audifonos / Headset', value: 'HEADSET' },
-    { label: 'Microfono', value: 'MICROPHONE' },
+    { label: 'Audífono / Headset', value: 'HEADSET' },
+    { label: 'Micrófono', value: 'MICROPHONE' },
     { label: 'Parlantes', value: 'SPEAKER' },
   ],
 };
@@ -181,7 +181,31 @@ const HEADSET_WIRELESS_CONNECTIONS = [
   'USB Dongle 2.4 GHz',
   'Bluetooth',
 ];
-const LAPTOP_RAM_OPTIONS = ['8GB', '16GB', '24GB', '32GB', '64GB'];
+const AUDIO_CONNECTIVITY_OPTIONS = ['Cableado', 'Inalambrico', 'Bluetooth', '2.4 GHz'];
+const AUDIO_CONNECTION_TYPE_OPTIONS = [
+  'USB',
+  'USB-C',
+  'Jack 3.5mm',
+  'Bluetooth',
+  '2.4 GHz',
+  'RCA',
+  'Optico',
+  'HDMI ARC',
+  'XLR',
+];
+const HEADSET_AUDIO_TYPES = ['Audifono', 'Headset', 'In-ear', 'On-ear', 'Over-ear'];
+const HEADSET_SURROUND_OPTIONS = ['No', '7.1 Virtual', 'Dolby Atmos', 'DTS Headphone:X'];
+const MICROPHONE_TYPES = ['Condensador', 'Dinamico', 'Lavalier', 'Shotgun'];
+const POLAR_PATTERN_OPTIONS = [
+  'Cardioide',
+  'Omnidireccional',
+  'Bidireccional',
+  'Supercardioide',
+  'Multiple',
+];
+const SPEAKER_TYPES = ['Escritorio', 'Barra de sonido', 'Portatil', 'Torre', 'Monitor de estudio'];
+const SPEAKER_CHANNELS = ['2.0', '2.1', '5.1', '7.1'];
+const LAPTOP_RAM_OPTIONS = ['8GB', '12GB', '16GB', '24GB', '32GB', '48GB', '64GB'];
 const LAPTOP_STORAGE_OPTIONS = [
   '256GB SSD',
   '512GB SSD',
@@ -194,6 +218,8 @@ const LAPTOP_STORAGE_OPTIONS = [
 ];
 const LAPTOP_SCREEN_OPTIONS = ['13', '14', '15.6', '16', '17.3', '18'];
 const LAPTOP_REFRESH_OPTIONS = ['60', '75', '120', '144', '165', '240', '300', '360'];
+const LAPTOP_SUPPORTED_SIZE_OPTIONS = ['14"', '15.6"', '16"', '17.3"'];
+const ACCESSORY_COLOR_OPTIONS = ['Negro', 'Gris', 'Blanco', 'Azul', 'Rojo', 'Otros'];
 const MONITOR_BRANDS = ['MSI', 'Gigabyte', 'Teros', 'LG', 'Samsung', 'Otros'];
 const MONITOR_RESOLUTION_OPTIONS = [
   'FHD (1920x1080)',
@@ -217,9 +243,11 @@ const MONITOR_REFRESH_OPTIONS = [
 ];
 const LAPTOP_RAM_LABELS: Record<string, string> = {
   '8GB': '8 GB',
+  '12GB': '12 GB',
   '16GB': '16 GB',
   '24GB': '24 GB',
   '32GB': '32 GB',
+  '48GB': '48 GB',
   '64GB': '64 GB',
 };
 const LAPTOP_STORAGE_LABELS: Record<string, string> = {
@@ -232,11 +260,12 @@ const LAPTOP_STORAGE_LABELS: Record<string, string> = {
   '512GB SSD + 1TB HDD': '512 GB SSD + 1 TB HDD',
   '1TB SSD + 1TB HDD': '1 TB SSD + 1 TB HDD',
 };
-const DESKTOP_COOLER_TYPES = ['De serie', 'Torre', 'Liquida (AIO)', 'No especificado'];
+const DESKTOP_COOLER_TYPES = ['De serie', 'Torre', 'Líquida', 'No incluye'];
 const MONITOR_PORTS = ['VGA', 'HDMI', 'DisplayPort', 'USB-C'];
 const PERIPHERAL_CONNECTIONS = ['Cableado', 'Bluetooth', 'Dongle USB'];
+const MOUSE_CONNECTIONS = ['Cableado', 'Inalambrico', 'Bluetooth', '2.4 GHz'];
 const KEYBOARD_BRANDS = ['Redragon', 'MSI', 'Logitech', 'Razer', 'Aula', 'Royal Kludge', 'Otros'];
-const KEYBOARD_TYPES = ['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico'];
+const KEYBOARD_TYPES = ['Membrana', 'Mecanico', 'Magnetico', 'Optico', 'Hibrido'];
 const KEYBOARD_FORM_FACTORS = ['Completo', '80%', 'TKL', '75%', '65%', '60%'];
 const LAYOUT_LANGUAGES = ['Espanol', 'Ingles'];
 const MOUSE_TYPES = ['Oficina', 'Gamer'];
@@ -261,6 +290,21 @@ const HUB_INPUT_TYPES = ['USB-C', 'USB-A'];
 const POLLING_RATES = ['1000', '2000', '4000', '8000'];
 const CHAIR_MATERIALS = ['Cuero sintetico', 'Tela', 'Malla', 'Mixto', 'Otro'];
 const MOUSE_POWER_TYPES = ['Pila', 'Bateria', 'Ninguno'];
+
+function getKeyboardSwitchPlaceholder(keyboardType: string) {
+  switch (keyboardType) {
+    case 'Mecanico':
+      return 'Ej: Red, Blue, Brown, Silver';
+    case 'Magnetico':
+      return 'Ej: Magnetic HE, Hall Effect, Magnetic Jade';
+    case 'Membrana':
+      return 'Ej: Membrana, Rubber Dome, No aplica';
+    case 'Optico':
+      return 'Ej: Optical Red, Optical Blue';
+    default:
+      return 'Ej: Red, Blue, Magnetic HE';
+  }
+}
 
 const INITIAL_FORM_DATA = {
   sku: '',
@@ -308,6 +352,7 @@ const INITIAL_FORM_DATA = {
   radiatorSupportMmValues: ['0'],
   type: 'Torre',
   fanCount: '1',
+  supportedLaptopSize: '15.6"',
   radiatorSize: '240',
   hasScreen: 'false',
   compatibleSockets: ['AM4', 'AM5'],
@@ -374,6 +419,20 @@ const INITIAL_FORM_DATA = {
   micType: 'Unidireccional',
   noiseCancel: 'false',
   supportedConnections: ['Cable USB'] as string[],
+  audioType: 'Headset',
+  micIntegrated: 'true',
+  micRemovable: 'false',
+  surroundSound: 'No',
+  consoleCompatible: 'false',
+  microphoneType: 'Condensador',
+  connectionTypes: ['USB'] as string[],
+  frequencyResponse: '',
+  includesArm: 'false',
+  includesPopFilter: 'false',
+  speakerType: 'Escritorio',
+  channels: '2.0',
+  hasSubwoofer: 'false',
+  remoteControl: 'false',
 };
 
 const createInitialFormData = (category = '') => ({
@@ -386,10 +445,18 @@ const createInitialFormData = (category = '') => ({
     category === 'WEBCAM' || category === 'CAPTURE_CARD' ? 'FHD' : INITIAL_FORM_DATA.resolution,
   fps: category === 'WEBCAM' || category === 'CAPTURE_CARD' ? '30' : INITIAL_FORM_DATA.fps,
   fanCount: category === 'LAPTOP_COOLING_BASE' ? '1' : INITIAL_FORM_DATA.fanCount,
+  supportedLaptopSize:
+    category === 'LAPTOP_COOLING_BASE' || category === 'BACKPACK'
+      ? '15.6"'
+      : INITIAL_FORM_DATA.supportedLaptopSize,
   connectivity: category === 'LAPTOP_COOLING_BASE' ? 'USB-A' : INITIAL_FORM_DATA.connectivity,
   connection: category === 'HEADSET' ? 'Cableado' : INITIAL_FORM_DATA.connection,
   supportedConnections:
-    category === 'HEADSET' ? ['Cable USB'] : [...INITIAL_FORM_DATA.supportedConnections],
+    category === 'HEADSET' ? ['USB'] : [...INITIAL_FORM_DATA.supportedConnections],
+  connectionTypes:
+    category === 'MICROPHONE' || category === 'SPEAKER'
+      ? ['USB']
+      : [...INITIAL_FORM_DATA.connectionTypes],
   cableHubType: category === 'CABLE_HUB' ? 'Cable' : INITIAL_FORM_DATA.cableHubType,
   cableType: category === 'CABLE_HUB' ? 'HDMI a HDMI' : INITIAL_FORM_DATA.cableType,
   cableLengthMeters: category === 'CABLE_HUB' ? '1' : INITIAL_FORM_DATA.cableLengthMeters,
@@ -573,8 +640,8 @@ export default function AddProductPage() {
     setFormData({
       ...formData,
       keyboardType: value,
-      hasLighting: value === 'Semi-mecanico' ? formData.hasLighting : 'false',
-      switchType: value === 'Mecanico' || value === 'Magnetico' ? formData.switchType : '',
+      hasLighting: value === 'Hibrido' ? formData.hasLighting : 'false',
+      switchType: formData.switchType,
     });
   };
 
@@ -668,7 +735,8 @@ export default function AddProductPage() {
       | 'radiatorSupportMmValues'
       | 'ports'
       | 'connections'
-      | 'supportedConnections',
+      | 'supportedConnections'
+      | 'connectionTypes',
     value: string,
   ) => {
     setFormData((prev) => {
@@ -2013,13 +2081,19 @@ export default function AddProductPage() {
                         <label htmlFor={fieldId('ram')} className="label-admin">
                           Memoria RAM
                         </label>
-                        <input
+                        <select
                           id={fieldId('ram')}
                           name="ram"
+                          value={formData.ram}
                           onChange={handleChange}
                           className="input-admin"
-                          placeholder="Ej: 16GB DDR5"
-                        />
+                        >
+                          {LAPTOP_RAM_OPTIONS.map((value) => (
+                            <option key={value} value={value}>
+                              {LAPTOP_RAM_LABELS[value]}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label htmlFor={fieldId('storage')} className="label-admin">
@@ -2065,7 +2139,9 @@ export default function AddProductPage() {
                           <option value="">Seleccionar...</option>
                           <option value="NVIDIA">NVIDIA</option>
                           <option value="AMD">AMD</option>
-                          <option value="Intel">Intel Arc</option>
+                          <option value="Intel">Intel</option>
+                          <option value="No aplica">No aplica</option>
+                          <option value="Otros">Otros</option>
                         </select>
                       </div>
                       <div>
@@ -2255,6 +2331,24 @@ export default function AddProductPage() {
                     </select>
                   </div>
                   <div>
+                    <label htmlFor={fieldId('supportedLaptopSize')} className="label-admin">
+                      Tamaño laptop soportado
+                    </label>
+                    <select
+                      id={fieldId('supportedLaptopSize')}
+                      name="supportedLaptopSize"
+                      value={formData.supportedLaptopSize}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      {LAPTOP_SUPPORTED_SIZE_OPTIONS.map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor={fieldId('fanCount')} className="label-admin">
                       Cantidad de ventiladores
                     </label>
@@ -2268,6 +2362,40 @@ export default function AddProductPage() {
                       {LAPTOP_COOLING_BASE_FAN_COUNTS.map((count) => (
                         <option key={count} value={count}>
                           {count}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('hasRGB')} className="label-admin">
+                      RGB
+                    </label>
+                    <select
+                      id={fieldId('hasRGB')}
+                      name="hasRGB"
+                      value={formData.hasRGB}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      <option value="false">No</option>
+                      <option value="true">Si</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('color')} className="label-admin">
+                      Color
+                    </label>
+                    <select
+                      id={fieldId('color')}
+                      name="color"
+                      value={formData.color}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      <option value="">Seleccionar color</option>
+                      {ACCESSORY_COLOR_OPTIONS.map((color) => (
+                        <option key={color} value={color}>
+                          {color}
                         </option>
                       ))}
                     </select>
@@ -2322,14 +2450,38 @@ export default function AddProductPage() {
                     <label htmlFor={fieldId('color')} className="label-admin">
                       Color
                     </label>
-                    <input
+                    <select
                       id={fieldId('color')}
                       name="color"
                       value={formData.color}
                       onChange={handleChange}
                       className="input-admin"
-                      placeholder="Ej: Negro"
-                    />
+                    >
+                      <option value="">Seleccionar color</option>
+                      {ACCESSORY_COLOR_OPTIONS.map((color) => (
+                        <option key={color} value={color}>
+                          {color}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('supportedLaptopSize')} className="label-admin">
+                      Tamaño laptop soportado
+                    </label>
+                    <select
+                      id={fieldId('supportedLaptopSize')}
+                      name="supportedLaptopSize"
+                      value={formData.supportedLaptopSize}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      {LAPTOP_SUPPORTED_SIZE_OPTIONS.map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </>
               )}
@@ -2569,7 +2721,7 @@ export default function AddProductPage() {
                       ))}
                     </select>
                   </div>
-                  {formData.keyboardType === 'Semi-mecanico' && (
+                  {formData.keyboardType === 'Hibrido' && (
                     <div>
                       <label htmlFor={fieldId('hasLighting')} className="label-admin">
                         RGB
@@ -2586,22 +2738,19 @@ export default function AddProductPage() {
                       </select>
                     </div>
                   )}
-                  {(formData.keyboardType === 'Mecanico' ||
-                    formData.keyboardType === 'Magnetico') && (
-                    <div>
-                      <label htmlFor={fieldId('switchType')} className="label-admin">
-                        Tipo de switch
-                      </label>
-                      <input
-                        id={fieldId('switchType')}
-                        name="switchType"
-                        value={formData.switchType}
-                        onChange={handleChange}
-                        className="input-admin"
-                        placeholder="Ej: Red, Blue, Magnetic HE"
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <label htmlFor={fieldId('switchType')} className="label-admin">
+                      Tipo de switch
+                    </label>
+                    <input
+                      id={fieldId('switchType')}
+                      name="switchType"
+                      value={formData.switchType}
+                      onChange={handleChange}
+                      className="input-admin"
+                      placeholder={getKeyboardSwitchPlaceholder(formData.keyboardType)}
+                    />
+                  </div>
                 </>
               )}
               {formData.category === 'MOUSE' && (
@@ -2646,7 +2795,7 @@ export default function AddProductPage() {
                   <div className="col-span-2">
                     <span className="label-admin">Tipo de conexion</span>
                     <div className="grid grid-cols-3 gap-2">
-                      {PERIPHERAL_CONNECTIONS.map((connection) => (
+                      {MOUSE_CONNECTIONS.map((connection) => (
                         <label
                           htmlFor={fieldOptionId('connections', connection)}
                           key={connection}
@@ -3203,8 +3352,26 @@ export default function AddProductPage() {
                     </select>
                   </div>
                   <div>
+                    <label htmlFor={fieldId('audioType')} className="label-admin">
+                      Tipo de audio
+                    </label>
+                    <select
+                      id={fieldId('audioType')}
+                      name="audioType"
+                      value={formData.audioType}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      {HEADSET_AUDIO_TYPES.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor={fieldId('connection')} className="label-admin">
-                      Conexion
+                      Conectividad
                     </label>
                     <select
                       id={fieldId('connection')}
@@ -3213,7 +3380,7 @@ export default function AddProductPage() {
                       onChange={handleChange}
                       className="input-admin"
                     >
-                      {HEADSET_CONNECTION_TYPES.map((option) => (
+                      {AUDIO_CONNECTIVITY_OPTIONS.map((option) => (
                         <option key={option} value={option}>
                           {option}
                         </option>
@@ -3221,12 +3388,9 @@ export default function AddProductPage() {
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <span className="label-admin">Conectividad soportada</span>
+                    <span className="label-admin">Tipo de conexion</span>
                     <div className="grid grid-cols-2 gap-2">
-                      {(formData.connection === 'Cableado'
-                        ? HEADSET_WIRED_CONNECTIONS
-                        : HEADSET_WIRELESS_CONNECTIONS
-                      ).map((option) => (
+                      {AUDIO_CONNECTION_TYPE_OPTIONS.map((option) => (
                         <label
                           htmlFor={fieldOptionId('supportedConnections', option)}
                           key={option}
@@ -3286,6 +3450,36 @@ export default function AddProductPage() {
                     </select>
                   </div>
                   <div>
+                    <label htmlFor={fieldId('micIntegrated')} className="label-admin">
+                      Microfono integrado
+                    </label>
+                    <select
+                      id={fieldId('micIntegrated')}
+                      name="micIntegrated"
+                      value={formData.micIntegrated}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      <option value="false">No</option>
+                      <option value="true">Si</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('micRemovable')} className="label-admin">
+                      Microfono removible
+                    </label>
+                    <select
+                      id={fieldId('micRemovable')}
+                      name="micRemovable"
+                      value={formData.micRemovable}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      <option value="false">No</option>
+                      <option value="true">Si</option>
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor={fieldId('noiseCancel')} className="label-admin">
                       Cancelacion de Ruido
                     </label>
@@ -3297,6 +3491,39 @@ export default function AddProductPage() {
                     >
                       <option value="false">No</option>
                       <option value="true">Si (ANC)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('surroundSound')} className="label-admin">
+                      Sonido surround
+                    </label>
+                    <select
+                      id={fieldId('surroundSound')}
+                      name="surroundSound"
+                      value={formData.surroundSound}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      {HEADSET_SURROUND_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('consoleCompatible')} className="label-admin">
+                      Compatible consola
+                    </label>
+                    <select
+                      id={fieldId('consoleCompatible')}
+                      name="consoleCompatible"
+                      value={formData.consoleCompatible}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      <option value="false">No</option>
+                      <option value="true">Si</option>
                     </select>
                   </div>
                   <div>
@@ -3312,6 +3539,19 @@ export default function AddProductPage() {
                       <option value="false">No</option>
                       <option value="true">Si</option>
                     </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('color')} className="label-admin">
+                      Color
+                    </label>
+                    <input
+                      id={fieldId('color')}
+                      name="color"
+                      value={formData.color}
+                      onChange={handleChange}
+                      className="input-admin"
+                      placeholder="Ej: Negro/Rojo"
+                    />
                   </div>
                 </>
               )}
@@ -3342,19 +3582,60 @@ export default function AddProductPage() {
                     </select>
                   </div>
                   <div>
+                    <label htmlFor={fieldId('microphoneType')} className="label-admin">
+                      Tipo de microfono
+                    </label>
+                    <select
+                      id={fieldId('microphoneType')}
+                      name="microphoneType"
+                      value={formData.microphoneType}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      {MICROPHONE_TYPES.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor={fieldId('connection')} className="label-admin">
-                      Conexion
+                      Conectividad
                     </label>
                     <select
                       id={fieldId('connection')}
                       name="connection"
+                      value={formData.connection}
                       onChange={handleChange}
                       className="input-admin"
                     >
-                      <option value="USB">USB</option>
-                      <option value="XLR">XLR (Profesional)</option>
-                      <option value="3.5mm Jack">3.5mm Jack</option>
+                      {AUDIO_CONNECTIVITY_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
                     </select>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="label-admin">Tipo de conexion</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {AUDIO_CONNECTION_TYPE_OPTIONS.map((option) => (
+                        <label
+                          htmlFor={fieldOptionId('connectionTypes', option)}
+                          key={option}
+                          className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
+                        >
+                          <input
+                            id={fieldOptionId('connectionTypes', option)}
+                            type="checkbox"
+                            checked={formData.connectionTypes.includes(option)}
+                            onChange={() => handleMultiSelectChange('connectionTypes', option)}
+                          />
+                          <span>{option}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <label htmlFor={fieldId('micType')} className="label-admin">
@@ -3366,10 +3647,54 @@ export default function AddProductPage() {
                       onChange={handleChange}
                       className="input-admin"
                     >
-                      <option value="Cardioide">Cardioide</option>
-                      <option value="Omnidireccional">Omnidireccional</option>
-                      <option value="Bidireccional">Bidireccional</option>
-                      <option value="Estereo">Estereo</option>
+                      {POLAR_PATTERN_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('frequencyResponse')} className="label-admin">
+                      Frecuencia respuesta
+                    </label>
+                    <input
+                      id={fieldId('frequencyResponse')}
+                      name="frequencyResponse"
+                      value={formData.frequencyResponse}
+                      onChange={handleChange}
+                      className="input-admin"
+                      placeholder="Ej: 20Hz-20kHz"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('includesArm')} className="label-admin">
+                      Incluye brazo
+                    </label>
+                    <select
+                      id={fieldId('includesArm')}
+                      name="includesArm"
+                      value={formData.includesArm}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      <option value="false">No</option>
+                      <option value="true">Si</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('includesPopFilter')} className="label-admin">
+                      Incluye filtro pop
+                    </label>
+                    <select
+                      id={fieldId('includesPopFilter')}
+                      name="includesPopFilter"
+                      value={formData.includesPopFilter}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      <option value="false">No</option>
+                      <option value="true">Si</option>
                     </select>
                   </div>
                   <div>
@@ -3385,6 +3710,19 @@ export default function AddProductPage() {
                       <option value="false">No</option>
                       <option value="true">Si</option>
                     </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('color')} className="label-admin">
+                      Color
+                    </label>
+                    <input
+                      id={fieldId('color')}
+                      name="color"
+                      value={formData.color}
+                      onChange={handleChange}
+                      className="input-admin"
+                      placeholder="Ej: Negro"
+                    />
                   </div>
                 </>
               )}
@@ -3415,19 +3753,78 @@ export default function AddProductPage() {
                     </select>
                   </div>
                   <div>
+                    <label htmlFor={fieldId('speakerType')} className="label-admin">
+                      Tipo de parlante
+                    </label>
+                    <select
+                      id={fieldId('speakerType')}
+                      name="speakerType"
+                      value={formData.speakerType}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      {SPEAKER_TYPES.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('channels')} className="label-admin">
+                      Canales
+                    </label>
+                    <select
+                      id={fieldId('channels')}
+                      name="channels"
+                      value={formData.channels}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      {SPEAKER_CHANNELS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor={fieldId('connection')} className="label-admin">
-                      Conexion
+                      Conectividad
                     </label>
                     <select
                       id={fieldId('connection')}
                       name="connection"
+                      value={formData.connection}
                       onChange={handleChange}
                       className="input-admin"
                     >
-                      <option value="USB">USB</option>
-                      <option value="3.5mm Jack">3.5mm Jack</option>
-                      <option value="Bluetooth">Bluetooth</option>
+                      {AUDIO_CONNECTIVITY_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
                     </select>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="label-admin">Tipo de conexion</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {AUDIO_CONNECTION_TYPE_OPTIONS.map((option) => (
+                        <label
+                          htmlFor={fieldOptionId('connectionTypes', option)}
+                          key={option}
+                          className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
+                        >
+                          <input
+                            id={fieldOptionId('connectionTypes', option)}
+                            type="checkbox"
+                            checked={formData.connectionTypes.includes(option)}
+                            onChange={() => handleMultiSelectChange('connectionTypes', option)}
+                          />
+                          <span>{option}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <label htmlFor={fieldId('wattage')} className="label-admin">
@@ -3443,6 +3840,36 @@ export default function AddProductPage() {
                     />
                   </div>
                   <div>
+                    <label htmlFor={fieldId('hasSubwoofer')} className="label-admin">
+                      Subwoofer
+                    </label>
+                    <select
+                      id={fieldId('hasSubwoofer')}
+                      name="hasSubwoofer"
+                      value={formData.hasSubwoofer}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      <option value="false">No</option>
+                      <option value="true">Si</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('remoteControl')} className="label-admin">
+                      Control remoto
+                    </label>
+                    <select
+                      id={fieldId('remoteControl')}
+                      name="remoteControl"
+                      value={formData.remoteControl}
+                      onChange={handleChange}
+                      className="input-admin"
+                    >
+                      <option value="false">No</option>
+                      <option value="true">Si</option>
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor={fieldId('hasRGB')} className="label-admin">
                       RGB?
                     </label>
@@ -3455,6 +3882,19 @@ export default function AddProductPage() {
                       <option value="false">No</option>
                       <option value="true">Si</option>
                     </select>
+                  </div>
+                  <div>
+                    <label htmlFor={fieldId('color')} className="label-admin">
+                      Color
+                    </label>
+                    <input
+                      id={fieldId('color')}
+                      name="color"
+                      value={formData.color}
+                      onChange={handleChange}
+                      className="input-admin"
+                      placeholder="Ej: Negro"
+                    />
                   </div>
                 </>
               )}

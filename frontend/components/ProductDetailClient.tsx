@@ -232,6 +232,7 @@ export default function ProductDetailClient({ identifier }: { identifier: string
   const { addItem, closeCart } = useCartStore();
   const [product, setProduct] = useState<any>(null);
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
+  const [relatedLoadError, setRelatedLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
   const [isImageFading, setIsImageFading] = useState(false);
@@ -256,6 +257,7 @@ export default function ProductDetailClient({ identifier }: { identifier: string
     if (!identifier) return;
 
     setLoading(true);
+    setRelatedLoadError(null);
     api
       .get(`/products/resolve/${identifier}`)
       .then(async (productRes) => {
@@ -265,10 +267,21 @@ export default function ProductDetailClient({ identifier }: { identifier: string
           router.replace(getPublicProductPath(currentProduct));
         }
 
-        const relatedRes = currentProduct?.id
-          ? await api.get(`/products/related/${currentProduct.id}`)
-          : { data: [] };
-        setRelatedProducts(Array.isArray(relatedRes.data) ? relatedRes.data : []);
+        try {
+          const relatedRes = currentProduct?.id
+            ? await api.get(`/products/related/${currentProduct.id}`)
+            : { data: [] };
+          const relatedData = Array.isArray(relatedRes.data)
+            ? relatedRes.data
+            : Array.isArray(relatedRes.data?.items)
+              ? relatedRes.data.items
+              : [];
+          setRelatedProducts(relatedData);
+        } catch (error) {
+          console.warn('No se pudieron cargar productos relacionados:', error);
+          setRelatedProducts([]);
+          setRelatedLoadError('No se pudieron cargar los productos relacionados.');
+        }
       })
       .catch((err) => console.error('Error al cargar producto:', err))
       .finally(() => setLoading(false));
@@ -509,22 +522,26 @@ export default function ProductDetailClient({ identifier }: { identifier: string
           </div>
         </div>
 
-        {relatedProducts.filter((item) => item.id !== product.id).length > 0 && (
-          <section className="mt-16">
-            <div className="mb-6 flex items-end justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-widest text-brand-cyan">
-                  Compatibles y relacionados
-                </p>
-                <h2 className="text-2xl font-black text-gray-900">Productos relacionados</h2>
-              </div>
+        <section className="mt-16">
+          <div className="mb-6 flex items-end justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-brand-cyan">
+                Compatibles y relacionados
+              </p>
+              <h2 className="text-2xl font-black text-gray-900">Productos relacionados</h2>
             </div>
+          </div>
 
+          {relatedProducts.filter((item) => item.id !== product.id).length > 0 ? (
             <RelatedProductsCarousel
               products={relatedProducts.filter((item) => item.id !== product.id)}
             />
-          </section>
-        )}
+          ) : (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm font-bold text-gray-500">
+              {relatedLoadError || 'No hay productos relacionados disponibles por el momento.'}
+            </div>
+          )}
+        </section>
 
         <section className="mt-16">
           <h2 className="mb-6 text-2xl font-black text-gray-900">

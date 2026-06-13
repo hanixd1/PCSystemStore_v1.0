@@ -30,6 +30,21 @@ function createService(products: any[]) {
     product: {
       count: jest.fn(async () => products.length),
       findMany: jest.fn(async () => products),
+      findUnique: jest.fn(async ({ where }: any) =>
+        products.find((product) => product.id === where.id) ? { id: where.id } : null,
+      ),
+    },
+    orderItem: {
+      groupBy: jest.fn(async () => []),
+    },
+    stockAlertState: {
+      findMany: jest.fn(async () => [] as any[]),
+      upsert: jest.fn(async ({ create, update }: any) => ({
+        productId: create?.productId,
+        alertType: create?.alertType,
+        status: update?.status ?? create?.status,
+        updatedAt: new Date(),
+      })),
     },
   };
 
@@ -63,7 +78,8 @@ describe('StatisticsService', () => {
       totalProducts: 3,
       outOfStockProducts: 1,
       lowStockProducts: 2,
-      riskProducts: 3,
+      riskProducts: null,
+      riskAvailable: false,
       estimatedInventoryValue: 650,
     });
   });
@@ -79,7 +95,7 @@ describe('StatisticsService', () => {
     expect(dashboard.alerts[0]).toMatchObject({
       productId: 'empty',
       status: 'OUT_OF_STOCK',
-      risk: 100,
+      risk: null,
       recommendation: 'Reponer urgente',
     });
   });
@@ -93,7 +109,7 @@ describe('StatisticsService', () => {
     expect(dashboard.alerts[0]).toMatchObject({
       productId: 'low',
       status: 'LOW_STOCK',
-      risk: 60,
+      risk: null,
       recommendation: 'Revisar reposicion',
     });
   });
@@ -118,13 +134,30 @@ describe('StatisticsService', () => {
     global.fetch = jest.fn(async () => ({
       ok: true,
       json: async () => ({
-        available: true,
-        riskProducts: [
+        mode: 'HEURISTIC_V1',
+        summary: {
+          totalProducts: 1,
+          riskProducts: 1,
+          criticalProducts: 0,
+          insufficientDataProducts: 0,
+        },
+        items: [
           {
             productId: 'ai-risk',
-            risk: 88,
-            status: 'BREAK_RISK',
-            recommendation: 'Reponer 4 unidades',
+            name: 'Producto IA',
+            riskScore: 88,
+            riskLevel: 'HIGH',
+            status: 'RISK',
+            estimatedDaysToStockout: 5,
+            recommendedAction: 'Reponer pronto',
+            recommendedQuantity: 4,
+            signals: {
+              stockPressure: 70,
+              salesVelocity: 82,
+              replenishmentRisk: 80,
+              dataQuality: 90,
+            },
+            reasons: ['La rotacion reciente indica riesgo de quiebre.'],
           },
         ],
       }),
@@ -139,11 +172,77 @@ describe('StatisticsService', () => {
       available: true,
       mode: 'AI_SERVICE',
     });
+    expect(dashboard.summary).toMatchObject({
+      riskProducts: 1,
+      riskAvailable: true,
+    });
     expect(dashboard.alerts[0]).toMatchObject({
       productId: 'ai-risk',
-      status: 'BREAK_RISK',
+      alertType: 'PREDICTIVE_RISK',
+      status: 'PREDICTIVE_RISK',
       risk: 88,
-      recommendation: 'Reponer 4 unidades',
+      recommendation: 'Reponer pronto',
+      riskLevel: 'HIGH',
+      recommendedQuantity: 4,
     });
+  });
+
+  it('no cuenta stock bajo como riesgo predictivo si ai-service no esta disponible', async () => {
+    delete process.env.AI_SERVICE_URL;
+    const { service } = createService([createProduct({ id: 'low', stock: 1 })]);
+
+    const dashboard = await service.getInventoryDashboard();
+
+    expect(dashboard.summary).toMatchObject({
+      lowStockProducts: 1,
+      riskProducts: null,
+      riskAvailable: false,
+    });
+    expect(dashboard.alerts).toHaveLength(1);
+    expect(dashboard.alerts[0]).toMatchObject({
+      alertType: 'LOW_STOCK',
+      risk: null,
+    });
+  });
+
+  it('oculta alertas revisadas u omitidas de la vista activa', async () => {
+    delete process.env.AI_SERVICE_URL;
+    const { service, prisma } = createService([
+      createProduct({ id: 'low-hidden', name: 'Stock bajo omitido', stock: 2 }),
+    ]);
+    prisma.stockAlertState.findMany.mockResolvedValueOnce([
+      {
+        productId: 'low-hidden',
+        alertType: 'LOW_STOCK',
+        status: 'DISMISSED',
+      },
+    ]);
+
+    const dashboard = await service.getInventoryDashboard();
+
+    expect(dashboard.alerts).toHaveLength(0);
+  });
+
+  it('guarda estado de alerta sin modificar el stock del producto', async () => {
+    const { service, prisma } = createService([createProduct({ id: 'low', stock: 2 })]);
+
+    await service.updateStockAlertState({
+      productId: 'low',
+      alertType: 'LOW_STOCK',
+      status: 'REVIEWED',
+      reviewedByUserId: 'admin-1',
+    });
+
+    expect(prisma.stockAlertState.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          productId: 'low',
+          alertType: 'LOW_STOCK',
+          status: 'REVIEWED',
+          reviewedByUserId: 'admin-1',
+        }),
+      }),
+    );
+    expect(prisma.product.findMany).not.toHaveBeenCalled();
   });
 });

@@ -26,6 +26,7 @@ if allowed_origins:
     )
 
 app.include_router(chatbot.router, prefix="/chat", tags=["Chatbot"])
+app.include_router(stock_prediction.router, prefix="/stock-prediction", tags=["Stock Prediction"])
 app.include_router(stock_prediction.router, prefix="/predict-stock", tags=["Stock Prediction"])
 app.include_router(statistics.router, prefix="/statistics", tags=["Statistics"])
 

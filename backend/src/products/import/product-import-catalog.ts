@@ -5,6 +5,7 @@ import type { ProductImportCategoryGroup } from './product-import.types';
 export type ProductImportOption = {
   label: string;
   category: string;
+  aliases?: string[];
 };
 
 export const PRODUCT_TYPES_BY_GROUP: Record<ProductImportCategoryGroup, ProductImportOption[]> = {
@@ -30,16 +31,41 @@ export const PRODUCT_TYPES_BY_GROUP: Record<ProductImportCategoryGroup, ProductI
     { label: 'Teclado', category: 'KEYBOARD' },
     { label: 'Mouse', category: 'MOUSE' },
     { label: 'Mousepad', category: 'MOUSEPAD' },
-    { label: 'Silla Gaming', category: 'CHAIR' },
+    {
+      label: 'Silla Gamer',
+      category: 'CHAIR',
+      aliases: ['Silla Gaming', 'Sillas Gaming', 'Sillas Gamer'],
+    },
     { label: 'Mesa Gamer', category: 'GAMING_DESK' },
     { label: 'Webcam', category: 'WEBCAM' },
     { label: 'Capturadora', category: 'CAPTURE_CARD' },
     { label: 'Cables y Hub', category: 'CABLE_HUB' },
   ],
   AUDIO: [
-    { label: 'Audifonos / Headset', category: 'HEADSET' },
-    { label: 'Microfono', category: 'MICROPHONE' },
-    { label: 'Parlantes', category: 'SPEAKER' },
+    {
+      label: 'Audifonos / Headset',
+      category: 'HEADSET',
+      aliases: [
+        'Audífono / Headset',
+        'Audifono / Headset',
+        'Audífono',
+        'Audifono',
+        'Audifonos',
+        'Headset',
+        'HEADSET',
+        'AUDIFONO_HEADSET',
+      ],
+    },
+    {
+      label: 'Microfono',
+      category: 'MICROPHONE',
+      aliases: ['Micrófono', 'MICROPHONE', 'MIC'],
+    },
+    {
+      label: 'Parlantes',
+      category: 'SPEAKER',
+      aliases: ['Parlante', 'SPEAKERS', 'SPEAKER'],
+    },
   ],
 };
 
@@ -72,9 +98,12 @@ export function resolveImportProductType(category: unknown, productType: unknown
     throw new BadRequestException('Selecciona una categoria principal valida.');
   }
 
-  const resolved = options.find(
-    (option) => normalizeHeader(option.label) === normalizedProductType,
-  );
+  const resolved = options.find((option) => {
+    const aliases = option.aliases ?? [];
+    return [option.label, ...aliases].some(
+      (label) => normalizeHeader(label) === normalizedProductType,
+    );
+  });
   if (!resolved) {
     throw new BadRequestException('Selecciona un tipo de producto valido para la categoria.');
   }

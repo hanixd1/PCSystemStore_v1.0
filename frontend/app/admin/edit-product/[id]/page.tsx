@@ -102,7 +102,7 @@ const PSU_CERTS = [
 ];
 const PSU_MODULAR_OPTIONS = ['No Modular', 'Semi Modular', 'Full Modular'];
 const LAPTOP_BRANDS = ['ASUS', 'Lenovo', 'HP', 'Acer', 'Dell', 'MSI', 'Otra'];
-const LAPTOP_RAM_OPTIONS = ['8GB', '16GB', '24GB', '32GB', '64GB'];
+const LAPTOP_RAM_OPTIONS = ['8GB', '12GB', '16GB', '24GB', '32GB', '48GB', '64GB'];
 const LAPTOP_STORAGE_OPTIONS = [
   '256GB SSD',
   '512GB SSD',
@@ -115,11 +115,14 @@ const LAPTOP_STORAGE_OPTIONS = [
 ];
 const LAPTOP_SCREEN_OPTIONS = ['13', '14', '15.6', '16', '17.3', '18'];
 const LAPTOP_REFRESH_OPTIONS = ['60', '75', '120', '144', '165', '240', '300', '360'];
+const LAPTOP_SUPPORTED_SIZE_OPTIONS = ['14"', '15.6"', '16"', '17.3"'];
 const LAPTOP_RAM_LABELS: Record<string, string> = {
   '8GB': '8 GB',
+  '12GB': '12 GB',
   '16GB': '16 GB',
   '24GB': '24 GB',
   '32GB': '32 GB',
+  '48GB': '48 GB',
   '64GB': '64 GB',
 };
 const LAPTOP_STORAGE_LABELS: Record<string, string> = {
@@ -132,7 +135,7 @@ const LAPTOP_STORAGE_LABELS: Record<string, string> = {
   '512GB SSD + 1TB HDD': '512 GB SSD + 1 TB HDD',
   '1TB SSD + 1TB HDD': '1 TB SSD + 1 TB HDD',
 };
-const DESKTOP_COOLER_TYPES = ['De serie', 'Aire (Torre)', 'Liquida (AIO)', 'No especificado'];
+const DESKTOP_COOLER_TYPES = ['De serie', 'Torre', 'Líquida', 'No incluye'];
 const PANEL_TYPES = ['IPS', 'VA', 'TN', 'OLED'];
 const MONITOR_BRANDS = ['MSI', 'Gigabyte', 'Teros', 'LG', 'Samsung', 'Otros'];
 const MONITOR_RESOLUTION_OPTIONS = [
@@ -157,8 +160,9 @@ const MONITOR_REFRESH_OPTIONS = [
 ];
 const MONITOR_PORTS = ['VGA', 'HDMI', 'DisplayPort', 'USB-C'];
 const PERIPHERAL_CONNECTIONS = ['Cableado', 'Bluetooth', 'Dongle USB'];
+const MOUSE_CONNECTIONS = ['Cableado', 'Inalambrico', 'Bluetooth', '2.4 GHz'];
 const KEYBOARD_BRANDS = ['Redragon', 'MSI', 'Logitech', 'Razer', 'Aula', 'Royal Kludge', 'Otros'];
-const KEYBOARD_TYPES = ['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico'];
+const KEYBOARD_TYPES = ['Membrana', 'Mecanico', 'Magnetico', 'Optico', 'Hibrido'];
 const KEYBOARD_FORM_FACTORS = ['Completo', '80%', 'TKL', '75%', '65%', '60%'];
 const LAYOUT_LANGUAGES = ['Espanol', 'Ingles'];
 const MOUSE_TYPES = ['Oficina', 'Gamer'];
@@ -168,6 +172,7 @@ const LAPTOP_COOLING_BASE_BRANDS = ['Cooler Master', 'Antryx', 'Teros', 'Otros']
 const LAPTOP_COOLING_BASE_FAN_COUNTS = ['1', '2', '3', '4', '5', '6'];
 const LAPTOP_ACCESSORY_CONNECTIVITY = ['USB-A', 'USB-C'];
 const BACKPACK_BRANDS = ['Redragon', 'ASUS', 'Teros', 'Gigabyte', 'Otros'];
+const ACCESSORY_COLOR_OPTIONS = ['Negro', 'Gris', 'Blanco', 'Azul', 'Rojo', 'Otros'];
 const HEADSET_BRANDS = ['Logitech', 'Redragon', 'HyperX', 'Razer', 'Teros', 'Otros'];
 const MICROPHONE_BRANDS = [
   'Fifine',
@@ -187,6 +192,30 @@ const HEADSET_WIRELESS_CONNECTIONS = [
   'USB Dongle 2.4 GHz',
   'Bluetooth',
 ];
+const AUDIO_CONNECTIVITY_OPTIONS = ['Cableado', 'Inalambrico', 'Bluetooth', '2.4 GHz'];
+const AUDIO_CONNECTION_TYPE_OPTIONS = [
+  'USB',
+  'USB-C',
+  'Jack 3.5mm',
+  'Bluetooth',
+  '2.4 GHz',
+  'RCA',
+  'Optico',
+  'HDMI ARC',
+  'XLR',
+];
+const HEADSET_AUDIO_TYPES = ['Audifono', 'Headset', 'In-ear', 'On-ear', 'Over-ear'];
+const HEADSET_SURROUND_OPTIONS = ['No', '7.1 Virtual', 'Dolby Atmos', 'DTS Headphone:X'];
+const MICROPHONE_TYPES = ['Condensador', 'Dinamico', 'Lavalier', 'Shotgun'];
+const POLAR_PATTERN_OPTIONS = [
+  'Cardioide',
+  'Omnidireccional',
+  'Bidireccional',
+  'Supercardioide',
+  'Multiple',
+];
+const SPEAKER_TYPES = ['Escritorio', 'Barra de sonido', 'Portatil', 'Torre', 'Monitor de estudio'];
+const SPEAKER_CHANNELS = ['2.0', '2.1', '5.1', '7.1'];
 const WEBCAM_BRANDS = ['Logitech', 'Redragon', 'Otros'];
 const CAPTURE_CARD_BRANDS = ['Corsair', 'Streamplify', 'Otros'];
 const CABLE_HUB_BRANDS = ['Cabletime', 'Ugreen', 'Otros'];
@@ -206,6 +235,21 @@ const HUB_INPUT_TYPES = ['USB-C', 'USB-A'];
 const POLLING_RATES = ['1000', '2000', '4000', '8000'];
 const MOUSE_POWER_TYPES = ['Pila', 'Bateria', 'Ninguno'];
 const CHAIR_MATERIALS = ['Cuero sintetico', 'Tela', 'Malla', 'Mixto', 'Otro'];
+
+function getKeyboardSwitchPlaceholder(keyboardType: string) {
+  switch (keyboardType) {
+    case 'Mecanico':
+      return 'Ej: Red, Blue, Brown, Silver';
+    case 'Magnetico':
+      return 'Ej: Magnetic HE, Hall Effect, Magnetic Jade';
+    case 'Membrana':
+      return 'Ej: Membrana, Rubber Dome, No aplica';
+    case 'Optico':
+      return 'Ej: Optical Red, Optical Blue';
+    default:
+      return 'Ej: Red, Blue, Magnetic HE';
+  }
+}
 
 type EditableForm = {
   sku: string;
@@ -294,12 +338,27 @@ type EditableForm = {
   dpi: string;
   pollingRateHz: string;
   powerType: string;
+  supportedLaptopSize: string;
   connectivity: string;
   connection: string;
   driverSize: string;
   impedance: string;
   micType: string;
   noiseCancel: string;
+  audioType: string;
+  micIntegrated: string;
+  micRemovable: string;
+  surroundSound: string;
+  consoleCompatible: string;
+  microphoneType: string;
+  connectionTypes: string[];
+  frequencyResponse: string;
+  includesArm: string;
+  includesPopFilter: string;
+  speakerType: string;
+  channels: string;
+  hasSubwoofer: string;
+  remoteControl: string;
   fps: string;
   cableHubType: string;
   cableType: string;
@@ -404,12 +463,27 @@ const INITIAL_FORM: EditableForm = {
   dpi: '',
   pollingRateHz: '1000',
   powerType: 'Ninguno',
+  supportedLaptopSize: '15.6"',
   connectivity: 'USB-A',
   connection: 'Cableado',
   driverSize: '50',
   impedance: '32',
   micType: 'Unidireccional',
   noiseCancel: 'false',
+  audioType: 'Headset',
+  micIntegrated: 'true',
+  micRemovable: 'false',
+  surroundSound: 'No',
+  consoleCompatible: 'false',
+  microphoneType: 'Condensador',
+  connectionTypes: ['USB'],
+  frequencyResponse: '',
+  includesArm: 'false',
+  includesPopFilter: 'false',
+  speakerType: 'Escritorio',
+  channels: '2.0',
+  hasSubwoofer: 'false',
+  remoteControl: 'false',
   fps: '30',
   cableHubType: 'Cable',
   cableType: 'HDMI a HDMI',
@@ -542,9 +616,16 @@ function getLoadedType(product: any, cooler: any, storage: any) {
   return storage.type ?? 'SSD 2.5';
 }
 
-function getLoadedHasRgb(product: any, ramSpecs: any, headset: any, cooler: any) {
+function getLoadedHasRgb(
+  product: any,
+  ramSpecs: any,
+  headset: any,
+  cooler: any,
+  laptopCoolingBase: any,
+) {
   if (product.category === 'RAM') return boolToString(ramSpecs.hasRGB);
   if (product.category === 'HEADSET') return boolToString(headset.hasRGB);
+  if (product.category === 'LAPTOP_COOLING_BASE') return boolToString(laptopCoolingBase.hasRGB);
   return boolToString(cooler.hasRGB);
 }
 
@@ -556,6 +637,7 @@ function getLoadedCapacity(product: any, ramSpecs: any, storage: any) {
 
 function getLoadedRam(product: any, laptop: any, desktop: any) {
   if (product.category === 'LAPTOP') return normalizeLaptopRam(laptop.ram) || '8GB';
+  if (product.category === 'PC_DESKTOP') return normalizeLaptopRam(desktop.ram) || '16GB';
   return desktop.ram ?? '';
 }
 
@@ -721,7 +803,7 @@ function mapProductToFormData(product: any): EditableForm {
     tdpCapacity: String(cooler.tdpCapacity ?? ''),
     coolerHeight: String(cooler.coolerHeight ?? ''),
     radiatorSize: String(cooler.radiatorSize ?? '240'),
-    hasRGB: getLoadedHasRgb(product, ramSpecs, headset, cooler),
+    hasRGB: getLoadedHasRgb(product, ramSpecs, headset, cooler, laptopCoolingBase),
     hasScreen: boolToString(cooler.hasScreen),
     capacity: getLoadedCapacity(product, ramSpecs, storage),
     speed: String(ramSpecs.speed ?? ''),
@@ -773,7 +855,7 @@ function mapProductToFormData(product: any): EditableForm {
     }),
     keyboardType: keyboard.keyboardType ?? 'Membrana',
     connections: arrayFromSpecs(keyboard.connections ?? mouse.connections, ['Cableado']),
-    supportedConnections: arrayFromSpecs(headset.supportedConnections, ['Cable USB']),
+    supportedConnections: arrayFromSpecs(headset.supportedConnections, ['USB']),
     layoutLanguage: keyboard.layoutLanguage ?? keyboard.layout ?? 'Espanol',
     hasLighting: boolToString(keyboard.hasLighting ?? keyboard.hasRGB),
     switchType: keyboard.switchType ?? '',
@@ -784,11 +866,27 @@ function mapProductToFormData(product: any): EditableForm {
     dpi: String(mouse.dpi ?? ''),
     pollingRateHz: String(mouse.pollingRateHz ?? '1000'),
     powerType: mouse.powerType ?? 'Ninguno',
+    supportedLaptopSize:
+      laptopCoolingBase.supportedLaptopSize ?? backpack.supportedLaptopSize ?? '15.6"',
     connection: headset.connection ?? microphone.connection ?? speaker.connection ?? 'Cableado',
     driverSize: String(headset.driverSize ?? '50'),
     impedance: String(headset.impedance ?? '32'),
     micType: headset.micType ?? microphone.micType ?? 'Unidireccional',
     noiseCancel: boolToString(headset.noiseCancel),
+    audioType: headset.audioType ?? 'Headset',
+    micIntegrated: boolToString(headset.micIntegrated ?? true),
+    micRemovable: boolToString(headset.micRemovable),
+    surroundSound: headset.surroundSound ?? 'No',
+    consoleCompatible: boolToString(headset.consoleCompatible),
+    microphoneType: microphone.microphoneType ?? 'Condensador',
+    connectionTypes: arrayFromSpecs(microphone.connectionTypes ?? speaker.connectionTypes, ['USB']),
+    frequencyResponse: microphone.frequencyResponse ?? '',
+    includesArm: boolToString(microphone.includesArm),
+    includesPopFilter: boolToString(microphone.includesPopFilter),
+    speakerType: speaker.speakerType ?? 'Escritorio',
+    channels: speaker.channels ?? '2.0',
+    hasSubwoofer: boolToString(speaker.hasSubwoofer),
+    remoteControl: boolToString(speaker.remoteControl),
     connectivity: laptopCoolingBase.connectivity ?? 'USB-A',
     fps: String(webcam.fps ?? captureCard.fps ?? '30'),
     fanCount: String(laptopCoolingBase.fanCount ?? '1'),
@@ -801,7 +899,15 @@ function mapProductToFormData(product: any): EditableForm {
     widthCm: String(mousepad.widthCm ?? ''),
     lengthCm: String(mousepad.lengthCm ?? ''),
     hasLed: boolToString(mousepad.hasLed),
-    color: backpack.color ?? chair.color ?? desk.color ?? '',
+    color:
+      headset.color ??
+      microphone.color ??
+      speaker.color ??
+      laptopCoolingBase.color ??
+      backpack.color ??
+      chair.color ??
+      desk.color ??
+      '',
     material: chair.material ?? 'Cuero sintetico',
     maxWeightKg: String(chair.maxWeightKg ?? ''),
     surface: desk.surface ?? '',
@@ -874,8 +980,8 @@ export default function EditProductPage() {
       setFormData((prev) => ({
         ...prev,
         keyboardType: value,
-        hasLighting: value === 'Semi-mecanico' ? prev.hasLighting : 'false',
-        switchType: value === 'Mecanico' || value === 'Magnetico' ? prev.switchType : '',
+        hasLighting: value === 'Hibrido' ? prev.hasLighting : 'false',
+        switchType: prev.switchType,
       }));
       return;
     }
@@ -928,7 +1034,8 @@ export default function EditProductPage() {
       | 'radiatorSupportMmValues'
       | 'ports'
       | 'connections'
-      | 'supportedConnections',
+      | 'supportedConnections'
+      | 'connectionTypes',
     value: string,
   ) => {
     setFormData((prev) => {
@@ -1033,7 +1140,7 @@ export default function EditProductPage() {
         images: [...existingImages, ...uploadedImages],
       });
       notify.success('Producto actualizado correctamente');
-      router.push('/admin');
+      router.push('/admin/inventario');
     } catch (error: unknown) {
       if (isAuthenticationError(error)) {
         clearStoredAuthSession();
@@ -1053,7 +1160,10 @@ export default function EditProductPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6">
-        <Link href="/admin" className="mb-2 flex items-center gap-2 text-gray-500 hover:text-black">
+        <Link
+          href="/admin/inventario"
+          className="mb-2 flex items-center gap-2 text-gray-500 hover:text-black"
+        >
           <FiArrowLeft /> Volver al inventario
         </Link>
         <h1 className="text-3xl font-black text-gray-800">Editar Producto</h1>
@@ -1621,10 +1731,12 @@ export default function EditProductPage() {
                 </>
               ) : (
                 <>
-                  <TextField
+                  <SelectField
                     label="Memoria RAM"
                     value={formData.ram}
                     onChange={(value) => updateField('ram', value)}
+                    options={includeCurrentOption(LAPTOP_RAM_OPTIONS, formData.ram)}
+                    labels={LAPTOP_RAM_LABELS}
                   />
                   <TextField
                     label="Almacenamiento"
@@ -1642,10 +1754,14 @@ export default function EditProductPage() {
               />
               {formData.hasDedicatedGpu === 'true' && (
                 <>
-                  <TextField
+                  <SelectField
                     label="Marca GPU"
                     value={formData.gpuBrand}
                     onChange={(value) => updateField('gpuBrand', value)}
+                    options={includeCurrentOption(
+                      ['NVIDIA', 'AMD', 'Intel', 'No aplica', 'Otros'],
+                      formData.gpuBrand,
+                    )}
                   />
                   <TextField
                     label="Modelo GPU"
@@ -1804,7 +1920,7 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('keyboardFormFactor', value)}
                 options={includeCurrentOption(KEYBOARD_FORM_FACTORS, formData.keyboardFormFactor)}
               />
-              {formData.keyboardType === 'Semi-mecanico' && (
+              {formData.keyboardType === 'Hibrido' && (
                 <SelectField
                   label="RGB"
                   value={formData.hasLighting}
@@ -1813,13 +1929,12 @@ export default function EditProductPage() {
                   labels={{ false: 'No', true: 'Si' }}
                 />
               )}
-              {(formData.keyboardType === 'Mecanico' || formData.keyboardType === 'Magnetico') && (
-                <TextField
-                  label="Tipo de switch"
-                  value={formData.switchType}
-                  onChange={(value) => updateField('switchType', value)}
-                />
-              )}
+              <TextField
+                label="Tipo de switch"
+                value={formData.switchType}
+                onChange={(value) => updateField('switchType', value)}
+                placeholder={getKeyboardSwitchPlaceholder(formData.keyboardType)}
+              />
             </div>
           </section>
         )}
@@ -1841,7 +1956,7 @@ export default function EditProductPage() {
               />
               <MultiCheckField
                 label="Tipo de conexion"
-                options={PERIPHERAL_CONNECTIONS}
+                options={MOUSE_CONNECTIONS}
                 values={formData.connections}
                 onToggle={(value) => toggleArrayValue('connections', value)}
               />
@@ -2044,6 +2159,28 @@ export default function EditProductPage() {
                 options={includeCurrentOption(LAPTOP_COOLING_BASE_FAN_COUNTS, formData.fanCount)}
               />
               <SelectField
+                label="Tamaño laptop soportado"
+                value={formData.supportedLaptopSize}
+                onChange={(value) => updateField('supportedLaptopSize', value)}
+                options={includeCurrentOption(
+                  LAPTOP_SUPPORTED_SIZE_OPTIONS,
+                  formData.supportedLaptopSize,
+                )}
+              />
+              <SelectField
+                label="RGB"
+                value={formData.hasRGB}
+                onChange={(value) => updateField('hasRGB', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <SelectField
+                label="Color"
+                value={formData.color}
+                onChange={(value) => updateField('color', value)}
+                options={includeCurrentOption(ACCESSORY_COLOR_OPTIONS, formData.color)}
+              />
+              <SelectField
                 label="Conectividad"
                 value={formData.connectivity}
                 onChange={(value) => updateField('connectivity', value)}
@@ -2063,10 +2200,20 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('brand', value)}
                 options={includeCurrentOption(BACKPACK_BRANDS, formData.brand)}
               />
-              <TextField
+              <SelectField
                 label="Color"
                 value={formData.color}
                 onChange={(value) => updateField('color', value)}
+                options={includeCurrentOption(ACCESSORY_COLOR_OPTIONS, formData.color)}
+              />
+              <SelectField
+                label="Tamaño laptop soportado"
+                value={formData.supportedLaptopSize}
+                onChange={(value) => updateField('supportedLaptopSize', value)}
+                options={includeCurrentOption(
+                  LAPTOP_SUPPORTED_SIZE_OPTIONS,
+                  formData.supportedLaptopSize,
+                )}
               />
             </div>
           </section>
@@ -2083,20 +2230,23 @@ export default function EditProductPage() {
                 options={includeCurrentOption(HEADSET_BRANDS, formData.brand)}
               />
               <SelectField
-                label="Conexion"
+                label="Tipo de audio"
+                value={formData.audioType}
+                onChange={(value) => updateField('audioType', value)}
+                options={includeCurrentOption(HEADSET_AUDIO_TYPES, formData.audioType)}
+              />
+              <SelectField
+                label="Conectividad"
                 value={formData.connection}
                 onChange={(value) => updateField('connection', value)}
-                options={includeCurrentOption(HEADSET_CONNECTION_TYPES, formData.connection)}
+                options={includeCurrentOption(AUDIO_CONNECTIVITY_OPTIONS, formData.connection)}
               />
               <fieldset className="col-span-2">
                 <legend className="mb-2 block text-sm font-bold text-gray-700">
-                  Conectividad soportada
+                  Tipo de conexion
                 </legend>
                 <div className="grid grid-cols-2 gap-2">
-                  {(formData.connection === 'Cableado'
-                    ? HEADSET_WIRED_CONNECTIONS
-                    : HEADSET_WIRELESS_CONNECTIONS
-                  ).map((option) => {
+                  {AUDIO_CONNECTION_TYPE_OPTIONS.map((option) => {
                     const optionId = optionFieldId('edit-product-supported-connections', option);
                     return (
                       <label
@@ -2132,6 +2282,20 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('micType', value)}
               />
               <SelectField
+                label="Microfono integrado"
+                value={formData.micIntegrated}
+                onChange={(value) => updateField('micIntegrated', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <SelectField
+                label="Microfono removible"
+                value={formData.micRemovable}
+                onChange={(value) => updateField('micRemovable', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <SelectField
                 label="Cancelacion de ruido"
                 value={formData.noiseCancel}
                 onChange={(value) => updateField('noiseCancel', value)}
@@ -2144,6 +2308,25 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('hasRGB', value)}
                 options={['false', 'true']}
                 labels={{ false: 'No', true: 'Si' }}
+              />
+              <SelectField
+                label="Sonido surround"
+                value={formData.surroundSound}
+                onChange={(value) => updateField('surroundSound', value)}
+                options={includeCurrentOption(HEADSET_SURROUND_OPTIONS, formData.surroundSound)}
+              />
+              <SelectField
+                label="Compatible consola"
+                value={formData.consoleCompatible}
+                onChange={(value) => updateField('consoleCompatible', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <TextField
+                label="Color"
+                value={formData.color}
+                onChange={(value) => updateField('color', value)}
+                placeholder="Ej: Negro/Rojo"
               />
             </div>
           </section>
@@ -2159,15 +2342,49 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('brand', value)}
                 options={includeCurrentOption(MICROPHONE_BRANDS, formData.brand)}
               />
-              <TextField
-                label="Conexion"
+              <SelectField
+                label="Tipo de microfono"
+                value={formData.microphoneType}
+                onChange={(value) => updateField('microphoneType', value)}
+                options={includeCurrentOption(MICROPHONE_TYPES, formData.microphoneType)}
+              />
+              <SelectField
+                label="Conectividad"
                 value={formData.connection}
                 onChange={(value) => updateField('connection', value)}
+                options={includeCurrentOption(AUDIO_CONNECTIVITY_OPTIONS, formData.connection)}
               />
-              <TextField
-                label="Microfono"
+              <MultiCheckField
+                label="Tipo de conexion"
+                options={AUDIO_CONNECTION_TYPE_OPTIONS}
+                values={formData.connectionTypes}
+                onToggle={(value) => toggleArrayValue('connectionTypes', value)}
+              />
+              <SelectField
+                label="Patron polar"
                 value={formData.micType}
                 onChange={(value) => updateField('micType', value)}
+                options={includeCurrentOption(POLAR_PATTERN_OPTIONS, formData.micType)}
+              />
+              <TextField
+                label="Frecuencia de respuesta"
+                value={formData.frequencyResponse}
+                onChange={(value) => updateField('frequencyResponse', value)}
+                placeholder="Ej: 20Hz-20kHz"
+              />
+              <SelectField
+                label="Incluye brazo"
+                value={formData.includesArm}
+                onChange={(value) => updateField('includesArm', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <SelectField
+                label="Incluye filtro pop"
+                value={formData.includesPopFilter}
+                onChange={(value) => updateField('includesPopFilter', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
               />
               <SelectField
                 label="RGB"
@@ -2175,6 +2392,12 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('hasRGB', value)}
                 options={['false', 'true']}
                 labels={{ false: 'No', true: 'Si' }}
+              />
+              <TextField
+                label="Color"
+                value={formData.color}
+                onChange={(value) => updateField('color', value)}
+                placeholder="Ej: Negro"
               />
             </div>
           </section>
@@ -2190,10 +2413,29 @@ export default function EditProductPage() {
                 onChange={(value) => updateField('brand', value)}
                 options={includeCurrentOption(SPEAKER_BRANDS, formData.brand)}
               />
-              <TextField
-                label="Conexion"
+              <SelectField
+                label="Tipo de parlante"
+                value={formData.speakerType}
+                onChange={(value) => updateField('speakerType', value)}
+                options={includeCurrentOption(SPEAKER_TYPES, formData.speakerType)}
+              />
+              <SelectField
+                label="Canales"
+                value={formData.channels}
+                onChange={(value) => updateField('channels', value)}
+                options={includeCurrentOption(SPEAKER_CHANNELS, formData.channels)}
+              />
+              <SelectField
+                label="Conectividad"
                 value={formData.connection}
                 onChange={(value) => updateField('connection', value)}
+                options={includeCurrentOption(AUDIO_CONNECTIVITY_OPTIONS, formData.connection)}
+              />
+              <MultiCheckField
+                label="Tipo de conexion"
+                options={AUDIO_CONNECTION_TYPE_OPTIONS}
+                values={formData.connectionTypes}
+                onToggle={(value) => toggleArrayValue('connectionTypes', value)}
               />
               <NumberField
                 label="Potencia (W)"
@@ -2207,13 +2449,33 @@ export default function EditProductPage() {
                 options={['false', 'true']}
                 labels={{ false: 'No', true: 'Si' }}
               />
+              <SelectField
+                label="Subwoofer"
+                value={formData.hasSubwoofer}
+                onChange={(value) => updateField('hasSubwoofer', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <SelectField
+                label="Control remoto"
+                value={formData.remoteControl}
+                onChange={(value) => updateField('remoteControl', value)}
+                options={['false', 'true']}
+                labels={{ false: 'No', true: 'Si' }}
+              />
+              <TextField
+                label="Color"
+                value={formData.color}
+                onChange={(value) => updateField('color', value)}
+                placeholder="Ej: Negro"
+              />
             </div>
           </section>
         )}
 
         {formData.category === 'CHAIR' && (
           <section className="rounded-xl border border-gray-200 bg-gray-50 p-5">
-            <h2 className="mb-4 font-black text-gray-800">Especificaciones Silla Gaming</h2>
+            <h2 className="mb-4 font-black text-gray-800">Especificaciones Silla Gamer</h2>
             <div className="grid grid-cols-2 gap-4">
               <TextField
                 label="Marca"

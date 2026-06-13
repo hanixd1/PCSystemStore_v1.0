@@ -61,6 +61,23 @@ export class ProductsService {
     backpackSpecs: true,
   } satisfies Prisma.ProductInclude;
 
+  private readonly adminProductGroups: Record<string, string[]> = {
+    COMPONENTES: ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'PSU', 'CASE', 'COOLER', 'STORAGE'],
+    ORDENADORES: ['LAPTOP', 'PC_DESKTOP', 'SOFTWARE', 'LAPTOP_COOLING_BASE', 'BACKPACK'],
+    PERIFERICOS: [
+      'MONITOR',
+      'KEYBOARD',
+      'MOUSE',
+      'MOUSEPAD',
+      'CHAIR',
+      'GAMING_DESK',
+      'WEBCAM',
+      'CAPTURE_CARD',
+      'CABLE_HUB',
+    ],
+    AUDIO: ['HEADSET', 'MICROPHONE', 'SPEAKER'],
+  };
+
   private readonly nameRegex = /^[\p{L}\p{N}\s.,+\-_%/()[\]:;'"#&°@]{5,200}$/u;
   private readonly productNameMessage =
     'El nombre debe tener entre 5 y 200 caracteres y puede incluir caracteres técnicos comunes.';
@@ -531,7 +548,7 @@ export class ProductsService {
   }
 
   private validateKeyboardMouseConnections(category: string, data: any) {
-    const validConnections = ['Cableado', 'Bluetooth', 'Dongle USB'];
+    const validConnections = ['Cableado', 'Bluetooth', 'Dongle USB', 'Inalambrico', '2.4 GHz'];
     if ((category === 'KEYBOARD' || category === 'MOUSE') && data.connections !== undefined) {
       const invalidConnection = this.toStringArray(data.connections).find(
         (connection) => !validConnections.includes(connection),
@@ -550,7 +567,9 @@ export class ProductsService {
       const keyboardType = String(data.keyboardType || '').trim();
       if (
         keyboardType &&
-        !['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico'].includes(keyboardType)
+        !['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico', 'Optico', 'Hibrido'].includes(
+          keyboardType,
+        )
       ) {
         throw new BadRequestException('Tipo de teclado no valido');
       }
@@ -669,6 +688,9 @@ export class ProductsService {
       if (!['USB-A', 'USB-C'].includes(String(data.connectivity || '').trim())) {
         throw new BadRequestException('Selecciona la conectividad de la base refrigeradora.');
       }
+      if (!String(data.supportedLaptopSize || '').trim()) {
+        throw new BadRequestException('Selecciona el tamaño de laptop soportado.');
+      }
     }
   }
 
@@ -676,6 +698,9 @@ export class ProductsService {
     if (category === 'BACKPACK') {
       if (!String(data.brand || '').trim()) {
         throw new BadRequestException('Selecciona la marca de la mochila.');
+      }
+      if (!String(data.color || '').trim()) {
+        throw new BadRequestException('Selecciona el color de la mochila.');
       }
     }
   }
@@ -686,21 +711,26 @@ export class ProductsService {
         throw new BadRequestException('Selecciona la marca del audifono.');
       }
       const connection = String(data.connection || '').trim();
-      if (!['Cableado', 'Inalambrico'].includes(connection)) {
+      if (!['Cableado', 'Inalambrico', 'Bluetooth', '2.4 GHz'].includes(connection)) {
         throw new BadRequestException('Selecciona la conexion del audifono.');
       }
       const supportedConnections = this.toStringArray(data.supportedConnections);
       if (!supportedConnections.length) {
         throw new BadRequestException('Selecciona al menos una conectividad soportada.');
       }
-      const wiredOptions = ['Cable USB', 'Jack 3.5 mm'];
-      const wirelessOptions = [...wiredOptions, 'USB Dongle 2.4 GHz', 'Bluetooth'];
-      const allowedOptions = connection === 'Cableado' ? wiredOptions : wirelessOptions;
+      const allowedOptions = [
+        'Cable USB',
+        'USB',
+        'USB-C',
+        'Jack 3.5 mm',
+        'Jack 3.5mm',
+        'USB Dongle 2.4 GHz',
+        'Bluetooth',
+        '2.4 GHz',
+      ];
       const invalidOption = supportedConnections.find((option) => !allowedOptions.includes(option));
       if (invalidOption) {
-        throw new BadRequestException(
-          'La conectividad soportada no corresponde al tipo de conexion.',
-        );
+        throw new BadRequestException('La conectividad soportada no es valida.');
       }
     }
   }
@@ -1041,6 +1071,7 @@ export class ProductsService {
   }
 
   private buildCreateLaptopSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    const hasDedicatedGpu = this.toBool(data.hasDedicatedGpu);
     return {
       laptopSpecs: {
         create: {
@@ -1051,9 +1082,9 @@ export class ProductsService {
           screenSize: data.screenSize || '15.6"',
           refreshRate: this.toInt(data.refreshRate),
           panelType: data.panelType || 'IPS',
-          hasDedicatedGpu: this.toBool(data.hasDedicatedGpu),
-          gpuBrand: data.gpuBrand || '',
-          gpuModel: data.gpuModel || '',
+          hasDedicatedGpu,
+          gpuBrand: hasDedicatedGpu ? data.gpuBrand || '' : data.gpuBrand || 'No aplica',
+          gpuModel: hasDedicatedGpu ? data.gpuModel || '' : data.gpuModel || 'No aplica',
           includesWindows: this.toBool(data.includesWindows),
         },
       },
@@ -1061,15 +1092,16 @@ export class ProductsService {
   }
 
   private buildCreateDesktopSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
+    const hasDedicatedGpu = this.toBool(data.hasDedicatedGpu);
     return {
       desktopSpecs: {
         create: {
           processor: data.processor || 'N/A',
           ram: data.ram || 'N/A',
           storage: data.storage || 'N/A',
-          hasDedicatedGpu: this.toBool(data.hasDedicatedGpu),
-          gpuBrand: data.gpuBrand || '',
-          gpuModel: data.gpuModel || '',
+          hasDedicatedGpu,
+          gpuBrand: hasDedicatedGpu ? data.gpuBrand || '' : data.gpuBrand || 'No aplica',
+          gpuModel: hasDedicatedGpu ? data.gpuModel || '' : data.gpuModel || 'No aplica',
           coolerType: data.coolerType || 'No especificado',
           psuWatts: data.psuWatts !== undefined ? this.toInt(data.psuWatts) : null,
           caseModel: data.caseModel || '',
@@ -1206,6 +1238,13 @@ export class ProductsService {
           micType: data.micType || 'Estandar',
           noiseCancel: this.toBool(data.noiseCancel),
           hasRGB: this.toBool(data.hasRGB),
+          audioType: data.audioType || 'Headset',
+          micIntegrated: data.micIntegrated !== undefined ? this.toBool(data.micIntegrated) : true,
+          micRemovable: data.micRemovable !== undefined ? this.toBool(data.micRemovable) : false,
+          surroundSound: data.surroundSound || 'No',
+          consoleCompatible:
+            data.consoleCompatible !== undefined ? this.toBool(data.consoleCompatible) : false,
+          color: data.color || '',
         },
       },
     };
@@ -1219,6 +1258,13 @@ export class ProductsService {
           connection: data.connection || 'USB',
           micType: data.micType || 'Cardioide',
           hasRGB: this.toBool(data.hasRGB),
+          microphoneType: data.microphoneType || '',
+          connectionTypes: this.toStringArray(data.connectionTypes),
+          frequencyResponse: data.frequencyResponse || '',
+          includesArm: data.includesArm !== undefined ? this.toBool(data.includesArm) : false,
+          includesPopFilter:
+            data.includesPopFilter !== undefined ? this.toBool(data.includesPopFilter) : false,
+          color: data.color || '',
         },
       },
     };
@@ -1232,6 +1278,12 @@ export class ProductsService {
           connection: data.connection || 'Jack',
           wattage: this.toInt(data.wattage),
           hasRGB: this.toBool(data.hasRGB),
+          speakerType: data.speakerType || '',
+          channels: data.channels || '',
+          connectionTypes: this.toStringArray(data.connectionTypes),
+          hasSubwoofer: data.hasSubwoofer !== undefined ? this.toBool(data.hasSubwoofer) : false,
+          remoteControl: data.remoteControl !== undefined ? this.toBool(data.remoteControl) : false,
+          color: data.color || '',
         },
       },
     };
@@ -1287,6 +1339,9 @@ export class ProductsService {
           brand: data.brand || 'Otros',
           fanCount: this.toInt(data.fanCount) || 1,
           connectivity: data.connectivity || 'USB-A',
+          supportedLaptopSize: data.supportedLaptopSize || null,
+          hasRGB: this.toBool(data.hasRGB),
+          color: data.color || null,
         },
       },
     };
@@ -1298,6 +1353,7 @@ export class ProductsService {
         create: {
           brand: data.brand || 'Otros',
           color: data.color || '',
+          supportedLaptopSize: data.supportedLaptopSize || null,
         },
       },
     };
@@ -2311,6 +2367,71 @@ export class ProductsService {
     return where;
   }
 
+  private normalizeChatSearchText(value: unknown): string {
+    return String(value ?? '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9.]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private getChatProductSearchText(product: any): string {
+    return this.normalizeChatSearchText(
+      [
+        product.name,
+        product.description,
+        product.sku,
+        product.slug,
+        product.category,
+        JSON.stringify(product.cpuSpecs ?? {}),
+        JSON.stringify(product.gpuSpecs ?? {}),
+        JSON.stringify(product.ramSpecs ?? {}),
+        JSON.stringify(product.motherboardSpecs ?? {}),
+        JSON.stringify(product.storageSpecs ?? {}),
+        JSON.stringify(product.psuSpecs ?? {}),
+        JSON.stringify(product.caseSpecs ?? {}),
+        JSON.stringify(product.coolerSpecs ?? {}),
+      ].join(' '),
+    );
+  }
+
+  private rankChatProduct(product: any, rawSearch: string): number {
+    const query = this.normalizeChatSearchText(rawSearch);
+    const terms = query
+      .split(' ')
+      .flatMap((term) => {
+        const unitMatch = term.match(/^(\d+)(w|gb|tb|hz)$/);
+        return unitMatch ? [term, unitMatch[1]] : [term];
+      })
+      .filter((term) => term.length > 1);
+    const compactQuery = query.replace(/\s+/g, '');
+    const searchText = this.getChatProductSearchText(product);
+    const compactText = searchText.replace(/\s+/g, '');
+    let score = 0;
+
+    if (query && searchText.includes(query)) {
+      score += 80;
+    }
+
+    if (compactQuery && compactText.includes(compactQuery)) {
+      score += 60;
+    }
+
+    for (const term of terms) {
+      if (searchText.includes(term)) {
+        score += 15;
+      }
+      if (compactText.includes(term)) {
+        score += 10;
+      }
+    }
+
+    score += Math.min(Number(product.stock ?? 0), 5);
+    return score;
+  }
+
   private mapChatProduct(product: any) {
     return {
       id: product.id,
@@ -2333,8 +2454,25 @@ export class ProductsService {
   }
 
   async chatSearch(query: ProductQuery = {}) {
-    const limit = Math.min(Math.max(this.toInt(this.firstQueryValue(query.limit)) || 5, 1), 5);
-    const where = this.buildChatProductWhere(query);
+    const limit = Math.min(Math.max(this.toInt(this.firstQueryValue(query.limit)) || 5, 1), 20);
+    const search = this.getQueryString(query, 'search');
+    const where = search
+      ? (() => {
+          const baseWhere: Prisma.ProductWhereInput = {};
+          const category =
+            this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
+
+          if (category) {
+            baseWhere.category = category;
+          }
+
+          if (this.getQueryBoolean(query, 'inStock') !== false) {
+            baseWhere.stock = { gt: 0 };
+          }
+
+          return baseWhere;
+        })()
+      : this.buildChatProductWhere(query);
 
     try {
       const products = await this.prisma.product.findMany({
@@ -2371,14 +2509,27 @@ export class ProductsService {
           },
         },
         orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
-        take: limit,
+        take: search ? 300 : limit,
       });
+      const rankedProducts = search
+        ? products
+            .map((product) => ({
+              product,
+              score: this.rankChatProduct(product, search),
+            }))
+            .filter((item) => item.score > 0)
+            .sort(
+              (left, right) => right.score - left.score || right.product.stock - left.product.stock,
+            )
+            .slice(0, limit)
+            .map((item) => item.product)
+        : products;
 
       return {
         success: true,
-        items: products.map((product) => this.mapChatProduct(product)),
+        items: rankedProducts.map((product) => this.mapChatProduct(product)),
         message:
-          products.length === 0
+          rankedProducts.length === 0
             ? 'Por ahora no encontre productos disponibles con ese filtro. Puedes revisar el catalogo o cambiar el criterio.'
             : undefined,
       };
@@ -2431,6 +2582,84 @@ export class ProductsService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async findAdminInventory(query: ProductQuery = {}) {
+    const page = Math.max(this.toInt(this.firstQueryValue(query.page)) || 1, 1);
+    const limit = Math.min(Math.max(this.toInt(this.firstQueryValue(query.limit)) || 30, 1), 100);
+    const search = (this.getQueryString(query, 'search') || '').trim();
+    const category = (this.getQueryString(query, 'category') || '').trim();
+    const productType = (this.getQueryString(query, 'productType') || '').trim();
+    const categoryFilter = this.resolveAdminInventoryCategories(category, productType);
+
+    const where: Prisma.ProductWhereInput = {};
+    if (categoryFilter.length === 1) {
+      where.category = categoryFilter[0];
+    } else if (categoryFilter.length > 1) {
+      where.category = { in: categoryFilter };
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const totalItems = await this.prisma.product.count({ where });
+    const totalPages = Math.max(Math.ceil(totalItems / limit), 1);
+    const safePage = Math.min(page, totalPages);
+
+    const items = await this.prisma.product.findMany({
+      where,
+      include: this.productInclude,
+      orderBy: [{ createdAt: 'desc' }, { name: 'asc' }],
+      skip: (safePage - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      items: items.map((product) => ({
+        ...product,
+        department: this.getAdminProductDepartment(product.category),
+        productType: product.category,
+      })),
+      pagination: {
+        page: safePage,
+        limit,
+        totalItems,
+        totalPages,
+      },
+    };
+  }
+
+  private resolveAdminInventoryCategories(category: string, productType: string) {
+    const normalizedType = productType.trim().toUpperCase();
+    const normalizedCategory = category.trim().toUpperCase();
+    const allTypes = new Set(Object.values(this.adminProductGroups).flat());
+
+    if (normalizedType && normalizedType !== 'ALL' && allTypes.has(normalizedType)) {
+      return [normalizedType];
+    }
+
+    if (normalizedCategory && normalizedCategory !== 'ALL') {
+      if (this.adminProductGroups[normalizedCategory]) {
+        return this.adminProductGroups[normalizedCategory];
+      }
+      if (allTypes.has(normalizedCategory)) {
+        return [normalizedCategory];
+      }
+    }
+
+    return [];
+  }
+
+  private getAdminProductDepartment(productType: string) {
+    return (
+      Object.entries(this.adminProductGroups).find(([, types]) =>
+        types.includes(productType),
+      )?.[0] ?? productType
+    );
   }
 
   private async findAllWithPublicSearch(query: ProductQuery, page: number, limit: number) {
@@ -2761,11 +2990,13 @@ export class ProductsService {
   }
 
   private relatedCpuSocket(product: any) {
-    return this.normalizeRelatedSocket(this.relatedSpec(product, ['socket', 'cpuSocket']));
+    return this.normalizeRelatedSocket(
+      this.relatedSpec(product, ['socket', 'cpuSocket']) ?? product?.name,
+    );
   }
 
   private relatedCpuBrand(product: any) {
-    return this.normalizeRelatedBrand(
+    const brand = this.normalizeRelatedBrand(
       this.relatedSpec(product, [
         'brand',
         'marcaProcesador',
@@ -2774,21 +3005,25 @@ export class ProductsService {
         'marca',
       ]) ?? product?.name,
     );
+
+    return brand === 'AMD' || brand === 'INTEL' ? brand : '';
   }
 
   private relatedMotherboardSocket(product: any) {
-    return this.normalizeRelatedSocket(this.relatedSpec(product, ['socket', 'motherboardSocket']));
+    return this.normalizeRelatedSocket(
+      this.relatedSpec(product, ['socket', 'motherboardSocket']) ?? product?.name,
+    );
   }
 
   private relatedMotherboardRamType(product: any) {
     return this.normalizeRelatedRamType(
-      this.relatedSpec(product, ['memoryType', 'tipoRam', 'ramType']),
+      this.relatedSpec(product, ['memoryType', 'tipoRam', 'ramType']) ?? product?.name,
     );
   }
 
   private relatedRamType(product: any) {
     return this.normalizeRelatedRamType(
-      this.relatedSpec(product, ['memoryType', 'tipoRam', 'ramType']),
+      this.relatedSpec(product, ['memoryType', 'tipoRam', 'ramType']) ?? product?.name,
     );
   }
 
@@ -2854,7 +3089,11 @@ export class ProductsService {
     return map[normalizedCategory] ?? [category];
   }
 
-  private isAllowedTechnicalRelated(current: any, product: any) {
+  private isAllowedTechnicalRelated(current: any, product: any, priority = 0) {
+    if (priority >= 80) {
+      return true;
+    }
+
     const currentCategory = this.relatedCategory(current);
     const productCategory = this.relatedCategory(product);
 
@@ -2972,6 +3211,9 @@ export class ProductsService {
             this.relatedCategory(product) === 'CPU' && this.relatedCpuSocket(product) === socket,
         );
       }
+      if (ranked.length === 0) {
+        addMatches(95, (product) => this.relatedCategory(product) === 'CPU');
+      }
       return ranked;
     }
 
@@ -3016,6 +3258,9 @@ export class ProductsService {
             this.relatedCategory(product) === 'MOTHERBOARD' &&
             this.relatedMotherboardRamType(product) === ramType,
         );
+      }
+      if (ranked.length === 0) {
+        addMatches(95, (product) => this.relatedCategory(product) === 'MOTHERBOARD');
       }
       return ranked;
     }
@@ -3153,21 +3398,72 @@ export class ProductsService {
     const currentCategory = this.relatedCategory(product);
     const candidates = await this.fetchRelatedCandidates(product, currentCategory);
 
+    const ranked = this.buildTechnicalRelated(product, candidates);
     const seen = new Set<string>();
-    return this.buildTechnicalRelated(product, candidates)
+    const filtered = ranked
       .sort((a, b) => {
         if (a.priority !== b.priority) return a.priority - b.priority;
         if (a.product.stock !== b.product.stock) return b.product.stock - a.product.stock;
         return new Date(b.product.updatedAt).getTime() - new Date(a.product.updatedAt).getTime();
       })
-      .filter(({ product: relatedProduct }) => {
+      .filter(({ product: relatedProduct, priority }) => {
         if (seen.has(relatedProduct.id)) return false;
-        if (!this.isAllowedTechnicalRelated(product, relatedProduct)) return false;
+        const allowed = this.isAllowedTechnicalRelated(product, relatedProduct, priority);
+        if (!allowed) return false;
         seen.add(relatedProduct.id);
         return true;
-      })
-      .slice(0, 10)
-      .map(({ product }) => product);
+      });
+
+    return this.balanceRelatedByCategory(filtered, 10).map(({ product }) => product);
+  }
+
+  private balanceRelatedByCategory(
+    items: Array<{ product: any; priority: number }>,
+    limit: number,
+  ) {
+    const byCategory = new Map<string, Array<{ product: any; priority: number }>>();
+    for (const item of items) {
+      const cat = this.relatedCategory(item.product);
+      if (!byCategory.has(cat)) byCategory.set(cat, []);
+      byCategory.get(cat)!.push(item);
+    }
+
+    const categoryCount = byCategory.size;
+    if (categoryCount <= 1) return items.slice(0, limit);
+
+    const minPerCategory = Math.max(2, Math.floor(limit / categoryCount));
+    const result: Array<{ product: any; priority: number }> = [];
+    const usedIds = new Set<string>();
+
+    for (const [, catItems] of byCategory) {
+      for (const item of catItems) {
+        if (result.length >= limit) break;
+        if (usedIds.has(item.product.id)) continue;
+        if (
+          result.filter(
+            (r) => this.relatedCategory(r.product) === this.relatedCategory(item.product),
+          ).length >= minPerCategory
+        )
+          break;
+        usedIds.add(item.product.id);
+        result.push(item);
+      }
+    }
+
+    if (result.length < limit) {
+      for (const item of items) {
+        if (result.length >= limit) break;
+        if (usedIds.has(item.product.id)) continue;
+        usedIds.add(item.product.id);
+        result.push(item);
+      }
+    }
+
+    return result.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      if (a.product.stock !== b.product.stock) return b.product.stock - a.product.stock;
+      return new Date(b.product.updatedAt).getTime() - new Date(a.product.updatedAt).getTime();
+    });
   }
 
   private async fetchRelatedCandidates(product: any, currentCategory: string) {
@@ -3177,11 +3473,23 @@ export class ProductsService {
     const perCategoryLimit = 30;
 
     if (currentCategory === 'CPU') {
-      return this.fetchCpuRelatedCandidates(product, targetCategories, baseWhere, orderBy, perCategoryLimit);
+      return this.fetchCpuRelatedCandidates(
+        product,
+        targetCategories,
+        baseWhere,
+        orderBy,
+        perCategoryLimit,
+      );
     }
 
     if (currentCategory === 'MOTHERBOARD') {
-      return this.fetchMotherboardRelatedCandidates(product, targetCategories, baseWhere, orderBy, perCategoryLimit);
+      return this.fetchMotherboardRelatedCandidates(
+        product,
+        targetCategories,
+        baseWhere,
+        orderBy,
+        perCategoryLimit,
+      );
     }
 
     return this.prisma.product.findMany({
@@ -3199,19 +3507,12 @@ export class ProductsService {
     orderBy: any,
     perCategoryLimit: number,
   ) {
-    const rawSocket = product.cpuSpecs?.socket as string | undefined;
-    const rawBrand = product.cpuSpecs?.brand as string | undefined;
-
     const queries: Promise<any[]>[] = [];
 
-    if (targetCategories.includes('MOTHERBOARD') && rawSocket) {
+    if (targetCategories.includes('MOTHERBOARD')) {
       queries.push(
         this.prisma.product.findMany({
-          where: {
-            ...baseWhere,
-            category: 'MOTHERBOARD',
-            motherboardSpecs: { socket: rawSocket },
-          },
+          where: { ...baseWhere, category: 'MOTHERBOARD' },
           include: this.productInclude,
           orderBy,
           take: perCategoryLimit,
@@ -3220,17 +3521,9 @@ export class ProductsService {
     }
 
     if (targetCategories.includes('CPU')) {
-      const cpuFilter: any = { ...baseWhere, category: 'CPU' };
-      if (rawSocket && rawBrand) {
-        cpuFilter.cpuSpecs = { socket: rawSocket, brand: rawBrand };
-      } else if (rawSocket) {
-        cpuFilter.cpuSpecs = { socket: rawSocket };
-      } else if (rawBrand) {
-        cpuFilter.cpuSpecs = { brand: rawBrand };
-      }
       queries.push(
         this.prisma.product.findMany({
-          where: cpuFilter,
+          where: { ...baseWhere, category: 'CPU' },
           include: this.productInclude,
           orderBy,
           take: perCategoryLimit,
@@ -3270,19 +3563,12 @@ export class ProductsService {
     orderBy: any,
     perCategoryLimit: number,
   ) {
-    const rawSocket = product.motherboardSpecs?.socket as string | undefined;
-    const rawMemoryType = product.motherboardSpecs?.memoryType as string | undefined;
-
     const queries: Promise<any[]>[] = [];
 
-    if (targetCategories.includes('CPU') && rawSocket) {
+    if (targetCategories.includes('CPU')) {
       queries.push(
         this.prisma.product.findMany({
-          where: {
-            ...baseWhere,
-            category: 'CPU',
-            cpuSpecs: { socket: rawSocket },
-          },
+          where: { ...baseWhere, category: 'CPU' },
           include: this.productInclude,
           orderBy,
           take: perCategoryLimit,
@@ -3290,14 +3576,10 @@ export class ProductsService {
       );
     }
 
-    if (targetCategories.includes('RAM') && rawMemoryType) {
+    if (targetCategories.includes('RAM')) {
       queries.push(
         this.prisma.product.findMany({
-          where: {
-            ...baseWhere,
-            category: 'RAM',
-            ramSpecs: { memoryType: rawMemoryType },
-          },
+          where: { ...baseWhere, category: 'RAM' },
           include: this.productInclude,
           orderBy,
           take: perCategoryLimit,
@@ -3305,14 +3587,10 @@ export class ProductsService {
       );
     }
 
-    if (targetCategories.includes('MOTHERBOARD') && rawSocket) {
+    if (targetCategories.includes('MOTHERBOARD')) {
       queries.push(
         this.prisma.product.findMany({
-          where: {
-            ...baseWhere,
-            category: 'MOTHERBOARD',
-            motherboardSpecs: { socket: rawSocket },
-          },
+          where: { ...baseWhere, category: 'MOTHERBOARD' },
           include: this.productInclude,
           orderBy,
           take: perCategoryLimit,
@@ -4333,7 +4611,10 @@ export class ProductsService {
     if (
       data.brand === undefined &&
       data.fanCount === undefined &&
-      data.connectivity === undefined
+      data.connectivity === undefined &&
+      data.supportedLaptopSize === undefined &&
+      data.hasRGB === undefined &&
+      data.color === undefined
     ) {
       return {};
     }
@@ -4349,29 +4630,47 @@ export class ProductsService {
     ) {
       throw new BadRequestException('Selecciona la conectividad de la base refrigeradora.');
     }
+    if (data.supportedLaptopSize !== undefined && !String(data.supportedLaptopSize || '').trim()) {
+      throw new BadRequestException('Selecciona el tamaño de laptop soportado.');
+    }
     return {
       laptopCoolingBaseSpecs: {
         update: {
           ...(data.brand !== undefined ? { brand: data.brand } : {}),
           ...(data.fanCount !== undefined ? { fanCount: this.toInt(data.fanCount) } : {}),
           ...(data.connectivity !== undefined ? { connectivity: data.connectivity } : {}),
+          ...(data.supportedLaptopSize !== undefined
+            ? { supportedLaptopSize: data.supportedLaptopSize }
+            : {}),
+          ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+          ...(data.color !== undefined ? { color: data.color } : {}),
         },
       },
     };
   }
 
   private buildBackpackSpecUpdate(currentProduct: any, data: UpdateProductDto) {
-    if (data.brand === undefined && data.color === undefined) {
+    if (
+      data.brand === undefined &&
+      data.color === undefined &&
+      data.supportedLaptopSize === undefined
+    ) {
       return {};
     }
     if (data.brand !== undefined && !String(data.brand || '').trim()) {
       throw new BadRequestException('Selecciona la marca de la mochila.');
+    }
+    if (data.color !== undefined && !String(data.color || '').trim()) {
+      throw new BadRequestException('Selecciona el color de la mochila.');
     }
     return {
       backpackSpecs: {
         update: {
           ...(data.brand !== undefined ? { brand: data.brand } : {}),
           ...(data.color !== undefined ? { color: data.color } : {}),
+          ...(data.supportedLaptopSize !== undefined
+            ? { supportedLaptopSize: data.supportedLaptopSize }
+            : {}),
         },
       },
     };
@@ -4386,7 +4685,13 @@ export class ProductsService {
       data.impedance === undefined &&
       data.micType === undefined &&
       data.noiseCancel === undefined &&
-      data.hasRGB === undefined
+      data.hasRGB === undefined &&
+      data.audioType === undefined &&
+      data.micIntegrated === undefined &&
+      data.micRemovable === undefined &&
+      data.surroundSound === undefined &&
+      data.consoleCompatible === undefined &&
+      data.color === undefined
     ) {
       return {};
     }
@@ -4396,7 +4701,7 @@ export class ProductsService {
     const nextHeadsetConnection = data.connection;
     if (
       nextHeadsetConnection !== undefined &&
-      !['Cableado', 'Inalambrico'].includes(String(nextHeadsetConnection))
+      !['Cableado', 'Inalambrico', 'Bluetooth', '2.4 GHz'].includes(String(nextHeadsetConnection))
     ) {
       throw new BadRequestException('Selecciona la conexion del audifono.');
     }
@@ -4405,14 +4710,19 @@ export class ProductsService {
       if (!supportedConnections.length) {
         throw new BadRequestException('Selecciona al menos una conectividad soportada.');
       }
-      const wiredOptions = ['Cable USB', 'Jack 3.5 mm'];
-      const wirelessOptions = [...wiredOptions, 'USB Dongle 2.4 GHz', 'Bluetooth'];
-      const allowedOptions = nextHeadsetConnection === 'Cableado' ? wiredOptions : wirelessOptions;
+      const allowedOptions = [
+        'Cable USB',
+        'USB',
+        'USB-C',
+        'Jack 3.5 mm',
+        'Jack 3.5mm',
+        'USB Dongle 2.4 GHz',
+        'Bluetooth',
+        '2.4 GHz',
+      ];
       const invalidOption = supportedConnections.find((option) => !allowedOptions.includes(option));
       if (invalidOption) {
-        throw new BadRequestException(
-          'La conectividad soportada no corresponde al tipo de conexion.',
-        );
+        throw new BadRequestException('La conectividad soportada no es valida.');
       }
     }
     return {
@@ -4430,6 +4740,18 @@ export class ProductsService {
           ...(data.micType !== undefined ? { micType: data.micType } : {}),
           ...(data.noiseCancel !== undefined ? { noiseCancel: this.toBool(data.noiseCancel) } : {}),
           ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+          ...(data.audioType !== undefined ? { audioType: data.audioType } : {}),
+          ...(data.micIntegrated !== undefined
+            ? { micIntegrated: this.toBool(data.micIntegrated) }
+            : {}),
+          ...(data.micRemovable !== undefined
+            ? { micRemovable: this.toBool(data.micRemovable) }
+            : {}),
+          ...(data.surroundSound !== undefined ? { surroundSound: data.surroundSound } : {}),
+          ...(data.consoleCompatible !== undefined
+            ? { consoleCompatible: this.toBool(data.consoleCompatible) }
+            : {}),
+          ...(data.color !== undefined ? { color: data.color } : {}),
         },
       },
     };
@@ -4440,7 +4762,13 @@ export class ProductsService {
       data.brand === undefined &&
       data.connection === undefined &&
       data.micType === undefined &&
-      data.hasRGB === undefined
+      data.hasRGB === undefined &&
+      data.microphoneType === undefined &&
+      data.connectionTypes === undefined &&
+      data.frequencyResponse === undefined &&
+      data.includesArm === undefined &&
+      data.includesPopFilter === undefined &&
+      data.color === undefined
     ) {
       return {};
     }
@@ -4454,6 +4782,18 @@ export class ProductsService {
           ...(data.connection !== undefined ? { connection: data.connection } : {}),
           ...(data.micType !== undefined ? { micType: data.micType } : {}),
           ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+          ...(data.microphoneType !== undefined ? { microphoneType: data.microphoneType } : {}),
+          ...(data.connectionTypes !== undefined
+            ? { connectionTypes: this.toStringArray(data.connectionTypes) }
+            : {}),
+          ...(data.frequencyResponse !== undefined
+            ? { frequencyResponse: data.frequencyResponse }
+            : {}),
+          ...(data.includesArm !== undefined ? { includesArm: this.toBool(data.includesArm) } : {}),
+          ...(data.includesPopFilter !== undefined
+            ? { includesPopFilter: this.toBool(data.includesPopFilter) }
+            : {}),
+          ...(data.color !== undefined ? { color: data.color } : {}),
         },
       },
     };
@@ -4464,7 +4804,13 @@ export class ProductsService {
       data.brand === undefined &&
       data.connection === undefined &&
       data.wattage === undefined &&
-      data.hasRGB === undefined
+      data.hasRGB === undefined &&
+      data.speakerType === undefined &&
+      data.channels === undefined &&
+      data.connectionTypes === undefined &&
+      data.hasSubwoofer === undefined &&
+      data.remoteControl === undefined &&
+      data.color === undefined
     ) {
       return {};
     }
@@ -4478,6 +4824,18 @@ export class ProductsService {
           ...(data.connection !== undefined ? { connection: data.connection } : {}),
           ...(data.wattage !== undefined ? { wattage: this.toInt(data.wattage) } : {}),
           ...(data.hasRGB !== undefined ? { hasRGB: this.toBool(data.hasRGB) } : {}),
+          ...(data.speakerType !== undefined ? { speakerType: data.speakerType } : {}),
+          ...(data.channels !== undefined ? { channels: data.channels } : {}),
+          ...(data.connectionTypes !== undefined
+            ? { connectionTypes: this.toStringArray(data.connectionTypes) }
+            : {}),
+          ...(data.hasSubwoofer !== undefined
+            ? { hasSubwoofer: this.toBool(data.hasSubwoofer) }
+            : {}),
+          ...(data.remoteControl !== undefined
+            ? { remoteControl: this.toBool(data.remoteControl) }
+            : {}),
+          ...(data.color !== undefined ? { color: data.color } : {}),
         },
       },
     };

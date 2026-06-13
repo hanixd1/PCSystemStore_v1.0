@@ -130,10 +130,10 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
   LAPTOP: [
     ['Marca', 'brand'],
     ['Procesador', 'processor'],
-    ['RAM', 'ram'],
+    ['Memoria RAM', 'ram'],
     ['Almacenamiento', 'storage'],
     ['Tamaño de pantalla', 'screenSize'],
-    ['Frecuencia de pantalla', 'refreshRate', 'Hz'],
+    ['Tasa refresco', 'refreshRate', 'Hz'],
     ['Tipo de panel', 'panelType'],
     ['Grafica dedicada', 'hasDedicatedGpu'],
     ['Marca GPU', 'gpuBrand'],
@@ -142,13 +142,13 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
   ],
   PC_DESKTOP: [
     ['Procesador', 'processor'],
-    ['RAM', 'ram'],
+    ['Memoria RAM', 'ram'],
     ['Almacenamiento', 'storage'],
     ['Grafica dedicada', 'hasDedicatedGpu'],
     ['Marca GPU', 'gpuBrand'],
     ['Modelo GPU', 'gpuModel'],
     ['Cooler incluido', 'coolerType'],
-    ['Fuente de poder', 'psuWatts', 'W'],
+    ['Fuente de poder (Watts)', 'psuWatts', 'W'],
     ['Modelo del case', 'caseModel'],
   ],
   SOFTWARE: [
@@ -204,25 +204,42 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
   ],
   HEADSET: [
     ['Marca', 'brand'],
-    ['Conexion', 'connection'],
-    ['Conectividad soportada', 'supportedConnections'],
+    ['Tipo de audio', 'audioType'],
+    ['Conectividad', 'connection'],
+    ['Tipo de conexion', 'supportedConnections'],
     ['Driver', 'driverSize', 'mm'],
     ['Impedancia', 'impedance', 'ohm'],
-    ['Tipo de microfono', 'micType'],
+    ['Microfono integrado', 'micIntegrated'],
+    ['Microfono removible', 'micRemovable'],
     ['Cancelacion de ruido', 'noiseCancel'],
+    ['Sonido surround', 'surroundSound'],
+    ['Compatible consola', 'consoleCompatible'],
     ['RGB', 'hasRGB'],
+    ['Color', 'color'],
   ],
   MICROPHONE: [
     ['Marca', 'brand'],
-    ['Conexion', 'connection'],
-    ['Tipo de microfono', 'micType'],
+    ['Tipo de microfono', 'microphoneType'],
+    ['Patron polar', 'micType'],
+    ['Conectividad', 'connection'],
+    ['Tipo de conexion', 'connectionTypes'],
+    ['Frecuencia de respuesta', 'frequencyResponse'],
+    ['Incluye brazo', 'includesArm'],
+    ['Incluye filtro pop', 'includesPopFilter'],
     ['RGB', 'hasRGB'],
+    ['Color', 'color'],
   ],
   SPEAKER: [
     ['Marca', 'brand'],
-    ['Conexion', 'connection'],
-    ['Potencia', 'wattage', 'W'],
+    ['Tipo de parlante', 'speakerType'],
+    ['Canales', 'channels'],
+    ['Potencia (Watts)', 'wattage', 'W'],
+    ['Conectividad', 'connection'],
+    ['Tipo de conexion', 'connectionTypes'],
+    ['Subwoofer', 'hasSubwoofer'],
+    ['Control remoto', 'remoteControl'],
     ['RGB', 'hasRGB'],
+    ['Color', 'color'],
   ],
   WEBCAM: [
     ['Marca', 'brand'],
@@ -245,12 +262,16 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
   ],
   LAPTOP_COOLING_BASE: [
     ['Marca', 'brand'],
+    ['Tamaño laptop soportado', 'supportedLaptopSize'],
     ['Cantidad de ventiladores', 'fanCount'],
+    ['RGB', 'hasRGB'],
+    ['Color', 'color'],
     ['Conectividad', 'connectivity'],
   ],
   BACKPACK: [
     ['Marca', 'brand'],
     ['Color', 'color'],
+    ['Tamaño laptop soportado', 'supportedLaptopSize'],
   ],
 };
 
@@ -404,7 +425,7 @@ export function buildSpecificationRows(product: Record<string, any>): Specificat
         if (key === 'hasLighting')
           return specs.hasLighting !== null && specs.hasLighting !== undefined;
         if (key === 'switchType') {
-          return specs.keyboardType === 'Mecanico' || specs.keyboardType === 'Magnetico';
+          return Boolean(specs.switchType);
         }
         if (key === 'keyboardFormFactor') return true;
       }

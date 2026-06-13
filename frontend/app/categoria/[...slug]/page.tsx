@@ -39,7 +39,7 @@ const DICTIONARY: Record<string, string> = {
   monitores: 'Monitores',
   teclados: 'Teclados',
   mouse: 'Mouse',
-  chairs: 'Sillas Gaming',
+  chairs: 'Sillas Gamer',
   mousepad: 'Mousepad',
   'mesa-gamer': 'Mesa Gamer',
   audifonos: 'Audifonos',

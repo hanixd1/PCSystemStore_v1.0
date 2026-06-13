@@ -262,3 +262,28 @@ describe('ProductsService normalizacion defensiva de relacionados', () => {
     expect(related.some((item) => item.id === 'cpu-intel')).toBe(false);
   });
 });
+
+describe('ProductsService fallback de relacionados', () => {
+  it('devuelve fallback como array cuando no hay compatibles estrictos', async () => {
+    const current = product({
+      id: 'cpu-amd',
+      name: 'AMD Ryzen AM5',
+      category: 'CPU',
+      cpuSpecs: { brand: 'AMD', socket: 'AM5' },
+    });
+    const candidates = [
+      product({
+        id: 'cpu-intel',
+        name: 'Intel Core LGA1851',
+        category: 'CPU',
+        cpuSpecs: { brand: 'Intel', socket: 'LGA1851' },
+      }),
+    ];
+    const { service } = createService(current, candidates);
+
+    const related = await service.findRelated('cpu-amd');
+
+    expect(Array.isArray(related)).toBe(true);
+    expect(related.map((item) => item.id)).toEqual(['cpu-intel']);
+  });
+});

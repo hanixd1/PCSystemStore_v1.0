@@ -294,6 +294,9 @@ export function validateProductForm(
     if (!String(formData.brand || '').trim()) {
       return 'Selecciona la marca de la base refrigeradora.';
     }
+    if (!String(formData.supportedLaptopSize || '').trim()) {
+      return 'Selecciona el tamaño de laptop soportado.';
+    }
     if (!String(formData.fanCount || '').trim()) {
       return 'Selecciona la cantidad de ventiladores.';
     }
@@ -302,8 +305,13 @@ export function validateProductForm(
     }
   }
 
-  if (formData.category === 'BACKPACK' && !String(formData.brand || '').trim()) {
-    return 'Selecciona la marca de la mochila.';
+  if (formData.category === 'BACKPACK') {
+    if (!String(formData.brand || '').trim()) {
+      return 'Selecciona la marca de la mochila.';
+    }
+    if (!String(formData.color || '').trim()) {
+      return 'Selecciona el color de la mochila.';
+    }
   }
 
   if (formData.category === 'HEADSET') {

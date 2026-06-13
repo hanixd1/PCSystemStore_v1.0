@@ -1,9 +1,23 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-type InventoryStatus = 'NORMAL' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'BREAK_RISK';
+type InventoryStatus =
+  | 'NORMAL'
+  | 'LOW_STOCK'
+  | 'OUT_OF_STOCK'
+  | 'BREAK_RISK'
+  | 'PREDICTIVE_RISK';
 type AiMode = 'AI_SERVICE' | 'LOCAL_FALLBACK';
+type StockAlertType = 'OUT_OF_STOCK' | 'LOW_STOCK' | 'PREDICTIVE_RISK';
+type StockAlertStateStatus = 'ACTIVE' | 'REVIEWED' | 'DISMISSED';
+type AiRiskLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+type AiRiskStatus = 'NORMAL' | 'WATCH' | 'RISK' | 'CRITICAL';
 
 interface InventoryProduct {
   id: string;
@@ -27,12 +41,18 @@ interface InventoryProduct {
 
 interface InventoryAlert {
   productId: string;
+  alertType: StockAlertType;
   name: string;
   category: string;
   stock: number;
   status: InventoryStatus;
-  risk: number;
+  risk: number | null;
   recommendation: string;
+  riskLevel?: AiRiskLevel;
+  estimatedDaysToStockout?: number | null;
+  recommendedQuantity?: number;
+  reasons?: string[];
+  alertState: StockAlertStateStatus;
 }
 
 interface DashboardRecommendation {
@@ -42,23 +62,45 @@ interface DashboardRecommendation {
 
 interface AiRiskProduct {
   productId?: string;
-  id?: string;
-  risk?: number;
-  status?: InventoryStatus;
-  recommendation?: string;
+  name?: string;
+  riskScore?: number;
+  riskLevel?: AiRiskLevel;
+  status?: AiRiskStatus;
+  estimatedDaysToStockout?: number | null;
+  recommendedAction?: string;
+  recommendedQuantity?: number;
+  reasons?: string[];
 }
 
-interface AiStatisticsResponse {
-  available?: boolean;
-  generatedBy?: string;
-  riskProducts?: AiRiskProduct[];
-  message?: string;
+interface AiStockPredictionResponse {
+  mode?: string;
+  generatedAt?: string;
+  summary?: {
+    totalProducts?: number;
+    riskProducts?: number;
+    criticalProducts?: number;
+    insufficientDataProducts?: number;
+  };
+  items?: AiRiskProduct[];
 }
 
 interface AiStatisticsResult {
   available: boolean;
   mode: AiMode;
   riskByProductId: Map<string, AiRiskProduct>;
+}
+
+interface PersistedAlertState {
+  productId: string;
+  alertType: string;
+  status: string;
+}
+
+interface ProductSalesSummary {
+  productId: string;
+  _sum: {
+    quantity: number | null;
+  };
 }
 
 const LOW_STOCK_THRESHOLD = 3;
@@ -102,7 +144,16 @@ export class StatisticsService {
 
   async getInventoryDashboard() {
     try {
-      const [totalProducts, products, aiResult] = await Promise.all([
+      const sevenDaysAgo = this.getDateDaysAgo(7);
+      const thirtyDaysAgo = this.getDateDaysAgo(30);
+
+      const [
+        totalProducts,
+        products,
+        salesLast7Days,
+        salesLast30Days,
+        persistedAlertStates,
+      ] = await Promise.all([
         this.prisma.product.count(),
         this.prisma.product.findMany({
           select: {
@@ -126,15 +177,49 @@ export class StatisticsService {
           },
           orderBy: [{ stock: 'asc' }, { updatedAt: 'desc' }],
         }),
-        this.getStockStatisticsFromAi(),
+        this.prisma.orderItem.groupBy({
+          by: ['productId'],
+          where: {
+            order: {
+              status: 'PAID',
+              paidAt: { gte: sevenDaysAgo },
+            },
+          },
+          _sum: { quantity: true },
+        }),
+        this.prisma.orderItem.groupBy({
+          by: ['productId'],
+          where: {
+            order: {
+              status: 'PAID',
+              paidAt: { gte: thirtyDaysAgo },
+            },
+          },
+          _sum: { quantity: true },
+        }),
+        this.prisma.stockAlertState.findMany({
+          where: { status: { in: ['REVIEWED', 'DISMISSED'] } },
+          select: { productId: true, alertType: true, status: true },
+        }),
       ]);
+      const salesLast7DaysByProduct = this.buildSalesMap(salesLast7Days);
+      const salesLast30DaysByProduct = this.buildSalesMap(salesLast30Days);
+      const aiResult = await this.getStockStatisticsFromAi(products, {
+        salesLast7DaysByProduct,
+        salesLast30DaysByProduct,
+      });
 
-      const alerts = this.buildAlerts(products, aiResult.riskByProductId);
+      const alerts = this.buildAlerts(products, aiResult, persistedAlertStates);
       const outOfStockProducts = products.filter((product) => product.stock === 0).length;
       const lowStockProducts = products.filter(
         (product) => product.stock > 0 && product.stock <= LOW_STOCK_THRESHOLD,
       ).length;
-      const riskProducts = alerts.filter((alert) => alert.risk >= 60).length;
+      const predictiveRiskProducts =
+        aiResult.mode === 'AI_SERVICE'
+          ? products.filter(
+              (product) => product.stock > 0 && aiResult.riskByProductId.has(product.id),
+            ).length
+          : null;
       const estimatedInventoryValue = products.reduce(
         (total, product) => total + this.getEffectivePrice(product) * product.stock,
         0,
@@ -146,13 +231,15 @@ export class StatisticsService {
           totalProducts,
           outOfStockProducts,
           lowStockProducts,
-          riskProducts,
+          riskProducts: predictiveRiskProducts,
+          riskAvailable: aiResult.mode === 'AI_SERVICE',
           estimatedInventoryValue: Number(estimatedInventoryValue.toFixed(2)),
         },
         alerts,
         recommendations: this.buildRecommendations({
           outOfStockProducts,
           lowStockProducts,
+          predictiveRiskProducts,
           incompleteTechnicalData,
         }),
         aiStatus: {
@@ -168,7 +255,13 @@ export class StatisticsService {
     }
   }
 
-  async getStockStatisticsFromAi(): Promise<AiStatisticsResult> {
+  async getStockStatisticsFromAi(
+    products: InventoryProduct[],
+    sales: {
+      salesLast7DaysByProduct: Map<string, number>;
+      salesLast30DaysByProduct: Map<string, number>;
+    },
+  ): Promise<AiStatisticsResult> {
     const aiServiceUrl = process.env.AI_SERVICE_URL?.trim().replace(/\/$/, '');
 
     if (!aiServiceUrl) {
@@ -179,28 +272,56 @@ export class StatisticsService {
     const timeout = setTimeout(() => controller.abort(), AI_SERVICE_TIMEOUT_MS);
 
     try {
-      const response = await fetch(`${aiServiceUrl}/statistics/inventory`, {
-        method: 'GET',
+      const response = await fetch(`${aiServiceUrl}/stock-prediction/batch-risk-score`, {
+        method: 'POST',
         signal: controller.signal,
-        headers: { Accept: 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          products: products.map((product) => {
+            const ventasUltimos7Dias = sales.salesLast7DaysByProduct.get(product.id);
+            const ventasUltimos30Dias = sales.salesLast30DaysByProduct.get(product.id);
+
+            return {
+              productId: product.id,
+              name: product.name,
+              category: product.category,
+              productType: this.formatCategory(product.category),
+              stockActual: product.stock,
+              precio: this.getEffectivePrice(product),
+              ...(ventasUltimos7Dias !== undefined ? { ventasUltimos7Dias } : {}),
+              ...(ventasUltimos30Dias !== undefined ? { ventasUltimos30Dias } : {}),
+              diasReposicionEstimados: 7,
+              umbralStockBajo: LOW_STOCK_THRESHOLD,
+            };
+          }),
+          config: {
+            defaultLowStockThreshold: LOW_STOCK_THRESHOLD,
+            defaultLeadTimeDays: 7,
+            riskThreshold: 70,
+            criticalThreshold: 90,
+          },
+        }),
       });
 
       if (!response.ok) {
         throw new Error(`ai-service respondio ${response.status}`);
       }
 
-      const payload = (await response.json()) as AiStatisticsResponse;
+      const payload = (await response.json()) as AiStockPredictionResponse;
       const riskByProductId = new Map<string, AiRiskProduct>();
 
-      for (const riskProduct of payload.riskProducts ?? []) {
-        const productId = riskProduct.productId ?? riskProduct.id;
-        if (productId) {
+      for (const riskProduct of payload.items ?? []) {
+        const productId = riskProduct.productId;
+        if (productId && this.isPredictiveRisk(riskProduct)) {
           riskByProductId.set(productId, riskProduct);
         }
       }
 
       return {
-        available: payload.available !== false,
+        available: true,
         mode: 'AI_SERVICE',
         riskByProductId,
       };
@@ -223,48 +344,85 @@ export class StatisticsService {
 
   private buildAlerts(
     products: InventoryProduct[],
-    aiRiskByProductId: Map<string, AiRiskProduct>,
+    aiResult: AiStatisticsResult,
+    persistedAlertStates: PersistedAlertState[],
   ): InventoryAlert[] {
-    return products
-      .map((product) => {
-        const aiRisk = aiRiskByProductId.get(product.id);
-        const localRisk = this.calculateLocalRisk(product.stock);
-        const risk = Math.max(localRisk, this.normalizeRisk(aiRisk?.risk));
-        const status = this.resolveStatus(product.stock, risk, aiRisk?.status);
+    const hiddenAlerts = new Map(
+      persistedAlertStates
+        .filter((state) => ['REVIEWED', 'DISMISSED'].includes(state.status))
+        .map((state) => [`${state.productId}:${state.alertType}`, state.status]),
+    );
+    const alerts: InventoryAlert[] = [];
 
-        return {
-          productId: product.id,
-          name: product.name,
-          category: this.formatCategory(product.category),
-          stock: product.stock,
-          status,
-          risk,
-          recommendation:
-            aiRisk?.recommendation?.trim() || this.buildStockRecommendation(product.stock),
-        };
-      })
-      .filter((alert) => alert.stock <= LOW_STOCK_THRESHOLD || alert.risk >= 60)
-      .sort((left, right) => right.risk - left.risk || left.stock - right.stock);
+    for (const product of products) {
+      if (product.stock <= 0) {
+        alerts.push(this.createAlert(product, 'OUT_OF_STOCK', 'OUT_OF_STOCK', null));
+      } else if (product.stock <= LOW_STOCK_THRESHOLD) {
+        alerts.push(this.createAlert(product, 'LOW_STOCK', 'LOW_STOCK', null));
+      }
+
+      if (aiResult.mode === 'AI_SERVICE') {
+        const aiRisk = aiResult.riskByProductId.get(product.id);
+        const risk = this.normalizeRisk(aiRisk?.riskScore);
+
+        if (aiRisk && product.stock > 0) {
+          alerts.push(
+            this.createAlert(
+              product,
+              'PREDICTIVE_RISK',
+              'PREDICTIVE_RISK',
+              risk,
+              aiRisk.recommendedAction,
+              {
+                riskLevel: aiRisk.riskLevel,
+                estimatedDaysToStockout: aiRisk.estimatedDaysToStockout,
+                recommendedQuantity: aiRisk.recommendedQuantity,
+                reasons: aiRisk.reasons,
+              },
+            ),
+          );
+        }
+      }
+    }
+
+    return alerts
+      .filter((alert) => !hiddenAlerts.has(`${alert.productId}:${alert.alertType}`))
+      .sort((left, right) => {
+        const priority = this.getAlertPriority(right) - this.getAlertPriority(left);
+        if (priority !== 0) return priority;
+        return left.stock - right.stock;
+      });
   }
 
-  private calculateLocalRisk(stock: number): number {
-    if (stock <= 0) {
-      return 100;
-    }
-
-    if (stock === 1) {
-      return 90;
-    }
-
-    if (stock === 2) {
-      return 75;
-    }
-
-    if (stock === 3) {
-      return 60;
-    }
-
-    return 0;
+  private createAlert(
+    product: InventoryProduct,
+    alertType: StockAlertType,
+    status: InventoryStatus,
+    risk: number | null,
+    recommendation?: string,
+    aiDetails?: {
+      riskLevel?: AiRiskLevel;
+      estimatedDaysToStockout?: number | null;
+      recommendedQuantity?: number;
+      reasons?: string[];
+    },
+  ): InventoryAlert {
+    return {
+      productId: product.id,
+      alertType,
+      name: product.name,
+      category: this.formatCategory(product.category),
+      stock: product.stock,
+      status,
+      risk,
+      recommendation:
+        recommendation?.trim() || this.buildStockRecommendation(product.stock, alertType),
+      riskLevel: aiDetails?.riskLevel,
+      estimatedDaysToStockout: aiDetails?.estimatedDaysToStockout,
+      recommendedQuantity: aiDetails?.recommendedQuantity,
+      reasons: aiDetails?.reasons,
+      alertState: 'ACTIVE',
+    };
   }
 
   private normalizeRisk(value: unknown): number {
@@ -276,27 +434,18 @@ export class StatisticsService {
     return Math.max(0, Math.min(100, Math.round(parsed)));
   }
 
-  private resolveStatus(stock: number, risk: number, aiStatus?: InventoryStatus): InventoryStatus {
-    if (aiStatus && ['NORMAL', 'LOW_STOCK', 'OUT_OF_STOCK', 'BREAK_RISK'].includes(aiStatus)) {
-      return aiStatus;
-    }
-
-    if (stock <= 0) {
-      return 'OUT_OF_STOCK';
-    }
-
-    if (risk >= 85) {
-      return 'BREAK_RISK';
-    }
-
-    if (stock <= LOW_STOCK_THRESHOLD) {
-      return 'LOW_STOCK';
-    }
-
-    return 'NORMAL';
+  private getAlertPriority(alert: InventoryAlert): number {
+    if (alert.alertType === 'OUT_OF_STOCK') return 300;
+    if (alert.alertType === 'PREDICTIVE_RISK') return 200 + (alert.risk ?? 0);
+    if (alert.alertType === 'LOW_STOCK') return 100;
+    return 0;
   }
 
-  private buildStockRecommendation(stock: number): string {
+  private buildStockRecommendation(stock: number, alertType?: StockAlertType): string {
+    if (alertType === 'PREDICTIVE_RISK') {
+      return 'Revisar riesgo predictivo';
+    }
+
     if (stock <= 0) {
       return 'Reponer urgente';
     }
@@ -334,6 +483,7 @@ export class StatisticsService {
   private buildRecommendations(input: {
     outOfStockProducts: number;
     lowStockProducts: number;
+    predictiveRiskProducts: number | null;
     incompleteTechnicalData: number;
   }): DashboardRecommendation[] {
     const recommendations: DashboardRecommendation[] = [];
@@ -349,6 +499,21 @@ export class StatisticsService {
       recommendations.push({
         type: 'REPLENISHMENT',
         message: `Hay ${input.lowStockProducts} productos con stock bajo. Se recomienda revisar reposicion.`,
+      });
+    }
+
+    if (input.predictiveRiskProducts && input.predictiveRiskProducts > 0) {
+      recommendations.push({
+        type: 'REPLENISHMENT',
+        message: `Hay ${input.predictiveRiskProducts} productos con riesgo predictivo de quiebre segun el motor IA.`,
+      });
+    }
+
+    if (input.predictiveRiskProducts === null) {
+      recommendations.push({
+        type: 'INFO',
+        message:
+          'El riesgo predictivo requiere motor IA o historico de ventas activo. El dashboard sigue usando analisis local operativo.',
       });
     }
 
@@ -371,5 +536,78 @@ export class StatisticsService {
 
   private formatCategory(category: string): string {
     return CATEGORY_LABELS[category] ?? category;
+  }
+
+  private getDateDaysAgo(days: number): Date {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return date;
+  }
+
+  private buildSalesMap(salesSummary: ProductSalesSummary[]): Map<string, number> {
+    return new Map(
+      salesSummary.map((summary) => [summary.productId, Number(summary._sum.quantity ?? 0)]),
+    );
+  }
+
+  private isPredictiveRisk(item: AiRiskProduct): boolean {
+    return (
+      item.riskLevel === 'HIGH' ||
+      item.riskLevel === 'CRITICAL' ||
+      item.status === 'RISK' ||
+      item.status === 'CRITICAL'
+    );
+  }
+
+  async updateStockAlertState(input: {
+    productId: string;
+    alertType: StockAlertType;
+    status: StockAlertStateStatus;
+    reviewedByUserId?: string;
+    note?: string;
+  }) {
+    if (!['OUT_OF_STOCK', 'LOW_STOCK', 'PREDICTIVE_RISK'].includes(input.alertType)) {
+      throw new BadRequestException('Tipo de alerta invalido.');
+    }
+
+    if (!['REVIEWED', 'DISMISSED'].includes(input.status)) {
+      throw new BadRequestException('Estado de alerta invalido.');
+    }
+
+    const product = await this.prisma.product.findUnique({
+      where: { id: input.productId },
+      select: { id: true },
+    });
+
+    if (!product) {
+      throw new BadRequestException('Producto no encontrado.');
+    }
+
+    return this.prisma.stockAlertState.upsert({
+      where: {
+        productId_alertType: {
+          productId: input.productId,
+          alertType: input.alertType,
+        },
+      },
+      create: {
+        productId: input.productId,
+        alertType: input.alertType,
+        status: input.status,
+        reviewedByUserId: input.reviewedByUserId,
+        note: input.note,
+      },
+      update: {
+        status: input.status,
+        reviewedByUserId: input.reviewedByUserId,
+        note: input.note,
+      },
+      select: {
+        productId: true,
+        alertType: true,
+        status: true,
+        updatedAt: true,
+      },
+    });
   }
 }

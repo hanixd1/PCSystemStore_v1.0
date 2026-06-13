@@ -464,6 +464,15 @@ export class CreateProductDto {
   @IsIn(['USB-A', 'USB-C'])
   connectivity?: string;
 
+  @ValidateIf(
+    (product) => product.category === 'LAPTOP_COOLING_BASE' || product.category === 'BACKPACK',
+  )
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  supportedLaptopSize?: string;
+
   @ValidateIf((product) => product.category === 'CABLE_HUB')
   @Transform(toTrimmedString)
   @IsOptional()
@@ -507,7 +516,7 @@ export class CreateProductDto {
   @Transform(toOptionalStringArray)
   @IsOptional()
   @IsArray()
-  @IsIn(['Cable USB', 'Jack 3.5 mm', 'USB Dongle 2.4 GHz', 'Bluetooth'], {
+  @IsIn(['Cable USB', 'USB', 'USB-C', 'Jack 3.5 mm', 'Jack 3.5mm', 'USB Dongle 2.4 GHz', 'Bluetooth', '2.4 GHz'], {
     each: true,
   })
   supportedConnections?: string[];
@@ -573,7 +582,16 @@ export class CreateProductDto {
   @Transform(toTrimmedString)
   @IsOptional()
   @IsString()
-  @IsIn(['De serie', 'Aire (Torre)', 'Liquida (AIO)', 'No especificado'])
+  @IsIn([
+    'De serie',
+    'Torre',
+    'Aire (Torre)',
+    'Líquida',
+    'Liquida',
+    'Liquida (AIO)',
+    'No incluye',
+    'No especificado',
+  ])
   coolerType?: string;
 
   @ValidateIf((product) => product.category === 'PC_DESKTOP')
@@ -598,13 +616,13 @@ export class CreateProductDto {
   @Transform(toTrimmedString)
   @IsOptional()
   @IsString()
-  @IsIn(['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico'])
+  @IsIn(['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico', 'Optico', 'Hibrido'])
   keyboardType?: string;
 
   @Transform(toOptionalStringArray)
   @IsOptional()
   @IsArray()
-  @IsIn(['Cableado', 'Bluetooth', 'Dongle USB'], { each: true })
+  @IsIn(['Cableado', 'Bluetooth', 'Dongle USB', 'Inalambrico', '2.4 GHz'], { each: true })
   connections?: string[];
 
   @Transform(toKeyboardLayout)
@@ -778,4 +796,80 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   noiseCancel?: boolean;
+
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  audioType?: string;
+
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  micIntegrated?: boolean;
+
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  micRemovable?: boolean;
+
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  surroundSound?: string;
+
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  consoleCompatible?: boolean;
+
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  microphoneType?: string;
+
+  @Transform(toOptionalStringArray)
+  @IsOptional()
+  @IsArray()
+  connectionTypes?: string[];
+
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  frequencyResponse?: string;
+
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  includesArm?: boolean;
+
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  includesPopFilter?: boolean;
+
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  speakerType?: string;
+
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  channels?: string;
+
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  hasSubwoofer?: boolean;
+
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  remoteControl?: boolean;
 }

@@ -27,9 +27,11 @@ const PSU_WATT_OPTIONS: ProductFilterOption[] = [
 
 const LAPTOP_RAM_OPTIONS = withAllOptions([
   ['8GB', '8 GB'],
+  ['12GB', '12 GB'],
   ['16GB', '16 GB'],
   ['24GB', '24 GB'],
   ['32GB', '32 GB'],
+  ['48GB', '48 GB'],
   ['64GB', '64 GB'],
 ]);
 
@@ -339,7 +341,7 @@ export const PRODUCT_FILTERS_BY_CATEGORY: Record<string, ProductFilterConfig[]> 
       optionSource: 'brands',
       options: withAll(['ASUS', 'Lenovo', 'HP', 'Acer', 'Dell', 'MSI', 'Otra']),
     },
-    { key: 'ram', label: 'RAM', type: 'select', options: LAPTOP_RAM_OPTIONS },
+    { key: 'ram', label: 'Memoria RAM', type: 'select', options: LAPTOP_RAM_OPTIONS },
     { key: 'storage', label: 'Almacenamiento', type: 'select', options: LAPTOP_STORAGE_OPTIONS },
     {
       key: 'screenSize',
@@ -351,7 +353,7 @@ export const PRODUCT_FILTERS_BY_CATEGORY: Record<string, ProductFilterConfig[]> 
   ],
   PC_DESKTOP: [
     { key: 'processor', label: 'Procesador', type: 'select', options: withAll(['Intel', 'AMD']) },
-    { key: 'ram', label: 'RAM', type: 'select', options: withAll(['8GB', '16GB', '32GB', '64GB']) },
+    { key: 'ram', label: 'Memoria RAM', type: 'select', options: LAPTOP_RAM_OPTIONS },
     {
       key: 'storage',
       label: 'Almacenamiento',
@@ -395,7 +397,7 @@ export const PRODUCT_FILTERS_BY_CATEGORY: Record<string, ProductFilterConfig[]> 
       label: 'Tipo teclado',
       type: 'select',
       optionSource: 'keyboardTypes',
-      options: withAll(['Membrana', 'Semi-mecanico', 'Mecanico', 'Magnetico']),
+      options: withAll(['Membrana', 'Mecanico', 'Magnetico', 'Optico', 'Hibrido']),
     },
     {
       key: 'connections',
@@ -424,7 +426,7 @@ export const PRODUCT_FILTERS_BY_CATEGORY: Record<string, ProductFilterConfig[]> 
       label: 'Conexion',
       type: 'select',
       optionSource: 'connections',
-      options: withAll(['Cableado', 'Bluetooth', 'Dongle USB']),
+      options: withAll(['Cableado', 'Inalambrico', 'Bluetooth', '2.4 GHz']),
     },
   ],
   MOUSEPAD: [
@@ -483,6 +485,13 @@ export const PRODUCT_FILTERS_BY_CATEGORY: Record<string, ProductFilterConfig[]> 
       type: 'select',
       options: withAll(['Cooler Master', 'Antryx', 'Teros', 'Otros']),
     },
+    {
+      key: 'supportedLaptopSize',
+      label: 'Tamaño laptop',
+      type: 'select',
+      options: withAll(['14"', '15.6"', '16"', '17.3"']),
+    },
+    { key: 'hasRGB', label: 'RGB', type: 'select', options: yesNoOptions() },
   ],
   BACKPACK: [
     {
@@ -490,6 +499,18 @@ export const PRODUCT_FILTERS_BY_CATEGORY: Record<string, ProductFilterConfig[]> 
       label: 'Marca',
       type: 'select',
       options: withAll(['Redragon', 'ASUS', 'Teros', 'Gigabyte', 'Otros']),
+    },
+    {
+      key: 'color',
+      label: 'Color',
+      type: 'select',
+      options: withAll(['Negro', 'Gris', 'Azul', 'Rojo', 'Otros']),
+    },
+    {
+      key: 'supportedLaptopSize',
+      label: 'Tamaño laptop',
+      type: 'select',
+      options: withAll(['14"', '15.6"', '16"', '17.3"']),
     },
   ],
   HEADSET: [
@@ -560,6 +581,7 @@ export const SLUG_TO_CATEGORY: Record<string, string> = {
   mousepad: 'MOUSEPAD',
   chairs: 'CHAIR',
   'sillas-gaming': 'CHAIR',
+  'sillas-gamer': 'CHAIR',
   'mesa-gamer': 'GAMING_DESK',
   audifonos: 'HEADSET',
   headsets: 'HEADSET',

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   FiActivity,
   FiBarChart2,
+  FiBox,
   FiCreditCard,
   FiGrid,
   FiImage,
@@ -49,6 +50,19 @@ function isPublicAdminPath(pathname: string | null) {
     pathname?.startsWith('/admin/forgot-password') ||
     pathname?.startsWith('/admin/reset-password')
   );
+}
+
+const ADMIN_ONLY_PATHS = [
+  '/admin/import-products',
+  '/admin/empleados',
+  '/admin/historial',
+  '/admin/pagos',
+  '/admin/banners',
+  '/admin/estadistica',
+];
+
+function isAdminOnlyPath(pathname: string | null) {
+  return ADMIN_ONLY_PATHS.some((path) => pathname === path || pathname?.startsWith(`${path}/`));
 }
 
 function useAdminSessionGuard(pathname: string | null) {
@@ -149,6 +163,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
+  const accessDenied = currentUser.role !== 'ADMIN' && isAdminOnlyPath(pathname);
+
   return (
     <div className="flex min-h-screen bg-gray-50" suppressHydrationWarning>
       {isSidebarOpen ? (
@@ -222,6 +238,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ].join(' ')}
           >
             <FiGrid size={20} /> Panel Principal
+          </Link>
+
+          <Link
+            href="/admin/inventario"
+            onClick={() => setIsSidebarOpen(false)}
+            className={[
+              'flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all',
+              pathname === '/admin/inventario' || pathname?.startsWith('/admin/edit-product')
+                ? 'bg-brand-cyan font-bold text-gray-900'
+                : 'text-gray-400 hover:bg-gray-800 hover:text-white',
+            ].join(' ')}
+          >
+            <FiBox size={20} /> Inventario
           </Link>
 
           <Link
@@ -356,7 +385,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
-        <div className="w-full max-w-full overflow-x-hidden p-4 lg:p-8">{children}</div>
+        <div className="w-full max-w-full overflow-x-hidden p-4 lg:p-8">
+          {accessDenied ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-8">
+              <h1 className="text-2xl font-black text-red-700">Acceso denegado</h1>
+              <p className="mt-2 text-sm font-semibold text-red-600">
+                No tienes permisos para acceder a este módulo administrativo.
+              </p>
+              <Link
+                href="/admin"
+                className="mt-5 inline-flex rounded-xl bg-gray-900 px-5 py-3 text-sm font-black text-white transition hover:bg-gray-800"
+              >
+                Volver al panel
+              </Link>
+            </div>
+          ) : (
+            children
+          )}
+        </div>
       </main>
     </div>
   );

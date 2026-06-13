@@ -166,4 +166,281 @@ describe('ProductTemplateService', () => {
     expect(String(example.tipoAlmacenamiento)).not.toBe('NVMe M.2');
     expect(String(example.tipoAlmacenamiento)).not.toBe('M.2 SATA');
   });
+
+  it('genera plantilla Laptop con specs completas de ordenador portatil', () => {
+    const template = service.generateTemplate({
+      category: 'ORDENADORES',
+      productType: 'Laptop / Portatil',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-laptop.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        'marca',
+        'procesador',
+        'memoriaRam',
+        'almacenamiento',
+        'tieneGraficaDedicada',
+        'marcaGpu',
+        'modeloGpu',
+        'tamanoPantalla',
+        'tasaRefrescoHz',
+        'incluyeWindowsSerie',
+      ]),
+    );
+  });
+
+  it('genera plantilla PC Desktop con specs de equipo pre-ensamblado', () => {
+    const template = service.generateTemplate({
+      category: 'ORDENADORES',
+      productType: 'PC de Escritorio',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-pc-desktop.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        'procesador',
+        'memoriaRam',
+        'almacenamiento',
+        'tieneGraficaDedicada',
+        'marcaGpu',
+        'modeloGpu',
+        'coolerIncluido',
+        'fuentePoderWatts',
+        'modeloCase',
+      ]),
+    );
+  });
+
+  it('genera plantilla Software con tipoLicencia y plataforma', () => {
+    const template = service.generateTemplate({
+      category: 'ORDENADORES',
+      productType: 'Software / Licencia',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-software-licencia.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(expect.arrayContaining(['tipoLicencia', 'plataforma']));
+  });
+
+  it('genera plantilla Base Refrigeradora con tamano, ventiladores, rgb y color', () => {
+    const template = service.generateTemplate({
+      category: 'ORDENADORES',
+      productType: 'Base refrigeradora',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-base-refrigeradora.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining(['tamanoLaptopSoportado', 'ventiladores', 'rgb', 'color']),
+    );
+  });
+
+  it('genera plantilla Mochila con marca, color y tamano soportado', () => {
+    const template = service.generateTemplate({
+      category: 'ORDENADORES',
+      productType: 'Mochila',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-mochila.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(expect.arrayContaining(['marca', 'color', 'tamanoLaptopSoportado']));
+  });
+
+  it('genera plantilla Monitor con pantalla, puertos y parlantes', () => {
+    const template = service.generateTemplate({
+      category: 'PERIFERICOS',
+      productType: 'Monitor',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-monitor.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        'tamanoPulgadas',
+        'resolucion',
+        'panel',
+        'hz',
+        'latenciaMs',
+        'parlantesIntegrados',
+        'puertoHdmi',
+        'puertoDisplayPort',
+      ]),
+    );
+  });
+
+  it('genera plantilla Teclado con tipo, conectividad, layout, formato y switch', () => {
+    const template = service.generateTemplate({
+      category: 'PERIFERICOS',
+      productType: 'Teclado',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-teclado.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        'tipoTeclado',
+        'conectividad',
+        'idiomaLayout',
+        'formatoTeclado',
+        'tipoSwitch',
+      ]),
+    );
+  });
+
+  it('genera plantilla Mouse con dpi, sensor, botones, rgb y peso', () => {
+    const template = service.generateTemplate({
+      category: 'PERIFERICOS',
+      productType: 'Mouse',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-mouse.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining(['dpi', 'conectividad', 'sensor', 'botones', 'rgb', 'pesoGramos']),
+    );
+  });
+
+  it('genera plantilla Mousepad con tamano, material, rgb, base y color', () => {
+    const template = service.generateTemplate({
+      category: 'PERIFERICOS',
+      productType: 'Mousepad',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-mousepad.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining(['tamano', 'material', 'rgb', 'baseAntideslizante', 'color']),
+    );
+  });
+
+  it('genera plantilla Sillas Gamer y acepta alias antiguo Sillas Gaming', () => {
+    const template = service.generateTemplate({
+      category: 'PERIFERICOS',
+      productType: 'Sillas Gaming',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-sillas-gamer.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining(['material', 'color', 'pesoMaximoKg', 'reclinable']),
+    );
+  });
+
+  it('genera plantillas Mesas Gamer, Webcam, Capturadoras y Cables y Hub con specs propias', () => {
+    const deskHeaders = readProductsHeaders(
+      service.generateTemplate({ category: 'PERIFERICOS', productType: 'Mesa Gamer' }).buffer,
+    );
+    const webcamHeaders = readProductsHeaders(
+      service.generateTemplate({ category: 'PERIFERICOS', productType: 'Webcam' }).buffer,
+    );
+    const captureHeaders = readProductsHeaders(
+      service.generateTemplate({ category: 'PERIFERICOS', productType: 'Capturadora' }).buffer,
+    );
+    const cableHubHeaders = readProductsHeaders(
+      service.generateTemplate({ category: 'PERIFERICOS', productType: 'Cables y Hub' }).buffer,
+    );
+
+    expectUsesSkuOnly(deskHeaders);
+    expectUsesSkuOnly(webcamHeaders);
+    expectUsesSkuOnly(captureHeaders);
+    expectUsesSkuOnly(cableHubHeaders);
+    expect(deskHeaders).toEqual(expect.arrayContaining(['largoCm', 'anchoCm', 'alturaCm']));
+    expect(webcamHeaders).toEqual(expect.arrayContaining(['resolucion', 'fps', 'microfonoIntegrado']));
+    expect(captureHeaders).toEqual(expect.arrayContaining(['resolucionCaptura', 'fpsCaptura']));
+    expect(cableHubHeaders).toEqual(expect.arrayContaining(['tipoAccesorio', 'conectores']));
+  });
+
+  it('genera plantilla Headset con specs tecnicas de audio y XLSX valido', () => {
+    const template = service.generateTemplate({
+      category: 'AUDIO',
+      productType: 'Audifonos / Headset',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-audifono-headset.xlsx');
+    expect(template.buffer[0]).toBe(0x50);
+    expect(template.buffer[1]).toBe(0x4b);
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        'tipoAudio',
+        'conectividad',
+        'tipoConexion',
+        'microfonoIntegrado',
+        'microfonoRemovible',
+        'cancelacionRuido',
+        'sonidoSurround',
+        'compatibleConsola',
+        'rgb',
+        'color',
+      ]),
+    );
+  });
+
+  it('genera plantilla Microfono con specs tecnicas de audio', () => {
+    const template = service.generateTemplate({
+      category: 'AUDIO',
+      productType: 'MIC',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-microfono.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        'tipoMicrofono',
+        'patronPolar',
+        'conectividad',
+        'tipoConexion',
+        'frecuenciaRespuesta',
+        'incluyeBrazo',
+        'incluyeFiltroPop',
+        'rgb',
+        'color',
+      ]),
+    );
+  });
+
+  it('genera plantilla Parlantes con specs tecnicas de audio', () => {
+    const template = service.generateTemplate({
+      category: 'AUDIO',
+      productType: 'SPEAKERS',
+    });
+    const headers = readProductsHeaders(template.buffer);
+
+    expect(template.filename).toBe('plantilla-parlantes.xlsx');
+    expectUsesSkuOnly(headers);
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        'tipoParlante',
+        'canales',
+        'potenciaWatts',
+        'conectividad',
+        'tipoConexion',
+        'subwoofer',
+        'controlRemoto',
+        'rgb',
+        'color',
+      ]),
+    );
+  });
+
+  it('rechaza tipos AUDIO no soportados y no genera plantilla generica', () => {
+    expect(() =>
+      service.generateTemplate({ category: 'AUDIO', productType: 'Tipo Audio Inexistente' }),
+    ).toThrow(BadRequestException);
+  });
 });

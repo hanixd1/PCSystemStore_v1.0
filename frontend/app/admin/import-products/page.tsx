@@ -77,13 +77,13 @@ const PRODUCT_TYPES: Record<CategoryGroup, string[]> = {
     'Teclado',
     'Mouse',
     'Mousepad',
-    'Silla Gaming',
+    'Silla Gamer',
     'Mesa Gamer',
     'Webcam',
     'Capturadora',
     'Cables y Hub',
   ],
-  AUDIO: ['Audifonos / Headset', 'Microfono', 'Parlantes'],
+  AUDIO: ['Audífono / Headset', 'Micrófono', 'Parlantes'],
 };
 
 function buildFormData(

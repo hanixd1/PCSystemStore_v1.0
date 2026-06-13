@@ -46,6 +46,7 @@ model Product {
   laptopCoolingBaseSpecs LaptopCoolingBaseSpecs?
   backpackSpecs          BackpackSpecs?
   storageSpecs           StorageSpecs?
+  stockAlertStates       StockAlertState[]
   orderItems             OrderItem[]
 }
 
@@ -117,18 +118,18 @@ model PsuSpecs {
 }
 
 model CaseSpecs {
-  id                       String   @id @default(uuid())
-  productId                String   @unique
-  brand                    String?
-  formFactor               String
-  supportedFormFactors     String[] @default([])
-  maxGpuLength             Int
-  maxCoolerHeight          Int?
-  includesPsu              Boolean
-  includedFans             Int
-  radiatorSupportMm        Int?
-  radiatorSupportMmValues  String[] @default([])
-  product                  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                      String   @id @default(uuid())
+  productId               String   @unique
+  brand                   String?
+  formFactor              String
+  supportedFormFactors    String[] @default([])
+  maxGpuLength            Int
+  maxCoolerHeight         Int?
+  includesPsu             Boolean
+  includedFans            Int
+  radiatorSupportMm       Int?
+  radiatorSupportMmValues String[] @default([])
+  product                 Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model CoolerSpecs {
@@ -288,27 +289,45 @@ model HeadsetSpecs {
   micType              String
   noiseCancel          Boolean
   hasRGB               Boolean
+  audioType            String?
+  micIntegrated        Boolean?
+  micRemovable         Boolean?
+  surroundSound        String?
+  consoleCompatible    Boolean?
+  color                String?
   product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model MicrophoneSpecs {
-  id         String  @id @default(uuid())
-  productId  String  @unique
-  brand      String?
-  connection String
-  micType    String
-  hasRGB     Boolean
-  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                String  @id @default(uuid())
+  productId         String  @unique
+  brand             String?
+  connection        String
+  micType           String
+  hasRGB            Boolean
+  microphoneType    String?
+  connectionTypes   String[] @default([])
+  frequencyResponse String?
+  includesArm       Boolean?
+  includesPopFilter Boolean?
+  color             String?
+  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model SpeakerSpecs {
-  id         String  @id @default(uuid())
-  productId  String  @unique
-  brand      String?
-  connection String
-  wattage    Int
-  hasRGB     Boolean
-  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id              String  @id @default(uuid())
+  productId       String  @unique
+  brand           String?
+  connection      String
+  wattage         Int
+  hasRGB          Boolean
+  speakerType     String?
+  channels        String?
+  connectionTypes String[] @default([])
+  hasSubwoofer    Boolean?
+  remoteControl   Boolean?
+  color           String?
+  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model WebcamSpecs {
@@ -343,44 +362,66 @@ model CableHubSpecs {
 }
 
 model LaptopCoolingBaseSpecs {
-  id           String  @id @default(uuid())
-  productId    String  @unique
-  brand        String?
-  fanCount     Int
-  connectivity String
-  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                  String   @id @default(uuid())
+  productId           String   @unique
+  brand               String?
+  fanCount            Int
+  connectivity        String
+  supportedLaptopSize String?
+  hasRGB              Boolean?
+  color               String?
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model BackpackSpecs {
-  id        String  @id @default(uuid())
-  productId String  @unique
-  brand     String?
-  color     String?
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                  String  @id @default(uuid())
+  productId           String  @unique
+  brand               String?
+  color               String?
+  supportedLaptopSize String?
+  product             Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model User {
-  id               String      @id @default(uuid())
-  email            String      @unique
-  password         String
-  name             String
-  birthDate        DateTime?
-  documentType     String?
-  documentNumber   String?
-  gender           String?
-  mobilePhone      String?
-  role             String      @default("EDITOR")
-  emailVerified    Boolean     @default(false)
-  emailVerifiedAt  DateTime?
-  createdAt        DateTime    @default(now())
-  resetToken       String?     @unique
-  resetTokenExpiry DateTime?
-  status           String      @default("ACTIVE")
-  updatedAt        DateTime    @updatedAt
-  addresses        Address[]
-  accountTokens    AccountToken[]
-  logs             ActionLog[]
-  orders           Order[]
+  id                  String            @id @default(uuid())
+  email               String            @unique
+  password            String
+  name                String
+  birthDate           DateTime?
+  documentType        String?
+  documentNumber      String?
+  gender              String?
+  mobilePhone         String?
+  role                String            @default("EDITOR")
+  emailVerified       Boolean           @default(false)
+  emailVerifiedAt     DateTime?
+  createdAt           DateTime          @default(now())
+  resetToken          String?           @unique
+  resetTokenExpiry    DateTime?
+  status              String            @default("ACTIVE")
+  updatedAt           DateTime          @updatedAt
+  addresses           Address[]
+  accountTokens       AccountToken[]
+  logs                ActionLog[]
+  reviewedStockAlerts StockAlertState[] @relation("StockAlertReviewedBy")
+  orders              Order[]
+}
+
+model StockAlertState {
+  id               String   @id @default(uuid())
+  productId        String
+  alertType        String
+  status           String   @default("ACTIVE")
+  reviewedByUserId String?
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reviewedByUser   User?    @relation("StockAlertReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([productId, alertType])
+  @@index([status])
+  @@index([reviewedByUserId])
 }
 
 enum AccountTokenType {

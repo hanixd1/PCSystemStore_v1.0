@@ -201,7 +201,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           ],
         },
         { name: 'Mousepads', href: '/categoria/mousepad' },
-        { name: 'Sillas Gaming', href: '/categoria/chairs' },
+        { name: 'Sillas Gamer', href: '/categoria/chairs' },
         { name: 'Mesas Gamer', href: '/categoria/mesa-gamer' },
         { name: 'Webcams', href: '/categoria/webcams' },
         { name: 'Capturadoras', href: '/categoria/capturadoras' },

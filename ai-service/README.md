@@ -3,7 +3,7 @@
 Microservicio FastAPI modular para PCSystemStore. Contiene tres dominios separados:
 
 - `chatbot`: asistente comercial Alex basado en reglas y catalogo real.
-- `stock_prediction`: prediccion de riesgo de quiebre de stock.
+- `stock_prediction`: analisis predictivo inicial de riesgo de quiebre de stock.
 - `statistics`: estructura inicial para analitica del panel admin.
 
 ## Estructura
@@ -20,6 +20,7 @@ ai-service/
 |-- schemas/
 |   |-- chatbot_schema.py
 |   |-- statistics_schema.py
+|   |-- stock_prediction_schema.py
 |   `-- prediction_schema.py
 `-- services/
     |-- chatbot_service.py
@@ -58,8 +59,23 @@ BACKEND_URL=http://localhost:3000
 - `GET /health`
 - `POST /chat`
 - `POST /predict-stock`
+- `GET /stock-prediction/health`
+- `POST /stock-prediction/risk-score`
+- `POST /stock-prediction/batch-risk-score`
 - `GET /statistics/health`
 - `POST /statistics/summary`
+
+## Motor de riesgo predictivo de stock
+
+La version actual usa `HEURISTIC_V1`: un scoring heuristico operativo, no un
+modelo ML entrenado. Combina presion de stock, velocidad de ventas cuando el
+backend la envia, riesgo por tiempo de reposicion y calidad de datos. Si no hay
+historico de ventas, el motor no eleva automaticamente el stock bajo a riesgo
+alto; solo lo marca como seguimiento (`WATCH`) salvo que el producto este sin
+stock.
+
+Este contrato queda preparado para reemplazar `HEURISTIC_V1` por `ML_MODEL`
+cuando exista historico suficiente para entrenamiento y validacion.
 
 ## Ejemplo /chat
 

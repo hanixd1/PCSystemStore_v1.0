@@ -58,7 +58,13 @@ type CatalogCategory =
   | 'STORAGE'
   | 'PSU'
   | 'CASE'
-  | 'COOLER';
+  | 'COOLER'
+  | 'MONITOR'
+  | 'KEYBOARD'
+  | 'MOUSE'
+  | 'HEADSET'
+  | 'MICROPHONE'
+  | 'LAPTOP';
 
 type GuidedStep =
   | 'gpuBrand'
@@ -421,8 +427,63 @@ export default function Chatbot() {
     cooler: product.coolerSpecs ?? {},
   });
 
+  const getCatalogProductSearchText = (product: CatalogProduct) =>
+    normalizeText(
+      [
+        product.name,
+        product.description,
+        product.slug,
+        product.sku,
+        product.category,
+        product.type,
+        product.brand,
+        JSON.stringify(product.cpuSpecs ?? {}),
+        JSON.stringify(product.gpuSpecs ?? {}),
+        JSON.stringify(product.ramSpecs ?? {}),
+        JSON.stringify(product.motherboardSpecs ?? {}),
+        JSON.stringify(product.storageSpecs ?? {}),
+        JSON.stringify(product.psuSpecs ?? {}),
+        JSON.stringify(product.caseSpecs ?? {}),
+        JSON.stringify(product.coolerSpecs ?? {}),
+      ]
+        .filter(Boolean)
+        .join(' '),
+    );
+
+  const productMatchesBrand = (product: CatalogProduct, brand: string) => {
+    const text = getCatalogProductSearchText(product);
+
+    if (brand === 'AMD') {
+      return (
+        text.includes('amd') ||
+        text.includes('ryzen') ||
+        text.includes('threadripper') ||
+        text.includes('am4') ||
+        text.includes('am5')
+      );
+    }
+
+    if (brand === 'Intel') {
+      return (
+        text.includes('intel') ||
+        text.includes('core i3') ||
+        text.includes('core i5') ||
+        text.includes('core i7') ||
+        text.includes('core i9') ||
+        text.includes('core ultra') ||
+        text.includes('lga')
+      );
+    }
+
+    if (brand === 'NVIDIA') {
+      return text.includes('nvidia') || text.includes('rtx') || text.includes('gtx');
+    }
+
+    return true;
+  };
+
   const mapCatalogProducts = (products: CatalogProduct[]): ChatProduct[] =>
-    products.slice(0, 5).map((product) => ({
+    products.slice(0, 4).map((product) => ({
       id: String(product.id),
       name: String(product.name),
       price: Number(product.price) || 0,
@@ -434,15 +495,15 @@ export default function Chatbot() {
     }));
 
   const fetchCatalogProducts = async (
-    category: CatalogCategory,
+    category: CatalogCategory | null,
     search = '',
   ): Promise<CatalogSearchResponse> => {
     const res = await api.get('/products/chat-search', {
       params: {
-        category,
+        ...(category ? { category } : {}),
         search,
         inStock: true,
-        limit: 5,
+        limit: 20,
       },
     });
     const rawProducts = Array.isArray(res.data) ? res.data : res.data?.items;
@@ -456,28 +517,27 @@ export default function Chatbot() {
 
   const productMatchesFilters = (
     product: CatalogProduct,
-    category: CatalogCategory,
+    category: CatalogCategory | null,
     filters: Record<string, string>,
   ) => {
     const text = normalizeText(`${product.name} ${product.description ?? ''}`);
     const specs = getProductSpecs(product);
 
     if (category === 'GPU' && filters.brand) {
-      const brandText = normalizeText(
-        `${specs.gpu.brand ?? ''} ${specs.gpu.chipset ?? ''} ${text}`,
-      );
-      return filters.brand === 'NVIDIA'
-        ? ['nvidia', 'rtx', 'gtx'].some((token) => brandText.includes(token))
-        : ['amd', 'radeon', ' rx '].some((token) => ` ${brandText} `.includes(token));
+      if (filters.brand === 'AMD') {
+        const productText = getCatalogProductSearchText(product);
+        return (
+          productText.includes('amd') ||
+          productText.includes('radeon') ||
+          ` ${productText} `.includes(' rx ')
+        );
+      }
+
+      return productMatchesBrand(product, filters.brand);
     }
 
     if (category === 'CPU' && filters.brand) {
-      const brandText = normalizeText(`${specs.cpu.brand ?? ''} ${text}`);
-      return filters.brand === 'Intel'
-        ? ['intel', 'core i', 'core ultra', 'i3', 'i5', 'i7', 'i9'].some((token) =>
-            brandText.includes(token),
-          )
-        : ['amd', 'ryzen'].some((token) => brandText.includes(token));
+      return productMatchesBrand(product, filters.brand);
     }
 
     if (category === 'RAM') {
@@ -493,6 +553,18 @@ export default function Chatbot() {
 
     if (category === 'MOTHERBOARD') {
       const socket = normalizeText(String(specs.motherboard.socket ?? ''));
+      if (filters.platform) {
+        const motherboardText = normalizeText(
+          `${specs.motherboard.brand ?? ''} ${specs.motherboard.socket ?? ''} ${text}`,
+        );
+        return filters.platform === 'AMD'
+          ? ['amd', 'am4', 'am5', 'b550', 'b650', 'x670', 'ryzen'].some((token) =>
+              motherboardText.includes(token),
+            )
+          : ['intel', 'lga', 'z790', 'h610', 'b760'].some((token) =>
+              motherboardText.includes(token),
+            );
+      }
       return !filters.socket || socket.includes(normalizeText(filters.socket));
     }
 
@@ -535,15 +607,86 @@ export default function Chatbot() {
     return true;
   };
 
+  const detectBrandFilter = (text: string, category: CatalogCategory | null) => {
+    const normalized = normalizeText(text);
+
+    if (category === 'CPU') {
+      if (/(^|\s)(amd|ryzen|threadripper)(\s|$)/.test(normalized)) return 'AMD';
+      if (/(^|\s)(intel|core|i3|i5|i7|i9)(\s|$)/.test(normalized)) return 'Intel';
+    }
+
+    if (category === 'GPU') {
+      if (/(^|\s)(nvidia|rtx|gtx|geforce)(\s|$)/.test(normalized)) return 'NVIDIA';
+      if (/(^|\s)(amd|radeon|rx)(\s|$)/.test(normalized)) return 'AMD';
+    }
+
+    if (category === 'MOTHERBOARD') {
+      if (/(^|\s)(amd|ryzen|am4|am5|b550|b650|x670)(\s|$)/.test(normalized)) return 'AMD';
+      if (/(^|\s)(intel|lga|z790|h610|b760)(\s|$)/.test(normalized)) return 'Intel';
+    }
+
+    return '';
+  };
+
+  const buildImmediateFilters = (text: string, category: CatalogCategory | null) => {
+    const normalized = normalizeText(text);
+    const filters: Record<string, string> = {};
+    const brand = detectBrandFilter(text, category);
+
+    if (brand && category === 'MOTHERBOARD') filters.platform = brand;
+    else if (brand) filters.brand = brand;
+    if (category === 'RAM' && normalized.includes('ddr4')) filters.memoryType = 'DDR4';
+    if (category === 'RAM' && normalized.includes('ddr5')) filters.memoryType = 'DDR5';
+    if (category === 'STORAGE' && normalized.includes('nvme')) filters.type = 'NVMe';
+    if (category === 'STORAGE' && normalized.includes('sata')) filters.type = 'SATA';
+    if (category === 'STORAGE' && normalized.includes('hdd')) filters.type = 'HDD';
+
+    if (category === 'PSU') {
+      const wattage = getFirstInteger(text);
+      if (wattage >= 400) filters.wattage = String(wattage);
+    }
+
+    return filters;
+  };
+
+  const hasImmediateFilters = (filters: Record<string, string>) => Object.keys(filters).length > 0;
+
+  const buildBrandSearchText = (text: string, filters: Record<string, string>) => {
+    if (filters.brand === 'AMD' || filters.platform === 'AMD') {
+      return text.trim() || 'amd ryzen threadripper';
+    }
+
+    if (filters.brand === 'Intel' || filters.platform === 'Intel') {
+      return text.trim() || 'intel core i3 i5 i7 i9 core ultra';
+    }
+
+    if (filters.brand === 'NVIDIA') {
+      return text.trim() || 'nvidia geforce rtx gtx';
+    }
+
+    return text.trim();
+  };
+
+  const isGuidedCategory = (category: CatalogCategory) =>
+    ['GPU', 'CPU', 'RAM', 'MOTHERBOARD', 'STORAGE', 'PSU', 'CASE', 'COOLER'].includes(category);
+
+  const hasTechnicalModelToken = (text: string) => {
+    const normalized = normalizeText(text);
+    return /(^|\s)(\d{4}[a-z]?|[a-z]\d{3}|rtx\s?\d{4}|gtx\s?\d{3,4}|rx\s?\d{4}|ddr[45]|\d+\s?(gb|tb|hz|w)|b650|b550|x670|z790|h610)(\s|$)/.test(
+      normalized,
+    );
+  };
+
   const showCatalogResults = async (
-    category: CatalogCategory,
+    category: CatalogCategory | null,
     filters: Record<string, string>,
     intro: string,
     search = '',
   ) => {
     setIsLoading(true);
     try {
-      const response = await fetchCatalogProducts(category, search);
+      const effectiveSearch = search || buildBrandSearchText('', filters);
+      const response = await fetchCatalogProducts(category, effectiveSearch);
 
       if (!response.success) {
         appendCatalogAssistantMessage(
@@ -586,16 +729,28 @@ export default function Chatbot() {
 
   const detectCatalogCategory = (text: string): CatalogCategory | null => {
     const normalized = normalizeText(text);
-    if (/(tarjeta de video|tarjeta grafica|gpu|grafica|rtx|gtx|radeon|\brx\b)/.test(normalized)) {
+    if (
+      /(tarjeta de video|tarjeta grafica|gpu|grafica|rtx|gtx|geforce|radeon|\brx\b)/.test(
+        normalized,
+      )
+    ) {
       return 'GPU';
     }
-    if (/(procesador|cpu|ryzen|intel|core i|core ultra|\bi[3579]\b)/.test(normalized)) {
+    if (
+      /(procesador|procesadores|\bproce\b|\bcpu\b|\bmicro\b|microprocesador|ryzen|threadripper|intel|core i|core ultra|\bi[3579]\b)/.test(
+        normalized,
+      )
+    ) {
       return 'CPU';
     }
     if (/(memoria ram|\bram\b|ddr4|ddr5)/.test(normalized)) {
       return 'RAM';
     }
-    if (/(placa madre|motherboard|mainboard)/.test(normalized)) {
+    if (
+      /(placa madre|\bplaca\b|motherboard|mainboard|\bboard\b|\bmobo\b|b650|b550|x670|z790|h610)/.test(
+        normalized,
+      )
+    ) {
       return 'MOTHERBOARD';
     }
     if (/(almacenamiento|ssd|disco duro|hdd|m\.?2|nvme)/.test(normalized)) {
@@ -610,6 +765,24 @@ export default function Chatbot() {
     if (/(cooler|refrigeracion|disipador|aio|liquida)/.test(normalized)) {
       return 'COOLER';
     }
+    if (/(monitor|pantalla|display|144hz|165hz|240hz)/.test(normalized)) {
+      return 'MONITOR';
+    }
+    if (/(laptop|notebook|portatil)/.test(normalized)) {
+      return 'LAPTOP';
+    }
+    if (/(teclado|keyboard|mecanico|switches)/.test(normalized)) {
+      return 'KEYBOARD';
+    }
+    if (/(mouse|raton|gaming mouse|inalambrico)/.test(normalized)) {
+      return 'MOUSE';
+    }
+    if (/(headset|audifonos|auriculares)/.test(normalized)) {
+      return 'HEADSET';
+    }
+    if (/(microfono|webcam|camara)/.test(normalized)) {
+      return 'MICROPHONE';
+    }
     return null;
   };
 
@@ -620,6 +793,10 @@ export default function Chatbot() {
       'gtx',
       'radeon',
       'ryzen',
+      'threadripper',
+      'amd',
+      'intel',
+      'geforce',
       'core i',
       'i3',
       'i5',
@@ -635,6 +812,7 @@ export default function Chatbot() {
     }
 
     return (
+      hasTechnicalModelToken(normalized) ||
       hasStandaloneToken(normalized, 'rx') ||
       hasNumberWithUnit(normalized, 'gb') ||
       hasNumberWithUnit(normalized, 'tb') ||
@@ -644,7 +822,7 @@ export default function Chatbot() {
   };
 
   const startGuidedCatalogFlow = (category: CatalogCategory) => {
-    const prompts: Record<CatalogCategory, { text: string; step: GuidedStep }> = {
+    const prompts: Partial<Record<CatalogCategory, { text: string; step: GuidedStep }>> = {
       GPU: {
         text: 'Claro, ¿prefieres una tarjeta de video NVIDIA o AMD? También puedes escribir "todas".',
         step: 'gpuBrand',
@@ -679,6 +857,10 @@ export default function Chatbot() {
       },
     };
     const prompt = prompts[category];
+    if (!prompt) {
+      void showCatalogResults(category, {}, 'Encontré estos productos relacionados:');
+      return;
+    }
     setGuidedSearch({ category, step: prompt.step, filters: {} });
     appendCatalogAssistantMessage(prompt.text);
   };
@@ -900,12 +1082,25 @@ export default function Chatbot() {
 
   const handleCatalogAssistant = async (text: string) => {
     const category = detectCatalogCategory(text);
+    const normalized = normalizeText(text);
+    const filters = buildImmediateFilters(text, category);
+    const hasFilters = hasImmediateFilters(filters);
     const startsNewSearch = /\b(busco|buscar|quiero|necesito|recomienda|recomiendame)\b/.test(
-      normalizeText(text),
+      normalized,
     );
 
     if (guidedSearch && category && startsNewSearch) {
       setGuidedSearch(null);
+      if (hasFilters) {
+        const search = buildBrandSearchText(text, filters);
+        await showCatalogResults(
+          category,
+          filters,
+          'Encontré estos productos relacionados:',
+          search,
+        );
+        return true;
+      }
       if (isSpecificSearch(text)) {
         await showCatalogResults(category, {}, 'Encontré estas opciones disponibles:', text);
         return true;
@@ -919,11 +1114,40 @@ export default function Chatbot() {
     }
 
     if (!category) {
+      if (hasTechnicalModelToken(text)) {
+        await showCatalogResults(null, {}, 'Encontré estos productos relacionados:', text);
+        return true;
+      }
+
+      if (/^(amd|intel|nvidia|ryzen|radeon|geforce)$/.test(normalized)) {
+        appendCatalogAssistantMessage(
+          '¿Buscas procesadores, placas, tarjetas gráficas o todos los productos de esa marca?',
+        );
+        return true;
+      }
+
       return false;
+    }
+
+    if (hasFilters) {
+      const label = filters.brand ? ` ${filters.brand}` : '';
+      const search = buildBrandSearchText(text, filters);
+      await showCatalogResults(
+        category,
+        filters,
+        `Encontré estos productos${label} relacionados:`,
+        search,
+      );
+      return true;
     }
 
     if (isSpecificSearch(text)) {
       await showCatalogResults(category, {}, 'Encontré estas opciones disponibles:', text);
+      return true;
+    }
+
+    if (!isGuidedCategory(category)) {
+      await showCatalogResults(category, {}, 'Encontré estos productos relacionados:', text);
       return true;
     }
 

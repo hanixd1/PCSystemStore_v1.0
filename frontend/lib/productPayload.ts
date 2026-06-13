@@ -183,9 +183,8 @@ export function buildProductPayload(
       });
       break;
     case 'LAPTOP':
-      Object.assign(
-        payload,
-        pick(formData, [
+      Object.assign(payload, {
+        ...pick(formData, [
           'brand',
           'processor',
           'ram',
@@ -194,27 +193,26 @@ export function buildProductPayload(
           'refreshRate',
           'panelType',
           'hasDedicatedGpu',
-          'gpuBrand',
-          'gpuModel',
           'includesWindows',
         ]),
-      );
+        gpuBrand: formData.hasDedicatedGpu === 'true' ? formData.gpuBrand : 'No aplica',
+        gpuModel: formData.hasDedicatedGpu === 'true' ? formData.gpuModel : 'No aplica',
+      });
       break;
     case 'PC_DESKTOP':
-      Object.assign(
-        payload,
-        pick(formData, [
+      Object.assign(payload, {
+        ...pick(formData, [
           'processor',
           'ram',
           'storage',
           'hasDedicatedGpu',
-          'gpuBrand',
-          'gpuModel',
           'coolerType',
           'psuWatts',
           'caseModel',
         ]),
-      );
+        gpuBrand: formData.hasDedicatedGpu === 'true' ? formData.gpuBrand : 'No aplica',
+        gpuModel: formData.hasDedicatedGpu === 'true' ? formData.gpuModel : 'No aplica',
+      });
       break;
     case 'SOFTWARE':
       Object.assign(payload, pick(formData, ['licenseType', 'platform']));
@@ -245,12 +243,10 @@ export function buildProductPayload(
           'keyboardFormFactor',
         ]),
       );
-      if (formData.keyboardType === 'Semi-mecanico') {
+      if (formData.keyboardType === 'Hibrido' || formData.keyboardType === 'Semi-mecanico') {
         Object.assign(payload, pick(formData, ['hasLighting']));
       }
-      if (formData.keyboardType === 'Mecanico' || formData.keyboardType === 'Magnetico') {
-        Object.assign(payload, pick(formData, ['switchType']));
-      }
+      Object.assign(payload, pick(formData, ['switchType']));
       break;
     case 'MOUSE':
       Object.assign(
@@ -275,21 +271,55 @@ export function buildProductPayload(
         payload,
         pick(formData, [
           'brand',
+          'audioType',
           'connection',
           'supportedConnections',
+          'micIntegrated',
+          'micRemovable',
           'driverSize',
           'impedance',
           'micType',
           'noiseCancel',
+          'surroundSound',
+          'consoleCompatible',
           'hasRGB',
+          'color',
         ]),
       );
       break;
     case 'MICROPHONE':
-      Object.assign(payload, pick(formData, ['brand', 'connection', 'micType', 'hasRGB']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'microphoneType',
+          'connection',
+          'connectionTypes',
+          'micType',
+          'frequencyResponse',
+          'includesArm',
+          'includesPopFilter',
+          'hasRGB',
+          'color',
+        ]),
+      );
       break;
     case 'SPEAKER':
-      Object.assign(payload, pick(formData, ['brand', 'connection', 'wattage', 'hasRGB']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'speakerType',
+          'channels',
+          'connection',
+          'connectionTypes',
+          'wattage',
+          'hasSubwoofer',
+          'remoteControl',
+          'hasRGB',
+          'color',
+        ]),
+      );
       break;
     case 'WEBCAM':
     case 'CAPTURE_CARD':
@@ -305,10 +335,20 @@ export function buildProductPayload(
       }
       break;
     case 'LAPTOP_COOLING_BASE':
-      Object.assign(payload, pick(formData, ['brand', 'fanCount', 'connectivity']));
+      Object.assign(
+        payload,
+        pick(formData, [
+          'brand',
+          'supportedLaptopSize',
+          'fanCount',
+          'hasRGB',
+          'color',
+          'connectivity',
+        ]),
+      );
       break;
     case 'BACKPACK':
-      Object.assign(payload, pick(formData, ['brand', 'color']));
+      Object.assign(payload, pick(formData, ['brand', 'color', 'supportedLaptopSize']));
       break;
   }
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 // 1. IMPORTAR usePathname
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { FiPlus, FiLogOut, FiMenu, FiGrid, FiChevronLeft } from 'react-icons/fi';
+import { FiPlus, FiLogOut, FiMenu, FiGrid, FiChevronLeft, FiBox } from 'react-icons/fi';
 import { api, clearStoredAuthSession } from '@/lib/api';
 
 export default function AdminSidebar() {
@@ -22,6 +22,7 @@ export default function AdminSidebar() {
 
   const menuItems = [
     { name: 'Panel Principal', icon: FiGrid, href: '/admin' },
+    { name: 'Inventario', icon: FiBox, href: '/admin/inventario' },
     { name: 'Agregar Producto', icon: FiPlus, href: '/admin/add-product' },
   ];
 
@@ -47,7 +48,9 @@ export default function AdminSidebar() {
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {menuItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            pathname === item.href ||
+            (item.href === '/admin/inventario' && pathname?.startsWith('/admin/edit-product'));
 
           return (
             <Link

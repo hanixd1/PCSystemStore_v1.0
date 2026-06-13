@@ -743,10 +743,379 @@ export class ProductImportService {
           errors,
         );
         break;
+      case 'LAPTOP':
+        this.applyLaptopPayload(row, payload, rowNumber, errors, warnings);
+        break;
+      case 'PC_DESKTOP':
+        this.applyDesktopPayload(row, payload, rowNumber, errors, warnings);
+        break;
+      case 'SOFTWARE':
+        payload.licenseType = this.requiredText(
+          row.tipolicencia,
+          'tipoLicencia',
+          rowNumber,
+          errors,
+        );
+        payload.platform = this.requiredText(row.plataforma, 'plataforma', rowNumber, errors);
+        break;
+      case 'LAPTOP_COOLING_BASE':
+        payload.supportedLaptopSize = this.requiredText(
+          row.tamanolaptopsoportado,
+          'tamanoLaptopSoportado',
+          rowNumber,
+          errors,
+        );
+        payload.fanCount = this.requiredInteger(
+          row.ventiladores,
+          'ventiladores',
+          rowNumber,
+          errors,
+        );
+        payload.hasRGB = this.requiredBoolean(row.rgb, 'rgb', rowNumber, errors);
+        payload.color = normalizeText(row.color) || '';
+        payload.connectivity = normalizeText(row.conectividad) || 'USB-A';
+        break;
+      case 'BACKPACK':
+        payload.color = this.requiredText(row.color, 'color', rowNumber, errors);
+        payload.supportedLaptopSize = normalizeText(row.tamanolaptopsoportado) || '';
+        break;
+      case 'MONITOR': {
+        payload.screenSize = this.requiredText(
+          row.tamanopulgadas,
+          'tamanoPulgadas',
+          rowNumber,
+          errors,
+        );
+        payload.resolution = this.requiredText(row.resolucion, 'resolucion', rowNumber, errors);
+        payload.panelType = this.requiredText(row.panel, 'panel', rowNumber, errors);
+        payload.refreshRate = this.requiredInteger(row.hz, 'hz', rowNumber, errors);
+        payload.responseTimeMs = this.requiredNumber(
+          row.latenciams,
+          'latenciaMs',
+          rowNumber,
+          errors,
+        );
+        payload.hasSpeakers = this.requiredBoolean(
+          row.parlantesintegrados,
+          'parlantesIntegrados',
+          rowNumber,
+          errors,
+        );
+        payload.ports = [
+          [row.puertovga, 'VGA'],
+          [row.puertohdmi, 'HDMI'],
+          [row.puertodisplayport, 'DisplayPort'],
+          [row.puertousbc, 'USB-C'],
+        ]
+          .filter(([value]) => parseImportBoolean(value) === true)
+          .map(([, label]) => label);
+        break;
+      }
+      case 'KEYBOARD': {
+        const connections = this.splitImportList(row.conectividad);
+        payload.keyboardType = this.requiredText(
+          row.tipoteclado,
+          'tipoTeclado',
+          rowNumber,
+          errors,
+        );
+        payload.connections = connections.length ? connections : ['Cableado'];
+        payload.connection = (payload.connections as string[])[0];
+        payload.layoutLanguage = this.requiredText(
+          row.idiomalayout,
+          'idiomaLayout',
+          rowNumber,
+          errors,
+        );
+        payload.layout = payload.layoutLanguage;
+        payload.keyboardFormFactor = this.requiredText(
+          row.formatoteclado,
+          'formatoTeclado',
+          rowNumber,
+          errors,
+        );
+        payload.switchType = this.requiredText(row.tiposwitch, 'tipoSwitch', rowNumber, errors);
+        payload.hasRGB = false;
+        payload.hasLighting = false;
+        break;
+      }
+      case 'MOUSE': {
+        const connections = this.splitImportList(row.conectividad);
+        payload.dpi = this.requiredInteger(row.dpi, 'dpi', rowNumber, errors);
+        payload.connections = connections.length ? connections : ['Cableado'];
+        payload.connection = (payload.connections as string[])[0];
+        payload.sensor = this.requiredText(row.sensor, 'sensor', rowNumber, errors);
+        payload.buttonCount = this.requiredInteger(row.botones, 'botones', rowNumber, errors);
+        payload.hasRGB = this.requiredBoolean(row.rgb, 'rgb', rowNumber, errors);
+        payload.weightGrams = this.requiredInteger(row.pesogramos, 'pesoGramos', rowNumber, errors);
+        payload.mouseType = 'Gamer';
+        payload.powerType = 'Ninguno';
+        break;
+      }
+      case 'MOUSEPAD':
+        payload.hasLed = this.requiredBoolean(row.rgb, 'rgb', rowNumber, errors);
+        break;
+      case 'CHAIR':
+        payload.material = this.requiredText(row.material, 'material', rowNumber, errors);
+        payload.color = this.requiredText(row.color, 'color', rowNumber, errors);
+        payload.maxWeightKg = this.requiredInteger(
+          row.pesomaximokg,
+          'pesoMaximoKg',
+          rowNumber,
+          errors,
+        );
+        break;
+      case 'GAMING_DESK':
+        payload.surface = this.requiredText(row.material, 'material', rowNumber, errors);
+        payload.color = this.requiredText(row.color, 'color', rowNumber, errors);
+        break;
+      case 'WEBCAM':
+        payload.resolution = this.requiredText(row.resolucion, 'resolucion', rowNumber, errors);
+        payload.fps = this.requiredInteger(row.fps, 'fps', rowNumber, errors);
+        break;
+      case 'CAPTURE_CARD':
+        payload.resolution = this.requiredText(
+          row.resolucioncaptura,
+          'resolucionCaptura',
+          rowNumber,
+          errors,
+        );
+        payload.fps = this.requiredInteger(row.fpscaptura, 'fpsCaptura', rowNumber, errors);
+        break;
+      case 'CABLE_HUB': {
+        const connectors = this.splitImportList(row.conectores);
+        payload.cableHubType = this.requiredText(
+          row.tipoaccesorio,
+          'tipoAccesorio',
+          rowNumber,
+          errors,
+        );
+        payload.cableType = connectors.join('; ') || undefined;
+        payload.cableLengthMeters = this.optionalInteger(row.longitudmetros);
+        payload.hubInputType = connectors[0] ?? undefined;
+        payload.hasHdmiOutput = connectors.some((connector) =>
+          connector.toLowerCase().includes('hdmi'),
+        );
+        payload.hasRj45Output = connectors.some((connector) =>
+          connector.toLowerCase().includes('rj45'),
+        );
+        break;
+      }
+      case 'HEADSET':
+        payload.audioType = this.requiredText(row.tipoaudio, 'tipoAudio', rowNumber, errors);
+        payload.connection = this.requiredText(row.conectividad, 'conectividad', rowNumber, errors);
+        payload.supportedConnections = this.requiredList(
+          row.tipoconexion,
+          'tipoConexion',
+          rowNumber,
+          errors,
+        );
+        payload.micIntegrated = this.requiredBoolean(
+          row.microfonointegrado,
+          'microfonoIntegrado',
+          rowNumber,
+          errors,
+        );
+        payload.micRemovable = this.requiredBoolean(
+          row.microfonoremovible,
+          'microfonoRemovible',
+          rowNumber,
+          errors,
+        );
+        payload.noiseCancel = this.requiredBoolean(
+          row.cancelacionruido,
+          'cancelacionRuido',
+          rowNumber,
+          errors,
+        );
+        payload.surroundSound = normalizeText(row.sonidosurround) || 'No';
+        payload.consoleCompatible = this.requiredBoolean(
+          row.compatibleconsola,
+          'compatibleConsola',
+          rowNumber,
+          errors,
+        );
+        payload.hasRGB = this.requiredBoolean(row.rgb, 'rgb', rowNumber, errors);
+        payload.color = normalizeText(row.color) || '';
+        payload.micType = payload.micIntegrated ? 'Integrado' : 'Sin microfono';
+        break;
+      case 'MICROPHONE':
+        payload.microphoneType = this.requiredText(
+          row.tipomicrofono,
+          'tipoMicrofono',
+          rowNumber,
+          errors,
+        );
+        payload.micType = normalizeText(row.patronpolar) || 'Cardioide';
+        payload.connection = this.requiredText(row.conectividad, 'conectividad', rowNumber, errors);
+        payload.connectionTypes = this.requiredList(
+          row.tipoconexion,
+          'tipoConexion',
+          rowNumber,
+          errors,
+        );
+        payload.frequencyResponse = normalizeText(row.frecuenciarespuesta) || '';
+        payload.includesArm = this.requiredBoolean(row.incluyebrazo, 'incluyeBrazo', rowNumber, errors);
+        payload.includesPopFilter = this.requiredBoolean(
+          row.incluyefiltropop,
+          'incluyeFiltroPop',
+          rowNumber,
+          errors,
+        );
+        payload.hasRGB = this.requiredBoolean(row.rgb, 'rgb', rowNumber, errors);
+        payload.color = normalizeText(row.color) || '';
+        break;
+      case 'SPEAKER':
+        payload.speakerType = this.requiredText(
+          row.tipoparlante,
+          'tipoParlante',
+          rowNumber,
+          errors,
+        );
+        payload.channels = normalizeText(row.canales) || '';
+        payload.wattage = this.requiredInteger(row.potenciawatts, 'potenciaWatts', rowNumber, errors);
+        payload.connection = this.requiredText(row.conectividad, 'conectividad', rowNumber, errors);
+        payload.connectionTypes = this.requiredList(
+          row.tipoconexion,
+          'tipoConexion',
+          rowNumber,
+          errors,
+        );
+        payload.hasSubwoofer = this.requiredBoolean(row.subwoofer, 'subwoofer', rowNumber, errors);
+        payload.remoteControl = this.requiredBoolean(
+          row.controlremoto,
+          'controlRemoto',
+          rowNumber,
+          errors,
+        );
+        payload.hasRGB = this.requiredBoolean(row.rgb, 'rgb', rowNumber, errors);
+        payload.color = normalizeText(row.color) || '';
+        break;
       default:
         this.applyGenericPayload(category, payload);
         break;
     }
+  }
+
+  private applyLaptopPayload(
+    row: NormalizedRow,
+    payload: Record<string, unknown>,
+    rowNumber: number,
+    errors: ProductImportIssue[],
+    warnings: ProductImportIssue[],
+  ) {
+    const hasDedicatedGpu = this.requiredBoolean(
+      row.tienegraficadedicada,
+      'tieneGraficaDedicada',
+      rowNumber,
+      errors,
+    );
+
+    if (normalizeText(row.pantalla) && !normalizeText(row.tamanopantalla)) {
+      warnings.push({
+        row: rowNumber,
+        field: 'tamanoPantalla',
+        message: 'pantalla fue normalizado a tamanoPantalla.',
+      });
+    }
+    if (
+      (normalizeText(row.tasarefresco) || normalizeText(row.refrescohz)) &&
+      !normalizeText(row.tasarefrescohz)
+    ) {
+      warnings.push({
+        row: rowNumber,
+        field: 'tasaRefrescoHz',
+        message: 'tasaRefresco/refrescoHz fue normalizado a tasaRefrescoHz.',
+      });
+    }
+
+    payload.processor = this.requiredText(row.procesador, 'procesador', rowNumber, errors);
+    payload.ram = this.requiredLaptopMemory(row.memoriaram, 'memoriaRam', rowNumber, errors);
+    payload.storage = this.requiredText(row.almacenamiento, 'almacenamiento', rowNumber, errors);
+    payload.hasDedicatedGpu = hasDedicatedGpu;
+    payload.gpuBrand = hasDedicatedGpu
+      ? this.requiredGpuBrand(row.marcagpu, 'marcaGpu', rowNumber, errors)
+      : normalizeText(row.marcagpu) || 'No aplica';
+    payload.gpuModel = hasDedicatedGpu
+      ? this.requiredText(row.modelogpu, 'modeloGpu', rowNumber, errors)
+      : normalizeText(row.modelogpu) || 'No aplica';
+    payload.screenSize = this.requiredText(
+      normalizeText(row.tamanopantalla) ? row.tamanopantalla : row.pantalla,
+      'tamanoPantalla',
+      rowNumber,
+      errors,
+    ).replace(/"/g, '');
+    payload.refreshRate = this.requiredInteger(
+      normalizeText(row.tasarefrescohz)
+        ? row.tasarefrescohz
+        : normalizeText(row.tasarefresco)
+          ? row.tasarefresco
+          : row.refrescohz,
+      'tasaRefrescoHz',
+      rowNumber,
+      errors,
+    );
+    payload.panelType = normalizeText(row.panel) || 'IPS';
+    payload.includesWindows = this.requiredBoolean(
+      row.incluyewindowsserie,
+      'incluyeWindowsSerie',
+      rowNumber,
+      errors,
+    );
+  }
+
+  private applyDesktopPayload(
+    row: NormalizedRow,
+    payload: Record<string, unknown>,
+    rowNumber: number,
+    errors: ProductImportIssue[],
+    warnings: ProductImportIssue[],
+  ) {
+    const hasDedicatedGpu = this.requiredBoolean(
+      row.tienegraficadedicada,
+      'tieneGraficaDedicada',
+      rowNumber,
+      errors,
+    );
+
+    if (
+      (normalizeText(row.fuentedepoderwatts) || normalizeText(row.fuentepoder)) &&
+      !normalizeText(row.fuentepoderwatts)
+    ) {
+      warnings.push({
+        row: rowNumber,
+        field: 'fuentePoderWatts',
+        message: 'fuenteDePoderWatts/fuentePoder fue normalizado a fuentePoderWatts.',
+      });
+    }
+
+    payload.processor = this.requiredText(row.procesador, 'procesador', rowNumber, errors);
+    payload.ram = this.requiredLaptopMemory(row.memoriaram, 'memoriaRam', rowNumber, errors);
+    payload.storage = this.requiredText(row.almacenamiento, 'almacenamiento', rowNumber, errors);
+    payload.hasDedicatedGpu = hasDedicatedGpu;
+    payload.gpuBrand = hasDedicatedGpu
+      ? this.requiredGpuBrand(row.marcagpu, 'marcaGpu', rowNumber, errors)
+      : normalizeText(row.marcagpu) || 'No aplica';
+    payload.gpuModel = hasDedicatedGpu
+      ? this.requiredText(row.modelogpu, 'modeloGpu', rowNumber, errors)
+      : normalizeText(row.modelogpu) || 'No aplica';
+    payload.coolerType = this.requiredDesktopCoolerType(
+      row.coolerincluido,
+      'coolerIncluido',
+      rowNumber,
+      errors,
+    );
+    payload.psuWatts = this.requiredInteger(
+      normalizeText(row.fuentepoderwatts)
+        ? row.fuentepoderwatts
+        : normalizeText(row.fuentedepoderwatts)
+          ? row.fuentedepoderwatts
+          : row.fuentepoder,
+      'fuentePoderWatts',
+      rowNumber,
+      errors,
+    );
+    payload.caseModel = this.requiredText(row.modelocase, 'modeloCase', rowNumber, errors);
   }
 
   private applyCpuPayload(
@@ -1002,6 +1371,84 @@ export class ProductImportService {
     return match[0];
   }
 
+  private requiredLaptopMemory(
+    value: unknown,
+    field: string,
+    row: number,
+    errors: ProductImportIssue[],
+  ) {
+    const raw = this.requiredText(value, field, row, errors);
+    const match = raw.match(/\d+/);
+    const size = match?.[0];
+    const allowed = ['8', '12', '16', '24', '32', '48', '64'];
+
+    if (!size || !allowed.includes(size)) {
+      this.pushError(
+        errors,
+        row,
+        field,
+        'La memoria RAM debe ser 8 GB, 12 GB, 16 GB, 24 GB, 32 GB, 48 GB o 64 GB.',
+      );
+      return raw;
+    }
+
+    return `${size}GB`;
+  }
+
+  private requiredGpuBrand(
+    value: unknown,
+    field: string,
+    row: number,
+    errors: ProductImportIssue[],
+  ) {
+    const raw = this.requiredText(value, field, row, errors);
+    const normalized = raw
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const allowed: Record<string, string> = {
+      nvidia: 'NVIDIA',
+      amd: 'AMD',
+      intel: 'Intel',
+      noaplica: 'No aplica',
+      otros: 'Otros',
+    };
+    const key = normalized.replace(/[^a-z0-9]+/g, '');
+    if (!allowed[key]) {
+      this.pushError(
+        errors,
+        row,
+        field,
+        'La marca GPU debe ser NVIDIA, AMD, Intel, No aplica u Otros.',
+      );
+    }
+    return allowed[key] ?? raw;
+  }
+
+  private requiredDesktopCoolerType(
+    value: unknown,
+    field: string,
+    row: number,
+    errors: ProductImportIssue[],
+  ) {
+    const raw = this.requiredText(value, field, row, errors);
+    const normalized = raw
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (normalized.includes('serie')) return 'De serie';
+    if (normalized.includes('torre') || normalized.includes('aire')) return 'Torre';
+    if (normalized.includes('liqu')) return 'Líquida';
+    if (normalized.includes('no incluye') || normalized.includes('noincluye')) return 'No incluye';
+    this.pushError(
+      errors,
+      row,
+      field,
+      'El cooler incluido debe ser De serie, Torre, Liquida o No incluye.',
+    );
+    return raw;
+  }
+
   private applyGenericPayload(category: string, payload: Record<string, unknown>) {
     const defaults: Record<string, Record<string, unknown>> = {
       LAPTOP: {
@@ -1182,6 +1629,26 @@ export class ProductImportService {
     return parseRequiredInteger(value);
   }
 
+  private splitImportList(value: unknown) {
+    return normalizeText(value)
+      .split(/[;,]/)
+      .map((item) => normalizeText(item))
+      .filter(Boolean);
+  }
+
+  private requiredList(
+    value: unknown,
+    field: string,
+    row: number,
+    errors: ProductImportIssue[],
+  ) {
+    const list = this.splitImportList(value);
+    if (!list.length) {
+      this.pushError(errors, row, field, `El campo ${this.getFieldLabel(field)} es obligatorio.`);
+    }
+    return list;
+  }
+
   private requiredBoolean(
     value: unknown,
     field: string,
@@ -1294,6 +1761,40 @@ export class ProductImportService {
       velocidadLecturaMBs: 'Velocidad lectura (MB/s)',
       velocidadEscrituraMBs: 'Velocidad escritura (MB/s)',
       tamanoFisicoM2: 'Tamano fisico M.2',
+      procesador: 'Procesador',
+      memoriaRam: 'Memoria RAM',
+      almacenamiento: 'Almacenamiento',
+      tieneGraficaDedicada: 'Tiene grafica dedicada',
+      marcaGpu: 'Marca GPU',
+      modeloGpu: 'Modelo GPU',
+      tamanoPantalla: 'Tamano pantalla',
+      tasaRefrescoHz: 'Tasa refresco (Hz)',
+      incluyeWindowsSerie: 'Incluye Windows de serie',
+      coolerIncluido: 'Cooler incluido',
+      fuentePoderWatts: 'Fuente de Poder (Watts)',
+      modeloCase: 'Modelo del case',
+      tipoLicencia: 'Tipo de licencia',
+      plataforma: 'Plataforma',
+      tamanoLaptopSoportado: 'Tamano laptop soportado',
+      color: 'Color',
+      rgb: 'RGB',
+      tipoAudio: 'Tipo de audio',
+      conectividad: 'Conectividad',
+      tipoConexion: 'Tipo de conexion',
+      microfonoIntegrado: 'Microfono integrado',
+      microfonoRemovible: 'Microfono removible',
+      cancelacionRuido: 'Cancelacion de ruido',
+      sonidoSurround: 'Sonido surround',
+      compatibleConsola: 'Compatible consola',
+      tipoMicrofono: 'Tipo de microfono',
+      patronPolar: 'Patron polar',
+      frecuenciaRespuesta: 'Frecuencia de respuesta',
+      incluyeBrazo: 'Incluye brazo',
+      incluyeFiltroPop: 'Incluye filtro pop',
+      tipoParlante: 'Tipo de parlante',
+      canales: 'Canales',
+      subwoofer: 'Subwoofer',
+      controlRemoto: 'Control remoto',
     };
 
     return labels[field] ?? field;

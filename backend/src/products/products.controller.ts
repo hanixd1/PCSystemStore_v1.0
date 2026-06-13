@@ -70,6 +70,12 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Roles('ADMIN', 'EDITOR')
+  @Get('admin/list')
+  findAdminInventory(@Query() query: Record<string, string | string[]>) {
+    return this.productsService.findAdminInventory(query);
+  }
+
   @Public()
   @Get('filter-options')
   getFilterOptions(@Query() query: Record<string, string | string[]>) {
