@@ -105,7 +105,7 @@ const Header = () => {
 
             <button
               onClick={() => setIsMenuOpen(true)}
-              className="hidden items-center gap-3 px-4 py-3 text-lg font-semibold text-gray-700 transition-colors hover:text-gray-950 md:flex"
+              className="hidden items-center gap-3 px-4 py-3 text-lg font-semibold text-gray-700 transition-colors hover:text-brand-cyan md:flex"
             >
               <FiMenu className="text-3xl" />
               <span>Menu</span>
@@ -226,7 +226,7 @@ const Header = () => {
 
           <button
             onClick={() => setIsMenuOpen(true)}
-            className="p-2 text-3xl text-gray-700 md:hidden"
+            className="p-2 text-3xl text-gray-700 transition-colors hover:text-brand-cyan md:hidden"
           >
             <FiMenu />
           </button>

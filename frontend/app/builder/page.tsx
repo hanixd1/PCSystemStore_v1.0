@@ -1,19 +1,21 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  FiCpu,
-  FiGrid,
-  FiZap,
-  FiMonitor,
-  FiHardDrive,
   FiBox,
   FiCheckCircle,
-  FiShoppingCart,
-  FiRefreshCw,
+  FiChevronLeft,
   FiChevronRight,
+  FiCpu,
+  FiGrid,
+  FiHardDrive,
+  FiMonitor,
+  FiRefreshCw,
+  FiShoppingCart,
   FiWind,
+  FiZap,
 } from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
@@ -21,19 +23,35 @@ import { getEffectivePrice } from '@/lib/pricing';
 import { calculateRecommendedPsuWatts } from '@/lib/products/psuRecommendation';
 import { confirmAction, notify } from '@/lib/notify';
 
-// Definición de los pasos del configurador
+const PRODUCTS_PER_PAGE = 9;
+const BUILDER_STORAGE_KEY = 'pcsystemstore_pc_builder_state';
+
 const STEPS = [
-  { id: 'platform', title: 'Plataforma', icon: FiCpu },
-  { id: 'cpu', title: 'Procesador', category: 'CPU', icon: FiCpu },
-  { id: 'motherboard', title: 'Placa Madre', category: 'MOTHERBOARD', icon: FiGrid },
-  { id: 'cooler', title: 'Refrigeracion', category: 'COOLER', icon: FiWind },
-  { id: 'ram', title: 'Memoria RAM', category: 'RAM', icon: FiZap },
-  { id: 'gpu', title: 'Tarjeta de Video', category: 'GPU', icon: FiMonitor, optional: true },
-  { id: 'storage', title: 'Almacenamiento', category: 'STORAGE', icon: FiHardDrive },
-  { id: 'psu', title: 'Fuente de Poder', category: 'PSU', icon: FiZap },
-  { id: 'case', title: 'Gabinete', category: 'CASE', icon: FiBox },
-  { id: 'summary', title: 'Resumen Final', icon: FiCheckCircle },
-];
+  { id: 'cpu', title: 'Procesador', shortTitle: 'CPU', category: 'CPU', icon: FiCpu },
+  { id: 'motherboard', title: 'Placa Madre', shortTitle: 'Placa', category: 'MOTHERBOARD', icon: FiGrid },
+  { id: 'ram', title: 'Memoria RAM', shortTitle: 'RAM', category: 'RAM', icon: FiZap },
+  { id: 'storage', title: 'Almacenamiento', shortTitle: 'SSD', category: 'STORAGE', icon: FiHardDrive },
+  { id: 'gpu', title: 'Tarjeta de Video', shortTitle: 'GPU', category: 'GPU', icon: FiMonitor },
+  { id: 'cooler', title: 'Refrigeración', shortTitle: 'Cooler', category: 'COOLER', icon: FiWind },
+  { id: 'case', title: 'Case', shortTitle: 'Case', category: 'CASE', icon: FiBox },
+  { id: 'psu', title: 'Fuente', shortTitle: 'PSU', category: 'PSU', icon: FiZap },
+  { id: 'summary', title: 'Resumen', shortTitle: 'Resumen', icon: FiCheckCircle },
+] as const;
+
+type StepId = (typeof STEPS)[number]['id'];
+type Platform = 'INTEL' | 'AMD';
+type SkippedStep = { skipped: true; reason: string };
+
+const STEP_SHORT_LABELS: Partial<Record<StepId, string>> = {
+  cpu: 'CPU',
+  motherboard: 'Placa',
+  ram: 'RAM',
+  storage: 'SSD',
+  gpu: 'GPU',
+  cooler: 'Cooler',
+  case: 'Case',
+  psu: 'PSU',
+};
 
 type BuildValidationResponse = {
   compatible: boolean;
@@ -45,23 +63,191 @@ type BuildValidationResponse = {
   };
 };
 
+type PersistedBuilderState = {
+  selectedPlatform: Platform | null;
+  currentStep: number;
+  selectedProducts: Record<string, any>;
+  skippedSteps: Record<string, SkippedStep>;
+  currentPage: number;
+};
+
+function getProductPath(product: { id: string; slug?: string | null }) {
+  return `/producto/${product.slug || product.id}`;
+}
+
+function normalizeText(value: unknown) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function compactText(value: unknown) {
+  return normalizeText(value).replace(/[^a-z0-9]+/g, '');
+}
+
+function productText(product: any) {
+  return normalizeText(
+    [
+      product?.name,
+      product?.slug,
+      product?.sku,
+      product?.brand,
+      product?.description,
+      product?.cpuSpecs?.frequency,
+      product?.cpuSpecs?.brand,
+      product?.caseSpecs?.brand,
+      JSON.stringify(product?.cpuSpecs || {}),
+      JSON.stringify(product?.caseSpecs || {}),
+    ].join(' '),
+  );
+}
+
+function isIntelFSkuWithoutIgpu(product: any) {
+  const text = productText(product);
+  return /\bi[3579][-\s]?\d{4,5}f\b/i.test(text) || /\bcore\s+ultra\s+\d+\s+\d{3,4}f\b/i.test(text);
+}
+
+function processorHasIntegratedGraphics(processor: any) {
+  if (!processor) return false;
+
+  const text = productText(processor);
+  const negativeSignals = [
+    'sin graficos integrados',
+    'sin gráficos integrados',
+    'no incluye graficos',
+    'no incluye gráficos',
+    'requiere tarjeta grafica dedicada',
+    'requiere tarjeta gráfica dedicada',
+    'no integrated graphics',
+    'without integrated graphics',
+  ];
+
+  if (negativeSignals.some((signal) => text.includes(normalizeText(signal)))) return false;
+  if (isIntelFSkuWithoutIgpu(processor)) return false;
+
+  const explicitValue =
+    processor?.cpuSpecs?.integratedGraphics ??
+    processor?.integratedGraphics ??
+    processor?.hasIntegratedGraphics ??
+    processor?.graphicsIntegrated;
+
+  if (explicitValue === true) return true;
+  if (explicitValue === false) return false;
+
+  if (/\b(ryzen\s*)?\d{4}g\b/i.test(text)) return true;
+
+  return [
+    'radeon graphics',
+    'intel uhd',
+    'intel graphics',
+    'intel iris',
+    'igpu',
+    'graficos integrados',
+    'gráficos integrados',
+    'integrated graphics',
+  ].some((signal) => text.includes(normalizeText(signal)));
+}
+
+function processorIncludesCooler(processor: any) {
+  if (!processor) return false;
+
+  const text = productText(processor);
+  const negativeSignals = ['no incluye cooler', 'sin cooler', 'requiere cooler', 'without cooler'];
+  if (negativeSignals.some((signal) => text.includes(normalizeText(signal)))) return false;
+
+  const explicitValue =
+    processor?.cpuSpecs?.includesCooler ??
+    processor?.includesCooler ??
+    processor?.hasCooler ??
+    processor?.coolerIncluded;
+
+  if (explicitValue === true) return true;
+  if (explicitValue === false) return false;
+
+  return [
+    'incluye cooler',
+    'cooler incluido',
+    'con cooler',
+    'stock cooler',
+    'wraith stealth',
+    'wraith prism',
+    'wraith spire',
+  ].some((signal) => text.includes(normalizeText(signal)));
+}
+
+function caseIncludesPowerSupply(pcCase: any) {
+  if (!pcCase) return false;
+
+  const text = productText(pcCase);
+  const negativeSignals = ['sin fuente', 'no incluye fuente', 'sin psu', 'no incluye psu'];
+  if (negativeSignals.some((signal) => text.includes(normalizeText(signal)))) return false;
+
+  const explicitValue =
+    pcCase?.caseSpecs?.includesPsu ??
+    pcCase?.caseSpecs?.includesPowerSupply ??
+    pcCase?.includesPowerSupply ??
+    pcCase?.hasPsu ??
+    pcCase?.psuIncluded ??
+    pcCase?.powerSupplyIncluded;
+
+  if (explicitValue === true) return true;
+  if (explicitValue === false) return false;
+
+  return [
+    'incluye fuente',
+    'con fuente',
+    'fuente incluida',
+    'psu incluida',
+    'con psu',
+    'incluye psu',
+  ].some((signal) => text.includes(normalizeText(signal)));
+}
+
+function cpuMatchesPlatform(product: any, platform: Platform | null) {
+  if (!platform) return true;
+
+  const text = productText(product);
+  const brand = compactText(product?.cpuSpecs?.brand ?? product?.brand);
+
+  if (platform === 'INTEL') {
+    return (
+      brand.includes('intel') ||
+      /\bintel\b/.test(text) ||
+      /\bcore\s+i[3579]\b/.test(text) ||
+      /\bcore\s+ultra\b/.test(text)
+    );
+  }
+
+  return (
+    brand.includes('amd') ||
+    /\bamd\b/.test(text) ||
+    /\bryzen\b/.test(text) ||
+    /\bthreadripper\b/.test(text)
+  );
+}
+
 function getCoolerSockets(product: any) {
   const sockets = product.coolerSpecs?.compatibleSockets;
   if (Array.isArray(sockets) && sockets.length > 0) return sockets;
   return String(product.coolerSpecs?.socketSupport || '')
-    .split(',')
+    .split(/[;,]/)
     .map((socket) => socket.trim())
     .filter(Boolean);
 }
 
 function isM2Storage(product: any) {
-  const type = String(product.storageSpecs?.type || '').toUpperCase();
-  return type.includes('M.2') || type.includes('NVME');
+  const specs = product.storageSpecs || {};
+  const type = normalizeText(specs.type);
+  const storageInterface = normalizeText(specs.interface);
+  const formFactor = normalizeText(specs.m2FormFactor);
+  return type.includes('m.2') || type.includes('nvme') || storageInterface.includes('nvme') || formFactor.includes('m.2');
 }
 
 function normalizeCoolerType(product: any) {
-  const value = String(product.coolerSpecs?.type || '').toLowerCase();
-  if (value === 'aio' || value.includes('liqu') || value.includes('líqu')) return 'Líquida';
+  const value = normalizeText(product.coolerSpecs?.type);
+  if (value === 'aio' || value.includes('liqu')) return 'Líquida';
   return 'Torre';
 }
 
@@ -76,15 +262,6 @@ function getCaseMaxCoolerHeight(product: any) {
   );
 }
 
-function normalizeText(value: unknown) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '');
-}
-
 function getCaseFormFactors(product: any) {
   const specs = product.caseSpecs || {};
   const values =
@@ -93,7 +270,7 @@ function getCaseFormFactors(product: any) {
       : specs.formFactor;
 
   return (Array.isArray(values) ? values : String(values || '').split(/[;,]/))
-    .map((item) => normalizeText(item))
+    .map((item) => compactText(item))
     .filter(Boolean);
 }
 
@@ -109,76 +286,9 @@ function getCaseRadiatorSizes(product: any) {
     .filter((value) => Number.isFinite(value) && value > 0);
 }
 
-function validateCpuMotherboardCompatibility(build: Record<string, any>) {
-  if (
-    build.cpu &&
-    build.motherboard &&
-    build.cpu.cpuSpecs?.socket !== build.motherboard.motherboardSpecs?.socket
-  ) {
-    return ['La placa madre no coincide con el socket del procesador.'];
-  }
-
-  return [];
-}
-
-function validateCoolerCompatibility(build: Record<string, any>) {
-  const errors: string[] = [];
-  const cpuSocket = build.cpu?.cpuSpecs?.socket;
-  const cpuTdp = Number(build.cpu?.cpuSpecs?.tdp || 0);
-
-  if (!build.cpu || !build.cooler) {
-    return errors;
-  }
-
-  if (!getCoolerSockets(build.cooler).includes(cpuSocket)) {
-    errors.push('El cooler seleccionado no es compatible con el socket del procesador.');
-  }
-
-  if (Number(build.cooler.coolerSpecs?.tdpCapacity || 0) < cpuTdp) {
-    errors.push('El cooler seleccionado no soporta el TDP del procesador.');
-  }
-
-  return errors;
-}
-
-function validateCoolerCaseCompatibility(build: Record<string, any>) {
-  if (!build.cooler || !build.case) {
-    return [];
-  }
-
-  const coolerType = normalizeCoolerType(build.cooler);
-  return coolerType === 'Torre'
-    ? validateTowerCoolerCaseCompatibility(build)
-    : validateLiquidCoolerCaseCompatibility(build);
-}
-
-function validateTowerCoolerCaseCompatibility(build: Record<string, any>) {
-  const coolerHeight = Number(build.cooler.coolerSpecs?.coolerHeight || 0);
-  const caseHeight = getCaseMaxCoolerHeight(build.case);
-  if (coolerHeight > 0 && caseHeight > 0 && coolerHeight > caseHeight) {
-    return [
-      `Este gabinete no soporta la altura del cooler seleccionado. El cooler requiere ${coolerHeight} mm y el gabinete soporta hasta ${caseHeight} mm.`,
-    ];
-  }
-
-  return [];
-}
-
-function validateLiquidCoolerCaseCompatibility(build: Record<string, any>) {
-  const radiatorSize = Number(build.cooler.coolerSpecs?.radiatorSize || 0);
-  const caseRadiators = getCaseRadiatorSizes(build.case);
-  if (radiatorSize > 0 && caseRadiators.length > 0 && !caseRadiators.includes(radiatorSize)) {
-    return [
-      `Este gabinete no soporta el radiador seleccionado. El cooler requiere radiador de ${radiatorSize} mm.`,
-    ];
-  }
-
-  return [];
-}
-
 function caseSupportsMotherboard(pcCase: any, motherboard: any) {
   if (!pcCase || !motherboard) return true;
-  const motherboardFormFactor = normalizeText(motherboard.motherboardSpecs?.formFactor);
+  const motherboardFormFactor = compactText(motherboard.motherboardSpecs?.formFactor);
   const caseFormFactors = getCaseFormFactors(pcCase);
   return (
     !motherboardFormFactor ||
@@ -207,6 +317,67 @@ function caseSupportsCooler(pcCase: any, cooler: any) {
   return radiatorSize <= 0 || caseRadiators.length === 0 || caseRadiators.includes(radiatorSize);
 }
 
+function validateCpuMotherboardCompatibility(build: Record<string, any>) {
+  if (
+    build.cpu &&
+    build.motherboard &&
+    compactText(build.cpu.cpuSpecs?.socket) !== compactText(build.motherboard.motherboardSpecs?.socket)
+  ) {
+    return ['La placa madre no coincide con el socket del procesador.'];
+  }
+
+  return [];
+}
+
+function validateCoolerCompatibility(build: Record<string, any>, skipped: Record<string, SkippedStep>) {
+  const errors: string[] = [];
+  const cpuSocket = build.cpu?.cpuSpecs?.socket;
+  const cpuTdp = Number(build.cpu?.cpuSpecs?.tdp || 0);
+
+  if (!build.cpu || !build.cooler || skipped.cooler) {
+    return errors;
+  }
+
+  if (!getCoolerSockets(build.cooler).some((socket) => compactText(socket) === compactText(cpuSocket))) {
+    errors.push('La refrigeración seleccionada no es compatible con el socket del procesador.');
+  }
+
+  if (Number(build.cooler.coolerSpecs?.tdpCapacity || 0) < cpuTdp) {
+    errors.push('La refrigeración seleccionada no soporta el TDP del procesador.');
+  }
+
+  return errors;
+}
+
+function validateCoolerCaseCompatibility(build: Record<string, any>, skipped: Record<string, SkippedStep>) {
+  if (!build.cooler || !build.case || skipped.cooler) return [];
+  return normalizeCoolerType(build.cooler) === 'Torre'
+    ? validateTowerCoolerCaseCompatibility(build)
+    : validateLiquidCoolerCaseCompatibility(build);
+}
+
+function validateTowerCoolerCaseCompatibility(build: Record<string, any>) {
+  const coolerHeight = Number(build.cooler.coolerSpecs?.coolerHeight || 0);
+  const caseHeight = getCaseMaxCoolerHeight(build.case);
+  if (coolerHeight > 0 && caseHeight > 0 && coolerHeight > caseHeight) {
+    return [
+      `Este case no soporta la altura de la refrigeración seleccionada. Requiere ${coolerHeight} mm y el case soporta hasta ${caseHeight} mm.`,
+    ];
+  }
+
+  return [];
+}
+
+function validateLiquidCoolerCaseCompatibility(build: Record<string, any>) {
+  const radiatorSize = Number(build.cooler.coolerSpecs?.radiatorSize || 0);
+  const caseRadiators = getCaseRadiatorSizes(build.case);
+  if (radiatorSize > 0 && caseRadiators.length > 0 && !caseRadiators.includes(radiatorSize)) {
+    return [`Este case no soporta un radiador de ${radiatorSize} mm.`];
+  }
+
+  return [];
+}
+
 function validateStorageCompatibility(build: Record<string, any>) {
   const errors: string[] = [];
   if (!build.motherboard || !build.storage || !isM2Storage(build.storage)) {
@@ -221,34 +392,168 @@ function validateStorageCompatibility(build: Record<string, any>) {
     errors.push('La placa madre no tiene slots M.2 para el almacenamiento seleccionado.');
   }
 
-  if (storageSize && supportedSizes.length > 0 && !supportedSizes.includes(storageSize)) {
+  if (
+    storageSize &&
+    supportedSizes.length > 0 &&
+    !supportedSizes.some((size: string) => compactText(size) === compactText(storageSize))
+  ) {
     errors.push('La placa madre no soporta el tamaño M.2 del almacenamiento seleccionado.');
   }
 
   return errors;
 }
 
-function validatePsuCompatibility(build: Record<string, any>, requiredWatts: number) {
+function validatePsuCompatibility(build: Record<string, any>, skipped: Record<string, SkippedStep>, requiredWatts: number) {
+  if (skipped.psu) return [];
   if (build.psu && Number(build.psu.psuSpecs?.wattage || 0) < requiredWatts) {
+    return [`La fuente seleccionada no cubre el consumo estimado con margen de seguridad (${requiredWatts}W).`];
+  }
+
+  return [];
+}
+
+function getProductSpecsSummary(product: any) {
+  if (product.category === 'CPU') {
     return [
-      `La fuente seleccionada no cubre el consumo estimado con margen de seguridad (${requiredWatts}W).`,
+      product.cpuSpecs?.socket ? `Socket ${product.cpuSpecs.socket}` : null,
+      product.cpuSpecs?.cores ? `${product.cpuSpecs.cores} núcleos` : null,
+      processorHasIntegratedGraphics(product) ? 'Gráficos integrados' : null,
+    ];
+  }
+
+  if (product.category === 'MOTHERBOARD') {
+    return [
+      product.motherboardSpecs?.socket ? `Socket ${product.motherboardSpecs.socket}` : null,
+      product.motherboardSpecs?.memoryType,
+      product.motherboardSpecs?.formFactor,
+    ];
+  }
+
+  if (product.category === 'RAM') {
+    return [
+      product.ramSpecs?.memoryType,
+      product.ramSpecs?.capacity ? `${product.ramSpecs.capacity} GB` : null,
+      product.ramSpecs?.speed ? `${product.ramSpecs.speed} MHz` : null,
+    ];
+  }
+
+  if (product.category === 'STORAGE') {
+    return [
+      product.storageSpecs?.type,
+      product.storageSpecs?.capacity ? `${product.storageSpecs.capacity} GB` : null,
+      product.storageSpecs?.interface,
+    ];
+  }
+
+  if (product.category === 'GPU') {
+    return [
+      product.gpuSpecs?.chipset,
+      product.gpuSpecs?.vram ? `${product.gpuSpecs.vram} GB VRAM` : null,
+      product.gpuSpecs?.length ? `${product.gpuSpecs.length} mm` : null,
+    ];
+  }
+
+  if (product.category === 'COOLER') {
+    return [
+      normalizeCoolerType(product),
+      product.coolerSpecs?.tdpCapacity ? `${product.coolerSpecs.tdpCapacity}W TDP` : null,
+      product.coolerSpecs?.radiatorSize ? `${product.coolerSpecs.radiatorSize} mm` : null,
+    ];
+  }
+
+  if (product.category === 'CASE') {
+    return [
+      product.caseSpecs?.maxGpuLength ? `GPU hasta ${product.caseSpecs.maxGpuLength} mm` : null,
+      product.caseSpecs?.maxCoolerHeight ? `Cooler hasta ${product.caseSpecs.maxCoolerHeight} mm` : null,
+      caseIncludesPowerSupply(product) ? 'Incluye fuente' : null,
+    ];
+  }
+
+  if (product.category === 'PSU') {
+    return [
+      product.psuSpecs?.wattage ? `${product.psuSpecs.wattage}W` : null,
+      product.psuSpecs?.certification,
+      product.psuSpecs?.modular,
     ];
   }
 
   return [];
 }
+
 export default function PCBuilderPage() {
   const router = useRouter();
   const { addItem } = useCartStore();
+  const productsSectionRef = useRef<HTMLDivElement | null>(null);
+  const hasRestoredStateRef = useRef(false);
 
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [platform, setPlatform] = useState<Platform | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const [platform, setPlatform] = useState<'Intel' | 'AMD' | null>(null);
+  const [page, setPage] = useState(1);
   const [build, setBuild] = useState<Record<string, any>>({});
+  const [skipped, setSkipped] = useState<Record<string, SkippedStep>>({});
   const [backendValidation, setBackendValidation] = useState<BuildValidationResponse | null>(null);
   const [validatingBuild, setValidatingBuild] = useState(false);
+
+  useEffect(() => {
+    try {
+      const rawState = window.sessionStorage.getItem(BUILDER_STORAGE_KEY);
+      if (!rawState) {
+        hasRestoredStateRef.current = true;
+        return;
+      }
+
+      const parsedState = JSON.parse(rawState) as Partial<PersistedBuilderState>;
+      const restoredPlatform =
+        parsedState.selectedPlatform === 'INTEL' || parsedState.selectedPlatform === 'AMD'
+          ? parsedState.selectedPlatform
+          : null;
+      const restoredStep = Number(parsedState.currentStep);
+      const restoredPage = Number(parsedState.currentPage);
+
+      setPlatform(restoredPlatform);
+      setCurrentStep(
+        Number.isInteger(restoredStep) && restoredStep >= 0 && restoredStep < STEPS.length
+          ? restoredStep
+          : 0,
+      );
+      setPage(Number.isInteger(restoredPage) && restoredPage > 0 ? restoredPage : 1);
+      setBuild(
+        parsedState.selectedProducts &&
+          typeof parsedState.selectedProducts === 'object' &&
+          !Array.isArray(parsedState.selectedProducts)
+          ? parsedState.selectedProducts
+          : {},
+      );
+      setSkipped(
+        parsedState.skippedSteps &&
+          typeof parsedState.skippedSteps === 'object' &&
+          !Array.isArray(parsedState.skippedSteps)
+          ? parsedState.skippedSteps
+          : {},
+      );
+    } catch (error) {
+      console.warn('No se pudo restaurar el estado de Arma tu PC.', error);
+      window.sessionStorage.removeItem(BUILDER_STORAGE_KEY);
+    } finally {
+      hasRestoredStateRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasRestoredStateRef.current) return;
+
+    const stateToPersist: PersistedBuilderState = {
+      selectedPlatform: platform,
+      currentStep,
+      selectedProducts: build,
+      skippedSteps: skipped,
+      currentPage: page,
+    };
+
+    window.sessionStorage.setItem(BUILDER_STORAGE_KEY, JSON.stringify(stateToPersist));
+  }, [platform, currentStep, build, skipped, page]);
 
   useEffect(() => {
     api
@@ -257,6 +562,10 @@ export default function PCBuilderPage() {
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [platform, currentStep, build.cpu?.id, build.motherboard?.id, build.gpu?.id, build.cooler?.id, build.case?.id]);
 
   const getRequiredPsuWatts = () => calculateRecommendedPsuWatts(build);
 
@@ -327,147 +636,221 @@ export default function PCBuilderPage() {
     const requiredWatts = getRequiredPsuWatts();
     return [
       ...validateCpuMotherboardCompatibility(build),
-      ...validateCoolerCompatibility(build),
-      ...validateCoolerCaseCompatibility(build),
+      ...validateCoolerCompatibility(build, skipped),
+      ...validateCoolerCaseCompatibility(build, skipped),
       ...validateStorageCompatibility(build),
-      ...validatePsuCompatibility(build, requiredWatts),
+      ...validatePsuCompatibility(build, skipped, requiredWatts),
     ];
   };
 
-  // --- 1. LÓGICA DE FILTRADO MEJORADA (SOCKETS Y NOMBRES) ---
   const getFilteredProducts = () => {
     const stepDef = STEPS[currentStep];
-    if (!stepDef.category) return [];
+    if (!('category' in stepDef)) return [];
 
-    let filtered = products.filter((p) => p.category === stepDef.category);
+    let filtered = products.filter((product) => product.category === stepDef.category && product.stock > 0);
 
-    if (stepDef.id === 'cpu' && platform) {
-      filtered = filtered.filter((p) => {
-        const name = p.name.toLowerCase();
-        const socket = p.cpuSpecs?.socket?.toUpperCase() || '';
-        const brand = p.cpuSpecs?.brand;
-        if (brand) return brand === platform;
-
-        // Filtro inteligente para AMD
-        if (platform === 'AMD') {
-          return (
-            name.includes('amd') ||
-            name.includes('ryzen') ||
-            socket.includes('AM4') ||
-            socket.includes('AM5') ||
-            socket.includes('STR')
-          );
-        }
-        // Filtro inteligente para Intel
-        else if (platform === 'Intel') {
-          return name.includes('intel') || name.includes('core') || socket.includes('LGA');
-        }
-        return false;
-      });
+    if (stepDef.id === 'cpu') {
+      filtered = filtered.filter((product) => cpuMatchesPlatform(product, platform));
     }
 
     if (stepDef.id === 'motherboard' && build.cpu) {
       const cpuSocket = build.cpu.cpuSpecs?.socket;
-      filtered = filtered.filter((p) => p.motherboardSpecs?.socket === cpuSocket);
+      filtered = filtered.filter(
+        (product) => compactText(product.motherboardSpecs?.socket) === compactText(cpuSocket),
+      );
+    }
+
+    if (stepDef.id === 'ram' && build.motherboard) {
+      const moboRamType = build.motherboard.motherboardSpecs?.memoryType;
+      filtered = filtered.filter(
+        (product) => compactText(product.ramSpecs?.memoryType) === compactText(moboRamType),
+      );
+    }
+
+    if (stepDef.id === 'storage' && build.motherboard) {
+      filtered = filtered.filter((product) => {
+        if (!isM2Storage(product)) return true;
+
+        const m2Slots = Number(build.motherboard.motherboardSpecs?.m2Slots || 0);
+        const supportedSizes = build.motherboard.motherboardSpecs?.supportedM2FormFactors || [];
+        const storageSize = product.storageSpecs?.m2FormFactor;
+
+        if (m2Slots <= 0) return false;
+        return (
+          !storageSize ||
+          supportedSizes.length === 0 ||
+          supportedSizes.some((size: string) => compactText(size) === compactText(storageSize))
+        );
+      });
     }
 
     if (stepDef.id === 'cooler' && build.cpu) {
       const cpuSocket = build.cpu.cpuSpecs?.socket;
       const cpuTdp = Number(build.cpu.cpuSpecs?.tdp || 0);
-      filtered = filtered.filter((p) => {
-        const coolerSockets = getCoolerSockets(p);
-        const coolerTdp = Number(p.coolerSpecs?.tdpCapacity || 0);
-        return coolerSockets.includes(cpuSocket) && coolerTdp >= cpuTdp;
+      filtered = filtered.filter((product) => {
+        const coolerSockets = getCoolerSockets(product);
+        const coolerTdp = Number(product.coolerSpecs?.tdpCapacity || 0);
+        return (
+          coolerSockets.some((socket) => compactText(socket) === compactText(cpuSocket)) &&
+          (coolerTdp <= 0 || cpuTdp <= 0 || coolerTdp >= cpuTdp)
+        );
       });
-    }
-
-    if (stepDef.id === 'ram' && build.motherboard) {
-      const moboRamType = build.motherboard.motherboardSpecs?.memoryType;
-      filtered = filtered.filter((p) => p.ramSpecs?.memoryType === moboRamType);
-    }
-
-    if (stepDef.id === 'storage' && build.motherboard) {
-      filtered = filtered.filter((p) => {
-        if (!isM2Storage(p)) return true;
-
-        const m2Slots = Number(build.motherboard.motherboardSpecs?.m2Slots || 0);
-        const supportedSizes = build.motherboard.motherboardSpecs?.supportedM2FormFactors || [];
-        const storageSize = p.storageSpecs?.m2FormFactor;
-
-        if (m2Slots <= 0) return false;
-        return !storageSize || supportedSizes.length === 0 || supportedSizes.includes(storageSize);
-      });
-    }
-
-    if (stepDef.id === 'psu') {
-      const requiredWatts = getRequiredPsuWatts();
-      filtered = filtered.filter((p) => Number(p.psuSpecs?.wattage || 0) >= requiredWatts);
     }
 
     if (stepDef.id === 'case') {
       filtered = filtered.filter(
-        (p) =>
-          caseSupportsMotherboard(p, build.motherboard) &&
-          caseSupportsGpu(p, build.gpu) &&
-          caseSupportsCooler(p, build.cooler),
+        (product) =>
+          caseSupportsMotherboard(product, build.motherboard) &&
+          caseSupportsGpu(product, build.gpu) &&
+          caseSupportsCooler(product, build.cooler),
       );
+    }
+
+    if (stepDef.id === 'psu') {
+      const requiredWatts = getRequiredPsuWatts();
+      filtered = filtered.filter((product) => Number(product.psuSpecs?.wattage || 0) >= requiredWatts);
     }
 
     return filtered;
   };
 
-  // --- 2. NAVEGACIÓN Y SELECCIÓN ---
-  const handleSelectPlatform = (selected: 'Intel' | 'AMD') => {
-    if (selected !== platform) {
-      setBuild({}); // Si cambia de bando, limpiamos todo
-      setBackendValidation(null);
-    }
-    setPlatform(selected);
-    setCurrentStep(1);
+  const canSkipStep = (stepId: StepId) => {
+    if (stepId === 'gpu') return processorHasIntegratedGraphics(build.cpu);
+    if (stepId === 'cooler') return processorIncludesCooler(build.cpu);
+    if (stepId === 'psu') return caseIncludesPowerSupply(build.case);
+    return false;
+  };
+
+  const getSkipReason = (stepId: StepId) => {
+    if (stepId === 'gpu') return 'procesador con gráficos integrados';
+    if (stepId === 'cooler') return 'procesador incluye cooler';
+    if (stepId === 'psu') return 'case con fuente incluida';
+    return '';
+  };
+
+  const resetBuildForPlatform = () => {
+    setBuild({});
+    setSkipped({});
+    setBackendValidation(null);
+    setCurrentStep(0);
+    setPage(1);
+  };
+
+  const clearPersistedBuilderState = () => {
+    window.sessionStorage.removeItem(BUILDER_STORAGE_KEY);
+  };
+
+  const handleSelectPlatform = (selectedPlatform: Platform) => {
+    setPlatform(selectedPlatform);
+    resetBuildForPlatform();
+  };
+
+  const handleChangePlatform = () => {
+    clearPersistedBuilderState();
+    setPlatform(null);
+    resetBuildForPlatform();
   };
 
   const handleSelectComponent = (product: any) => {
     const stepDef = STEPS[currentStep];
+    if (!('category' in stepDef)) return;
 
     setBuild((prev) => {
       const newBuild = { ...prev, [stepDef.id]: product };
-      // Seguridad: Si cambia de CPU, borramos placa y ram para evitar incompatibilidad
+
       if (stepDef.id === 'cpu' && prev.cpu?.id !== product.id) {
         delete newBuild.motherboard;
-        delete newBuild.cooler;
         delete newBuild.ram;
         delete newBuild.storage;
+        delete newBuild.gpu;
+        delete newBuild.cooler;
+        delete newBuild.case;
         delete newBuild.psu;
       }
-      // Si cambia de placa, borramos la RAM
+
       if (stepDef.id === 'motherboard' && prev.motherboard?.id !== product.id) {
         delete newBuild.ram;
         delete newBuild.storage;
+        delete newBuild.case;
       }
+
       if (stepDef.id === 'gpu' && prev.gpu?.id !== product.id) {
+        delete newBuild.case;
         delete newBuild.psu;
       }
+
+      if (stepDef.id === 'cooler' && prev.cooler?.id !== product.id) {
+        delete newBuild.case;
+      }
+
+      if (stepDef.id === 'case' && prev.case?.id !== product.id) {
+        delete newBuild.psu;
+      }
+
       return newBuild;
     });
-    setBackendValidation(null);
 
+    setSkipped((prev) => {
+      const next = { ...prev };
+      delete next[stepDef.id];
+      if (stepDef.id === 'cpu') {
+        delete next.gpu;
+        delete next.cooler;
+        delete next.psu;
+      }
+      if (stepDef.id === 'case') delete next.psu;
+      return next;
+    });
+    setBackendValidation(null);
     setCurrentStep((prev) => prev + 1);
   };
 
   const goToStep = (stepIndex: number) => {
-    // Solo permitir volver a pasos anteriores
     if (stepIndex < currentStep) {
       setCurrentStep(stepIndex);
     }
   };
 
   const handleBack = () => {
+    if (currentStep === 0) {
+      handleChangePlatform();
+      return;
+    }
+
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
-  const handleSkip = () => setCurrentStep((prev) => prev + 1);
+  const handleSkip = () => {
+    const stepDef = STEPS[currentStep];
+    if (!canSkipStep(stepDef.id)) return;
+
+    setBuild((prev) => {
+      const next = { ...prev };
+      delete next[stepDef.id];
+      return next;
+    });
+    setSkipped((prev) => ({
+      ...prev,
+      [stepDef.id]: { skipped: true, reason: getSkipReason(stepDef.id) },
+    }));
+    setBackendValidation(null);
+    setCurrentStep((prev) => prev + 1);
+  };
+
+  const getMissingRequiredSteps = () =>
+    STEPS.filter((step) => 'category' in step).filter((step) => {
+      if (build[step.id]) return false;
+      if (skipped[step.id] && canSkipStep(step.id)) return false;
+      return true;
+    });
 
   const handleAddToCart = async () => {
+    const missingSteps = getMissingRequiredSteps();
+    if (missingSteps.length > 0) {
+      notify.error(`Completa los pasos obligatorios: ${missingSteps.map((step) => step.title).join(', ')}.`);
+      return;
+    }
+
     const errors = getCompatibilityErrors();
     if (errors.length > 0) {
       notify.error(errors.join('\n'));
@@ -496,232 +879,368 @@ export default function PCBuilderPage() {
 
   const handleRestart = async () => {
     const confirmed = await confirmAction({
-      title: 'Reiniciar configuración',
-      message: '¿Estás seguro de querer reiniciar la configuración?',
+      title: 'Reiniciar armado',
+      message: '¿Estás seguro de querer reiniciar el armado de tu PC?',
       confirmText: 'Reiniciar',
     });
 
     if (!confirmed) return;
 
+    clearPersistedBuilderState();
     setPlatform(null);
     setBuild({});
+    setSkipped({});
     setBackendValidation(null);
     setCurrentStep(0);
+    setPage(1);
   };
-
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center font-bold text-xl text-brand-cyan animate-pulse">
-        Cargando arsenal...
-      </div>
-    );
 
   const currentStepDef = STEPS[currentStep];
   const StepIcon = currentStepDef.icon;
-  const filteredProducts = getFilteredProducts();
+  const filteredProducts = useMemo(getFilteredProducts, [products, platform, currentStep, build]);
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
+  const paginatedProducts = filteredProducts.slice(
+    (page - 1) * PRODUCTS_PER_PAGE,
+    page * PRODUCTS_PER_PAGE,
+  );
   const compatibilityErrors = getCompatibilityErrors();
   const backendErrorMessages = backendValidation?.errors.map((error) => error.message) ?? [];
   const backendWarningMessages =
     backendValidation?.warnings.map((warning) => warning.message) ?? [];
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-10">
-      <div className="container mx-auto px-4 max-w-6xl">
-        {/* CABECERA Y PROGRESO CLICKEABLE */}
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-black text-gray-900 mb-2 tracking-tight">
-            Arma tu <span className="text-brand-cyan">PC Ideal</span>
-          </h1>
-          <p className="text-gray-500">Nos aseguramos de que todo sea 100% compatible.</p>
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
-          <div className="flex items-center justify-center mt-8 overflow-x-auto pb-4 gap-2">
-            {STEPS.map((step, idx) => (
-              <div key={step.id} className="flex items-center">
-                <button
-                  onClick={() => goToStep(idx)}
-                  disabled={idx >= currentStep}
-                  title={idx < currentStep ? `Volver a ${step.title}` : ''}
-                  className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${
-                    idx < currentStep
-                      ? 'bg-brand-cyan text-gray-900 cursor-pointer hover:scale-110'
-                      : idx === currentStep
-                        ? 'bg-gray-900 text-white ring-4 ring-gray-200 cursor-default'
-                        : 'bg-gray-200 text-gray-400 opacity-50 cursor-not-allowed'
-                  }`}
-                >
-                  <step.icon size={18} />
-                </button>
-                {idx < STEPS.length - 1 && (
-                  <div
-                    className={`w-8 md:w-16 h-1 mx-2 rounded ${idx < currentStep ? 'bg-brand-cyan' : 'bg-gray-200'}`}
-                  />
-                )}
+  const scrollToProductsSection = () => {
+    window.requestAnimationFrame(() => {
+      productsSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  };
+
+  const handleProductPageChange = (nextPage: number) => {
+    const normalizedPage = Math.min(Math.max(1, nextPage), totalPages);
+    if (normalizedPage === page) return;
+
+    setPage(normalizedPage);
+    scrollToProductsSection();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-xl font-bold text-brand-cyan animate-pulse">
+        Cargando productos compatibles...
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8 md:py-10">
+      <div className="container mx-auto max-w-6xl px-4">
+        <div className="mb-8 text-center md:mb-10">
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.24em] text-brand-cyan">
+            PCSystemStore
+          </p>
+          <h1 className="mb-2 text-4xl font-black tracking-tight text-gray-950 md:text-5xl">
+            Arma tu <span className="text-brand-cyan">PC</span>
+          </h1>
+          <p className="text-gray-500">
+            Elige cada componente en orden y valida compatibilidad antes de comprar.
+          </p>
+
+          {platform && (
+            <div className="mt-8 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="mx-auto flex w-max min-w-full items-center justify-start gap-2 md:justify-center">
+                {STEPS.filter((step) => 'category' in step).map((step, idx) => {
+                const isCompleted = idx < currentStep;
+                const isActive = idx === currentStep;
+                const isSkipped = Boolean(skipped[step.id]);
+
+                return (
+                  <div key={step.id} className="flex shrink-0 items-center">
+                    <button
+                      type="button"
+                      onClick={() => goToStep(idx)}
+                      disabled={idx >= currentStep}
+                      title={idx < currentStep ? `Volver a ${step.title}` : step.title}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-black transition md:h-11 md:w-11 ${
+                        isActive
+                          ? 'border-gray-950 bg-gray-950 text-white ring-4 ring-cyan-100'
+                          : isCompleted
+                            ? isSkipped
+                              ? 'border-amber-300 bg-amber-50 text-amber-700 hover:border-amber-400'
+                              : 'border-brand-cyan bg-brand-cyan text-gray-950 hover:scale-105'
+                            : 'border-gray-200 bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      <step.icon size={18} />
+                    </button>
+                    <div className="ml-1.5 min-w-10 text-left md:min-w-12">
+                      <p
+                        className={`text-[10px] font-black uppercase leading-tight md:text-[11px] ${
+                          isActive ? 'text-gray-950' : isCompleted ? 'text-gray-700' : 'text-gray-400'
+                        }`}
+                      >
+                        {STEP_SHORT_LABELS[step.id] ?? step.title}
+                      </p>
+                    </div>
+                    {idx < STEPS.filter((item) => 'category' in item).length - 1 && (
+                      <div
+                        className={`mx-2 h-1 w-5 rounded-full md:w-7 ${
+                          idx < currentStep ? 'bg-brand-cyan' : 'bg-gray-200'
+                        }`}
+                      />
+                    )}
+                  </div>
+                );
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
-        <div className="min-h-[500px] p-2 md:p-6">
-          {/* PASO 0: ELEGIR PLATAFORMA */}
-          {currentStep === 0 && (
-            <div className="text-center animate-fade-in">
-              <h2 className="text-2xl font-bold text-gray-800 mb-8">¿Qué bando eliges?</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div className="min-h-[520px]">
+          {!platform && (
+            <div className="animate-fade-in mx-auto max-w-4xl text-center">
+              <h2 className="mb-3 text-3xl font-black text-gray-950">
+                ¿Qué bando eliges?
+              </h2>
+
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <button
-                  onClick={() => handleSelectPlatform('Intel')}
-                  className="group border border-gray-300 bg-white p-10 text-center transition-colors hover:border-blue-500"
+                  type="button"
+                  onClick={() => handleSelectPlatform('INTEL')}
+                  className="group flex min-h-56 flex-col items-center justify-center border border-gray-200 bg-gray-50 p-8 text-center transition hover:border-blue-500 hover:bg-blue-50/40"
                 >
-                  <h3 className="text-3xl font-black text-blue-600 tracking-widest mb-2">INTEL</h3>
-                  <p className="text-gray-500 font-medium">Core i3, i5, i7, i9</p>
+                  <h3 className="mb-2 text-4xl font-black tracking-widest text-blue-700">INTEL</h3>
+                  <p className="font-semibold text-gray-500">Core i y Core Ultra</p>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => handleSelectPlatform('AMD')}
-                  className="group border border-gray-300 bg-white p-10 text-center transition-colors hover:border-red-500"
+                  className="group flex min-h-56 flex-col items-center justify-center border border-gray-200 bg-gray-50 p-8 text-center transition hover:border-red-500 hover:bg-red-50/40"
                 >
-                  <h3 className="text-3xl font-black text-red-600 tracking-widest mb-2">AMD</h3>
-                  <p className="text-gray-500 font-medium">Ryzen 5, 7, 9</p>
+                  <h3 className="mb-2 text-4xl font-black tracking-widest text-red-700">AMD</h3>
+                  <p className="font-semibold text-gray-500">Ryzen y Threadripper</p>
                 </button>
               </div>
             </div>
           )}
 
-          {/* PASOS DEL 1 AL 7: SELECCIÓN DE COMPONENTES */}
-          {currentStep > 0 && currentStep < STEPS.length - 1 && (
-            <div className="animate-fade-in">
-              <div className="flex flex-col gap-4 mb-6 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-800">
-                  <StepIcon className="text-brand-cyan" />
-                  Elige tu {currentStepDef.title}
-                </h2>
-                <div className="flex items-center gap-3">
+          {platform && currentStep < STEPS.length - 1 && (
+            <div ref={productsSectionRef} className="animate-fade-in scroll-mt-28">
+              <div className="mb-6 flex flex-col gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="mb-1 text-xs font-black uppercase tracking-[0.2em] text-brand-cyan">
+                    Paso {currentStep + 1} de {STEPS.length - 1}
+                  </p>
+                  <h2 className="flex items-center gap-3 text-2xl font-black text-gray-900">
+                    <StepIcon className="text-brand-cyan" />
+                    Elige {currentStepDef.title}
+                  </h2>
+                  {currentStep === 0 && (
+                    <p className="mt-2 text-sm font-semibold text-gray-500">
+                      Plataforma seleccionada: <span className="text-gray-950">{platform}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                  {currentStep === 0 && (
+                    <button
+                      type="button"
+                      onClick={handleChangePlatform}
+                      className="text-sm font-bold text-gray-500 transition hover:text-brand-cyan"
+                    >
+                      Cambiar plataforma
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 transition hover:border-brand-cyan hover:text-brand-cyan"
+                    className="inline-flex items-center gap-2 border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-bold text-gray-700 transition hover:border-brand-cyan hover:text-brand-cyan"
                   >
-                    ← Regresar
+                    <FiChevronLeft /> Regresar
                   </button>
-                  {currentStepDef.optional && (
+                  {canSkipStep(currentStepDef.id) && (
                     <button
+                      type="button"
                       onClick={handleSkip}
-                      className="text-sm font-bold text-gray-400 hover:text-gray-800 transition flex items-center gap-1"
+                      className="inline-flex items-center gap-2 bg-gray-950 px-4 py-2 text-sm font-black text-white transition hover:bg-brand-cyan hover:text-gray-950"
                     >
-                      Omitir paso <FiChevronRight />
+                      Omitir <FiChevronRight />
                     </button>
                   )}
                 </div>
               </div>
 
               {filteredProducts.length === 0 ? (
-                <div className="border-2 border-dashed border-gray-300 bg-transparent py-20 text-center">
-                  <p className="text-lg text-gray-500 font-medium">
-                    No hay componentes compatibles en stock para esta selección.
+                <div className="border-2 border-dashed border-gray-300 bg-gray-50 py-16 text-center">
+                  <p className="text-lg font-semibold text-gray-500">
+                    No hay productos compatibles en stock para esta selección.
                   </p>
                   <button
-                    onClick={() => setCurrentStep((prev) => prev - 1)}
-                    className="mt-4 text-brand-cyan font-bold hover:underline"
+                    type="button"
+                    onClick={handleBack}
+                    className="mt-4 font-bold text-brand-cyan hover:underline"
                   >
                     Regresar al paso anterior
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="group flex flex-col border border-gray-300 bg-white p-5 transition-colors hover:border-gray-500"
-                    >
-                      <div className="mb-4 flex h-40 items-center justify-center border border-gray-200 bg-white p-2">
-                        {product.images?.[0] ? (
-                          <img
-                            src={product.images[0]}
-                            alt={product.name}
-                            className="max-h-full object-contain mix-blend-multiply transition-transform group-hover:scale-105"
-                          />
-                        ) : (
-                          <FiBox className="text-4xl text-gray-300" />
-                        )}
-                      </div>
-                      <h3 className="font-bold text-gray-800 leading-tight mb-2 line-clamp-2">
-                        {product.name}
-                      </h3>
+                <>
+                  <div className="mb-4 flex flex-col gap-2 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+                    <span>
+                      Mostrando {paginatedProducts.length} de {filteredProducts.length} opciones compatibles.
+                    </span>
+                    <span className="font-bold text-gray-700">
+                      Página {page} de {totalPages}
+                    </span>
+                  </div>
 
-                      <div className="text-xs text-gray-500 mb-4 space-y-1">
-                        {product.category === 'CPU' && (
-                          <p>
-                            Socket: {product.cpuSpecs?.socket} | {product.cpuSpecs?.cores} núcleos
-                          </p>
-                        )}
-                        {product.category === 'MOTHERBOARD' && (
-                          <p>
-                            Socket: {product.motherboardSpecs?.socket} |{' '}
-                            {product.motherboardSpecs?.memoryType}
-                          </p>
-                        )}
-                        {product.category === 'RAM' && (
-                          <p>
-                            {product.ramSpecs?.memoryType} | {product.ramSpecs?.capacity} GB a{' '}
-                            {product.ramSpecs?.speed}MHz
-                          </p>
-                        )}
-                      </div>
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {paginatedProducts.map((product) => {
+                      const specsSummary = getProductSpecsSummary(product).filter(Boolean);
+                      const productPath = getProductPath(product);
 
-                      <div className="mt-auto flex items-center justify-between pt-4 border-t border-gray-100">
-                        <span className="text-xl font-black text-gray-900">
-                          S/. {getEffectivePrice(product).toFixed(2)}
-                        </span>
-                        <button
-                          onClick={() => handleSelectComponent(product)}
-                          className="bg-gray-900 px-4 py-2 font-bold text-white transition hover:bg-brand-cyan hover:text-gray-900"
+                      return (
+                        <div
+                          key={product.id}
+                          className="group flex min-h-[360px] flex-col border border-gray-200 bg-gray-50 p-4 transition hover:border-gray-500"
                         >
-                          Seleccionar
-                        </button>
-                      </div>
+                          <Link
+                            href={productPath}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Abrir detalle de ${product.name}`}
+                            onClick={(event) => event.stopPropagation()}
+                            className="mb-4 flex h-40 items-center justify-center border border-gray-200 bg-white/70 p-3"
+                          >
+                            {product.images?.[0] ? (
+                              <img
+                                src={product.images[0]}
+                                alt={product.name}
+                                className="max-h-full max-w-full object-contain mix-blend-multiply transition-transform group-hover:scale-105"
+                              />
+                            ) : (
+                              <FiBox className="text-4xl text-gray-300" />
+                            )}
+                          </Link>
+
+                          <Link
+                            href={productPath}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Abrir detalle de ${product.name}`}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <h3 className="mb-2 line-clamp-2 min-h-[44px] text-sm font-black leading-tight text-gray-900 transition-colors hover:text-brand-cyan">
+                              {product.name}
+                            </h3>
+                          </Link>
+
+                          <div className="mb-4 min-h-[48px] space-y-1 text-xs font-medium text-gray-500">
+                            {specsSummary.slice(0, 3).map((spec) => (
+                              <p key={String(spec)}>{spec}</p>
+                            ))}
+                          </div>
+
+                          <div className="mt-auto flex items-end justify-between gap-3 border-t border-gray-200 pt-4">
+                            <div>
+                              <p className="text-[11px] font-bold uppercase text-gray-400">
+                                Stock: {product.stock ?? 0}
+                              </p>
+                              <span className="text-xl font-black text-gray-950">
+                                S/. {getEffectivePrice(product).toFixed(2)}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectComponent(product)}
+                              className="bg-gray-950 px-4 py-2 text-sm font-black text-white transition hover:bg-brand-cyan hover:text-gray-950"
+                            >
+                              Seleccionar
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="mt-7 flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleProductPageChange(page - 1)}
+                        disabled={page === 1}
+                        className="border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 transition hover:border-brand-cyan hover:text-brand-cyan disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Anterior
+                      </button>
+                      <span className="min-w-28 text-center text-sm font-black text-gray-800">
+                        Página {page} de {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleProductPageChange(page + 1)}
+                        disabled={page === totalPages}
+                        className="border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 transition hover:border-brand-cyan hover:text-brand-cyan disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Siguiente
+                      </button>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           )}
 
-          {/* PASO 8: RESUMEN FINAL */}
           {currentStep === STEPS.length - 1 && (
-            <div className="animate-fade-in max-w-4xl mx-auto">
-              <div className="text-center mb-10">
+            <div className="animate-fade-in mx-auto max-w-4xl">
+              <div className="mb-10 text-center">
                 <div className="mb-4 inline-flex h-20 w-20 items-center justify-center border border-green-200 bg-green-50 text-green-500">
                   <FiCheckCircle size={40} />
                 </div>
-                <h2 className="text-3xl font-black text-gray-800">¡Tu PC está lista!</h2>
-                <p className="text-gray-500 mt-2">Revisa tu configuración y procede a la compra.</p>
+                <h2 className="text-3xl font-black text-gray-900">Tu PC está lista</h2>
+                <p className="mt-2 text-gray-500">Revisa el armado y agrega los componentes al carrito.</p>
               </div>
 
-              <div className="mb-8 border border-gray-300 bg-transparent p-6 md:p-10">
+              <div className="mb-8 border border-gray-200 bg-gray-50 p-6 md:p-10">
                 <div className="space-y-4">
-                  {STEPS.filter((s) => s.category).map((step) => {
+                  {STEPS.filter((step) => 'category' in step).map((step) => {
                     const item = build[step.id];
+                    const skippedStep = skipped[step.id];
+
                     return (
                       <div
                         key={step.id}
-                        className="flex justify-between items-center border-b border-gray-200 pb-4 last:border-0 last:pb-0"
+                        className="flex flex-col gap-3 border-b border-gray-200 pb-4 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center border border-gray-300 bg-white text-gray-400">
                             <step.icon size={20} />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase">
-                              {step.title}
-                            </p>
+                            <p className="text-xs font-black uppercase text-gray-400">{step.title}</p>
                             <p
-                              className={`font-medium ${item ? 'text-gray-900' : 'text-gray-400 italic'}`}
+                              className={`font-semibold ${
+                                item ? 'text-gray-900' : skippedStep ? 'text-amber-700' : 'text-gray-400 italic'
+                              }`}
                             >
-                              {item ? item.name : '(No seleccionado)'}
+                              {item
+                                ? item.name
+                                : skippedStep
+                                  ? `Omitida (${skippedStep.reason})`
+                                  : '(No seleccionado)'}
                             </p>
                           </div>
                         </div>
                         {item && (
-                          <span className="font-bold text-gray-900 whitespace-nowrap">
+                          <span className="font-black text-gray-950 sm:whitespace-nowrap">
                             S/. {getEffectivePrice(item).toFixed(2)}
                           </span>
                         )}
@@ -731,7 +1250,7 @@ export default function PCBuilderPage() {
                 </div>
 
                 {compatibilityErrors.length > 0 && (
-                  <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                  <div className="mt-6 border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
                     {compatibilityErrors.map((error) => (
                       <p key={error}>{error}</p>
                     ))}
@@ -739,7 +1258,7 @@ export default function PCBuilderPage() {
                 )}
 
                 {backendErrorMessages.length > 0 && (
-                  <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                  <div className="mt-6 border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
                     {backendErrorMessages.map((error) => (
                       <p key={error}>{error}</p>
                     ))}
@@ -747,16 +1266,16 @@ export default function PCBuilderPage() {
                 )}
 
                 {backendWarningMessages.length > 0 && (
-                  <div className="mt-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-semibold text-yellow-700">
+                  <div className="mt-6 border border-yellow-200 bg-yellow-50 p-4 text-sm font-semibold text-yellow-700">
                     {backendWarningMessages.map((warning) => (
                       <p key={warning}>{warning}</p>
                     ))}
                   </div>
                 )}
 
-                <div className="mt-8 pt-6 border-t-2 border-gray-200 flex justify-between items-end">
-                  <span className="text-gray-500 font-bold uppercase tracking-widest">
-                    Total Estimado
+                <div className="mt-8 flex items-end justify-between border-t-2 border-gray-200 pt-6">
+                  <span className="font-black uppercase tracking-widest text-gray-500">
+                    Total estimado
                   </span>
                   <span className="text-4xl font-black text-blue-600">
                     S/.{' '}
@@ -767,9 +1286,9 @@ export default function PCBuilderPage() {
                 </div>
               </div>
 
-              {/* BOTONES FINALES */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
                 <button
+                  type="button"
                   onClick={handleRestart}
                   className="flex flex-1 items-center justify-center gap-2 border-2 border-gray-300 bg-white py-4 text-lg font-bold text-gray-700 transition hover:bg-gray-50"
                 >
@@ -777,6 +1296,7 @@ export default function PCBuilderPage() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleAddToCart}
                   disabled={
                     validatingBuild ||

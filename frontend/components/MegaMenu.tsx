@@ -62,7 +62,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
       name: 'Componentes',
       icon: FiCpu,
       items: [
-        { name: 'Configurador de PCs', href: '/builder' },
+        { name: 'Arma tu PC', href: '/armar-pc' },
         {
           name: 'Procesadores',
           href: '/categoria/cpu',
@@ -298,11 +298,11 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
 
           <div className="p-6 border-t shrink-0">
             <Link
-              href="/builder"
+              href="/armar-pc"
               onClick={handleClose}
               className="flex items-center gap-3 text-cyan-800 font-semibold hover:underline"
             >
-              <FiTool /> Configurador de PC
+              <FiTool /> Arma tu PC
             </Link>
             <Link
               href="/tienda"
