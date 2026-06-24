@@ -16,17 +16,25 @@ export class AppService {
     return {
       status: 'ok',
       api: 'running',
-      database: this.prisma.getConnectionState(),
+      service: 'pcsystemstore-backend',
+      timestamp: new Date().toISOString(),
     };
   }
 
   async getDatabaseHealth() {
-    const isConnected = await this.prisma.ping();
+    let isConnected = false;
+
+    try {
+      isConnected = await this.prisma.ping();
+    } catch {
+      isConnected = false;
+    }
 
     return {
       status: isConnected ? 'ok' : 'error',
       api: 'running',
       database: isConnected ? 'connected' : 'disconnected',
+      timestamp: new Date().toISOString(),
     };
   }
 }

@@ -23,4 +23,10 @@ export class AppController {
   getDatabaseHealth() {
     return this.appService.getDatabaseHealth();
   }
+
+  @Public()
+  @Get('ready')
+  getReadiness() {
+    return this.appService.getDatabaseHealth();
+  }
 }
