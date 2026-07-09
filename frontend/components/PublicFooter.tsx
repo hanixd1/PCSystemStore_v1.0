@@ -27,10 +27,8 @@ const PAYMENT_METHODS_IMAGE = '/payment-methods.png';
 function FooterTitle({ children }: { children: string }) {
   return (
     <div>
-      <h2 className="text-sm font-extrabold uppercase tracking-[0.28em] text-gray-950">
-        {children}
-      </h2>
-      <div className="mt-3 h-0.5 w-10 bg-cyan-400" />
+      <h2 className="text-sm font-extrabold uppercase tracking-[0.28em] text-white">{children}</h2>
+      <div className="mt-3 h-0.5 w-10 bg-cyan-200" />
     </div>
   );
 }
@@ -50,7 +48,7 @@ function InternalLinksColumn({
           <li key={`${title}-${link.label}`}>
             <Link
               href={link.href}
-              className="text-sm font-medium text-gray-700 transition-colors hover:text-cyan-500"
+              className="text-sm font-medium text-white/80 transition-colors hover:text-white"
             >
               {link.label}
             </Link>
@@ -91,7 +89,7 @@ function SocialColumn() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={link.ariaLabel}
-              className="text-sm font-medium text-gray-700 transition-colors hover:text-cyan-500"
+              className="text-sm font-medium text-white/80 transition-colors hover:text-white"
             >
               {link.label}
             </a>
@@ -108,7 +106,7 @@ function PaymentColumn() {
   return (
     <div>
       <FooterTitle>MEDIOS DE PAGO</FooterTitle>
-      <ul className="mt-5 space-y-3 text-sm font-medium text-gray-700">
+      <ul className="mt-5 space-y-3 text-sm font-medium text-white/80">
         <li>Transferencias</li>
         <li>Efectivo</li>
       </ul>
@@ -121,7 +119,7 @@ function PaymentColumn() {
             onError={() => setShowPaymentImage(false)}
           />
         ) : (
-          <p className="max-w-[220px] border border-dashed border-cyan-400/60 px-3 py-2 text-xs font-medium text-gray-500">
+          <p className="max-w-[220px] border border-dashed border-white/50 px-3 py-2 text-xs font-medium text-white/80">
             Próximamente se mostrarán los medios de pago disponibles.
           </p>
         )}
@@ -132,7 +130,7 @@ function PaymentColumn() {
 
 export default function PublicFooter() {
   return (
-    <footer className="border-t-2 border-cyan-400/50 bg-transparent">
+    <footer className="border-t-2 border-cyan-600 bg-cyan-700">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <InternalLinksColumn title="QUIÉNES SOMOS" links={WHO_WE_ARE_LINKS} />
         <InternalLinksColumn title="CONTACTAR" links={CONTACT_LINKS} />

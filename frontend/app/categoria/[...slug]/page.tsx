@@ -3,16 +3,29 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { FiBox, FiChevronRight, FiFilter, FiShoppingCart, FiSliders, FiX } from 'react-icons/fi';
+import {
+  FiBox,
+  FiChevronLeft,
+  FiChevronRight,
+  FiFilter,
+  FiShoppingCart,
+  FiSliders,
+  FiX,
+} from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
 import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/pricing';
+import { interleaveCpuBrands } from '@/lib/products/cpuBrandInterleave';
 import {
   GENERAL_PRODUCT_FILTERS,
   PRODUCT_FILTERS_BY_CATEGORY,
   ProductFilterConfig,
   SLUG_TO_CATEGORY,
 } from '@/lib/products/productFiltersConfig';
+
+const PRODUCTS_PER_PAGE = 24;
+const CPU_RECOMMENDED_FETCH_LIMIT = 60;
+const RECOMMENDED_SORT_VALUES = new Set(['', 'recommended', 'default', 'recomendado']);
 
 const DICTIONARY: Record<string, string> = {
   componentes: 'Todos los Componentes',
@@ -149,6 +162,21 @@ const areFiltersEqual = (a: Record<string, string>, b: Record<string, string>) =
   return aKeys.every((key) => a[key] === b[key]);
 };
 
+const getCurrentPage = (searchParamString: string) => {
+  const page = Number(new URLSearchParams(searchParamString).get('page') || '1');
+  return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+};
+
+const isRecommendedSortValue = (value: string | null) =>
+  RECOMMENDED_SORT_VALUES.has((value || '').toLowerCase().trim());
+
+const getPageNumbers = (page: number, totalPages: number) => {
+  const pages = new Set([1, totalPages, page - 1, page, page + 1].filter((item) => item >= 1));
+  return Array.from(pages)
+    .filter((item) => item <= totalPages)
+    .sort((a, b) => a - b);
+};
+
 export default function CategoryPage() {
   const params = useParams();
   const router = useRouter();
@@ -160,6 +188,7 @@ export default function CategoryPage() {
     return rawSlugArray.join('/');
   }, [params?.slug]);
   const searchParamString = searchParams.toString();
+  const currentPage = useMemo(() => getCurrentPage(searchParamString), [searchParamString]);
   const slugArray = useMemo(
     () => slugKey.split('/').map(normalizeSearchText).filter(Boolean),
     [slugKey],
@@ -183,6 +212,12 @@ export default function CategoryPage() {
     () => getInitialRouteFilters(fullSlug, lastSlug),
     [fullSlug, lastSlug],
   );
+  const shouldInterleaveCpuProducts = useMemo(() => {
+    if (selectedCategory !== 'CPU') return false;
+
+    const paramsSnapshot = new URLSearchParams(searchParamString);
+    return isRecommendedSortValue(paramsSnapshot.get('sortBy'));
+  }, [searchParamString, selectedCategory]);
   const pageTitle = useMemo(
     () =>
       isSearchMode
@@ -227,7 +262,8 @@ export default function CategoryPage() {
       if (filter.key === 'sortBy') {
         const sortBy = paramsSnapshot.get('sortBy');
         const sortOrder = paramsSnapshot.get('sortOrder');
-        nextDraft.sortBy = sortBy ? `${sortBy}:${sortOrder || 'desc'}` : '';
+        nextDraft.sortBy =
+          sortBy && !isRecommendedSortValue(sortBy) ? `${sortBy}:${sortOrder || 'desc'}` : '';
         return;
       }
 
@@ -245,8 +281,13 @@ export default function CategoryPage() {
     if (!fullSlug || !isKnownRoute) return '';
 
     const query = new URLSearchParams(searchParamString);
-    query.set('page', query.get('page') || '1');
-    query.set('limit', query.get('limit') || '24');
+    query.set('page', shouldInterleaveCpuProducts ? '1' : query.get('page') || '1');
+    query.set('limit', shouldInterleaveCpuProducts ? String(CPU_RECOMMENDED_FETCH_LIMIT) : '24');
+
+    if (shouldInterleaveCpuProducts) {
+      query.delete('sortBy');
+      query.delete('sortOrder');
+    }
 
     if (isSearchMode) {
       query.set('search', searchQuery);
@@ -273,6 +314,7 @@ export default function CategoryPage() {
     searchParamString,
     searchQuery,
     selectedCategory,
+    shouldInterleaveCpuProducts,
   ]);
 
   useEffect(() => {
@@ -286,27 +328,61 @@ export default function CategoryPage() {
     const controller = new AbortController();
 
     setLoading(true);
-    api
-      .get(`/products?${productsQueryString}`, { signal: controller.signal })
-      .then((res) => {
+    const fetchProducts = async () => {
+      try {
+        const res = await api.get(`/products?${productsQueryString}`, {
+          signal: controller.signal,
+        });
         if (controller.signal.aborted) return;
         const data: ProductsResponse | any[] = res.data;
         const items = Array.isArray(data) ? data : data.items || [];
-        setProducts(items);
-        setTotal(Array.isArray(data) ? items.length : data.total || items.length);
-      })
-      .catch((err) => {
+        const resolvedTotal = Array.isArray(data) ? items.length : data.total || items.length;
+
+        if (!shouldInterleaveCpuProducts) {
+          setProducts(items);
+          setTotal(resolvedTotal);
+          return;
+        }
+
+        const totalPagesToFetch = Math.ceil(resolvedTotal / CPU_RECOMMENDED_FETCH_LIMIT);
+        if (totalPagesToFetch <= 1) {
+          setProducts(items);
+          setTotal(resolvedTotal);
+          return;
+        }
+
+        const remainingResponses = await Promise.all(
+          Array.from({ length: totalPagesToFetch - 1 }, (_, index) => {
+            const nextQuery = new URLSearchParams(productsQueryString);
+            nextQuery.set('page', String(index + 2));
+            nextQuery.set('limit', String(CPU_RECOMMENDED_FETCH_LIMIT));
+            return api.get(`/products?${nextQuery.toString()}`, { signal: controller.signal });
+          }),
+        );
+
+        if (controller.signal.aborted) return;
+
+        const remainingItems = remainingResponses.flatMap((response) => {
+          const responseData: ProductsResponse | any[] = response.data;
+          return Array.isArray(responseData) ? responseData : responseData.items || [];
+        });
+
+        setProducts([...items, ...remainingItems]);
+        setTotal(resolvedTotal);
+      } catch (err) {
         if (controller.signal.aborted) return;
         console.error(err);
         setProducts([]);
         setTotal(0);
-      })
-      .finally(() => {
+      } finally {
         if (!controller.signal.aborted) setLoading(false);
-      });
+      }
+    };
+
+    void fetchProducts();
 
     return () => controller.abort();
-  }, [fullSlug, productsQueryString]);
+  }, [fullSlug, productsQueryString, shouldInterleaveCpuProducts]);
 
   const filterOptionsQueryString = useMemo(() => {
     if (isSearchMode) return '';
@@ -549,6 +625,41 @@ export default function CategoryPage() {
     );
   };
 
+  const orderedProducts = useMemo(
+    () => (shouldInterleaveCpuProducts ? interleaveCpuBrands(products) : products),
+    [products, shouldInterleaveCpuProducts],
+  );
+  const totalPages = Math.max(1, Math.ceil(total / PRODUCTS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageNumbers = useMemo(
+    () => getPageNumbers(safeCurrentPage, totalPages),
+    [safeCurrentPage, totalPages],
+  );
+  const visibleProducts = useMemo(() => {
+    if (!shouldInterleaveCpuProducts) return orderedProducts;
+
+    const start = (safeCurrentPage - 1) * PRODUCTS_PER_PAGE;
+    return orderedProducts.slice(start, start + PRODUCTS_PER_PAGE);
+  }, [orderedProducts, safeCurrentPage, shouldInterleaveCpuProducts]);
+  const categoryPath = `/categoria/${slugArray.map((slug) => encodeURIComponent(slug)).join('/')}`;
+
+  const handlePageChange = (nextPage: number) => {
+    const page = Math.min(Math.max(nextPage, 1), totalPages);
+    if (page === safeCurrentPage) return;
+
+    const query = new URLSearchParams(searchParamString);
+    query.set('page', String(page));
+    query.delete('limit');
+
+    router.push(`${categoryPath}?${query.toString()}`);
+
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById('category-products-list')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   const filtersPanel = (
     <form onSubmit={applyFilters} className="space-y-5">
       <div className="flex items-center justify-between">
@@ -644,9 +755,13 @@ export default function CategoryPage() {
             </div>
           ) : null}
 
-          <main>
+          <main id="category-products-list">
             <div className="mb-5 flex items-center justify-between border-b border-gray-300 pb-3 text-sm font-bold text-gray-500">
-              <span>{loading ? 'Cargando productos...' : `${total} producto(s) encontrados`}</span>
+              <span>
+                {loading
+                  ? 'Cargando productos...'
+                  : `${total} producto(s) encontrados · Página ${safeCurrentPage} de ${totalPages}`}
+              </span>
               {selectedCategory ? (
                 <span className="text-brand-cyan">{selectedCategory}</span>
               ) : null}
@@ -656,7 +771,7 @@ export default function CategoryPage() {
               <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-brand-cyan"></div>
               </div>
-            ) : products.length === 0 ? (
+            ) : visibleProducts.length === 0 ? (
               <div className="mx-auto mt-10 flex min-h-[320px] max-w-2xl flex-col items-center justify-center bg-transparent p-8 text-center">
                 <FiBox className="mx-auto text-6xl text-gray-300 mb-4" />
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">
@@ -673,68 +788,123 @@ export default function CategoryPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-                {products.map((product) => (
-                  <div
-                    key={product.id}
-                    className="group flex flex-col overflow-hidden border border-gray-300 bg-gray-50 transition-colors duration-200 hover:border-gray-500"
-                  >
-                    <Link
-                      href={`/producto/${product.slug || product.id}`}
-                      className="relative flex h-56 items-center justify-center bg-transparent p-6"
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                  {visibleProducts.map((product) => (
+                    <div
+                      key={product.id}
+                      className="group flex flex-col overflow-hidden border border-gray-300 bg-gray-50 transition-colors duration-200 hover:border-gray-500"
                     >
-                      {product.images && product.images.length > 0 ? (
-                        <img
-                          src={product.images[0]}
-                          alt={product.name}
-                          className="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <FiBox className="text-gray-200 text-6xl" />
-                      )}
-                    </Link>
-
-                    <div className="flex flex-1 flex-col p-5">
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
-                        {product.category}
-                      </span>
-
-                      <Link href={`/producto/${product.slug || product.id}`}>
-                        <h3 className="font-bold text-sm text-gray-800 leading-tight mb-4 hover:text-brand-cyan transition line-clamp-2">
-                          {product.name}
-                        </h3>
+                      <Link
+                        href={`/producto/${product.slug || product.id}`}
+                        className="relative flex h-56 items-center justify-center bg-transparent p-6"
+                      >
+                        {product.images && product.images.length > 0 ? (
+                          <img
+                            src={product.images[0]}
+                            alt={product.name}
+                            className="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-105"
+                          />
+                        ) : (
+                          <FiBox className="text-gray-200 text-6xl" />
+                        )}
                       </Link>
 
-                      <div className="mt-auto flex items-end justify-between pt-4">
-                        <div>
-                          {isSaleActive(product) ? (
-                            <div className="mb-1 flex items-center gap-2">
-                              <span className="border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">
-                                -{getDiscountPercent(product)}%
-                              </span>
-                              <span className="text-xs font-bold text-gray-400 line-through">
-                                S/. {Number(product.price).toFixed(2)}
-                              </span>
-                            </div>
-                          ) : null}
-                          <p className="text-xl font-black text-gray-900">
-                            S/. {getEffectivePrice(product).toFixed(2)}
-                          </p>
+                      <div className="flex flex-1 flex-col p-5">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                          {product.category}
+                        </span>
+
+                        <Link href={`/producto/${product.slug || product.id}`}>
+                          <h3 className="font-bold text-sm text-gray-800 leading-tight mb-4 hover:text-brand-cyan transition line-clamp-2">
+                            {product.name}
+                          </h3>
+                        </Link>
+
+                        <div className="mt-auto flex items-end justify-between pt-4">
+                          <div>
+                            {isSaleActive(product) ? (
+                              <div className="mb-1 flex items-center gap-2">
+                                <span className="border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-600">
+                                  -{getDiscountPercent(product)}%
+                                </span>
+                                <span className="text-xs font-bold text-gray-400 line-through">
+                                  S/. {Number(product.price).toFixed(2)}
+                                </span>
+                              </div>
+                            ) : null}
+                            <p className="text-xl font-black text-gray-900">
+                              S/. {getEffectivePrice(product).toFixed(2)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              addItem(product);
+                            }}
+                            disabled={product.stock <= 0}
+                            className="bg-gray-900 p-2.5 text-white transition hover:bg-brand-cyan hover:text-black disabled:cursor-not-allowed disabled:opacity-50 group-active:scale-95"
+                          >
+                            <FiShoppingCart className="text-lg" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => {
-                            addItem(product);
-                          }}
-                          disabled={product.stock <= 0}
-                          className="bg-gray-900 p-2.5 text-white transition hover:bg-brand-cyan hover:text-black disabled:cursor-not-allowed disabled:opacity-50 group-active:scale-95"
-                        >
-                          <FiShoppingCart className="text-lg" />
-                        </button>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+
+                {totalPages > 1 ? (
+                  <nav
+                    aria-label="Paginacion de productos"
+                    className="mt-10 flex items-center justify-center gap-3"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(safeCurrentPage - 1)}
+                      disabled={safeCurrentPage <= 1}
+                      aria-label="Ir a la pagina anterior"
+                      className="inline-flex items-center gap-2 px-2 py-2 text-sm font-black text-gray-700 transition hover:text-cyan-600 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:text-gray-300"
+                    >
+                      <FiChevronLeft aria-hidden="true" /> Anterior
+                    </button>
+
+                    <div className="flex items-center justify-center gap-2">
+                      {pageNumbers.map((pageNumber, index) => {
+                        const previous = pageNumbers[index - 1];
+                        const showGap = previous && pageNumber - previous > 1;
+
+                        return (
+                          <div key={pageNumber} className="flex items-center gap-2">
+                            {showGap ? <span className="text-sm text-gray-400">...</span> : null}
+                            <button
+                              type="button"
+                              onClick={() => handlePageChange(pageNumber)}
+                              aria-label={`Ir a la pagina ${pageNumber}`}
+                              aria-current={safeCurrentPage === pageNumber ? 'page' : undefined}
+                              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-black transition ${
+                                safeCurrentPage === pageNumber
+                                  ? 'bg-brand-cyan text-gray-950 shadow-sm'
+                                  : 'border border-gray-200 bg-white text-gray-700 hover:border-cyan-400 hover:text-cyan-600'
+                              }`}
+                            >
+                              {pageNumber}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(safeCurrentPage + 1)}
+                      disabled={safeCurrentPage >= totalPages}
+                      aria-label="Ir a la pagina siguiente"
+                      className="inline-flex items-center gap-2 px-2 py-2 text-sm font-black text-gray-700 transition hover:text-cyan-600 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:text-gray-300"
+                    >
+                      Siguiente <FiChevronRight aria-hidden="true" />
+                    </button>
+                  </nav>
+                ) : null}
+              </>
             )}
           </main>
         </div>

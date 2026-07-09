@@ -116,6 +116,7 @@ export const GENERAL_PRODUCT_FILTERS: ProductFilterConfig[] = [
     label: 'Ordenar por',
     type: 'select',
     options: [
+      { label: 'Recomendado', value: '' },
       { label: 'Precio menor a mayor', value: 'price:asc' },
       { label: 'Precio mayor a menor', value: 'price:desc' },
       { label: 'Nombre A-Z', value: 'name:asc' },
