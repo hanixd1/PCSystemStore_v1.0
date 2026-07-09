@@ -1,0 +1,68 @@
+name: QA tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-unit:
+    name: Frontend unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run test
+
+  backend-e2e-qa:
+    name: Backend QA E2E
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pcsystemstore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pcsystemstore_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pcsystemstore_test?schema=public
+      DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/pcsystemstore_test?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/pcsystemstore_test?schema=public
+      JWT_SECRET: test-jwt-secret
+      JWT_SECRET_TEST: test-jwt-secret
+      JWT_EXPIRES_IN: 1h
+      PAYMENTS_ENABLED: "true"
+      PAYMENT_SIMULATION_ENABLED: "true"
+      CHECKOUT_MODE: DIRECT_PAYMENT
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run test:e2e:qa

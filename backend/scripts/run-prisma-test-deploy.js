@@ -31,6 +31,7 @@ if (!process.env.DATABASE_URL_TEST || !process.env.DATABASE_URL_TEST.trim()) {
 
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = process.env.DATABASE_URL_TEST;
+process.env.DIRECT_URL = process.env.DATABASE_URL_TEST;
 
 const command = resolve(
   process.cwd(),
