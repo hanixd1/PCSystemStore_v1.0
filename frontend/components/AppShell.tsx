@@ -7,12 +7,13 @@ import ClientChatbot from '@/components/ClientChatbot';
 import CartHydrator from '@/components/CartHydrator';
 import PublicFooter from '@/components/PublicFooter';
 import AppNotifier from '@/components/AppNotifier';
+import { isAdminRoute } from '@/lib/adminRouting';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAdminRoute = pathname?.startsWith('/admin');
+  const isAdminSection = isAdminRoute(pathname);
 
-  if (isAdminRoute) {
+  if (isAdminSection) {
     return (
       <>
         <main className="min-h-screen">{children}</main>

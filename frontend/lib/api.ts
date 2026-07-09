@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isAdminRoute } from '@/lib/adminRouting';
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, '');
 export const API_URL = configuredApiUrl || '';
@@ -103,7 +104,7 @@ export function clearStoredAuthSession() {
     return;
   }
 
-  const isAdminPath = window.location.pathname.startsWith('/admin');
+  const isAdminPath = isAdminRoute(window.location.pathname);
 
   if (isAdminPath) {
     localStorage.removeItem('adminUser');

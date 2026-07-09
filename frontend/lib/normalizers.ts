@@ -38,6 +38,7 @@ export function normalizeLaptopStorage(value: unknown): string {
     .replaceAll('GBHDD', 'GB HDD')
     .replaceAll('TBSSD', 'TB SSD')
     .replaceAll('TBHDD', 'TB HDD')
+    .replace(/(\d)(GB|TB)/g, '$1 $2')
     .split('+')
     .map((part) => part.trim())
     .join(' + ');
