@@ -6,105 +6,17 @@ import { FiMessageSquare, FiX, FiSend, FiCpu } from 'react-icons/fi';
 import { api } from '@/lib/api';
 import { parseBooleanLike } from '@/lib/productPayload';
 import { MAX_CART_ITEM_QUANTITY, useCartStore } from '@/store/useCartStore';
-
-type ChatProduct = {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-  imageUrl?: string | null;
-  productUrl: string;
-};
-
-type ChatMessage = {
-  id: string;
-  text: string;
-  role: 'user' | 'assistant';
-  products?: ChatProduct[];
-};
-
-type ChatAction = {
-  type: 'add_to_cart';
-  productId: string;
-  quantity?: number;
-};
-
-type ConversationState = {
-  intent:
-    | 'product_search'
-    | 'pc_build'
-    | 'budget_pc_build'
-    | 'cart_action'
-    | 'total_query'
-    | 'checkout_guidance'
-    | 'support'
-    | 'unknown'
-    | null;
-  budget: number | null;
-  usage: string | null;
-  includesPeripherals: boolean | null;
-  mentionedProducts: string[];
-  lastRecommendedProducts: ChatProduct[];
-  lastRecommendedBuild: ChatProduct[];
-  lastFocusedProductId: string | null;
-  awaiting: string | null;
-};
-
-type CatalogCategory =
-  | 'GPU'
-  | 'CPU'
-  | 'RAM'
-  | 'MOTHERBOARD'
-  | 'STORAGE'
-  | 'PSU'
-  | 'CASE'
-  | 'COOLER'
-  | 'MONITOR'
-  | 'KEYBOARD'
-  | 'MOUSE'
-  | 'HEADSET'
-  | 'MICROPHONE'
-  | 'LAPTOP';
-
-type GuidedStep =
-  | 'gpuBrand'
-  | 'cpuBrand'
-  | 'ramType'
-  | 'ramCapacity'
-  | 'ramModules'
-  | 'motherboardPlatform'
-  | 'motherboardSocket'
-  | 'storageType'
-  | 'storageCapacity'
-  | 'psuWattage'
-  | 'caseFormFactor'
-  | 'caseIncludesPsu'
-  | 'coolerType'
-  | 'coolerRadiator';
-
-type GuidedSearchState = {
-  category: CatalogCategory;
-  step: GuidedStep;
-  filters: Record<string, string>;
-};
-
-type CatalogProduct = Record<string, any> & {
-  id: string;
-  name: string;
-  price: number | string;
-  stock: number;
-  images?: string[];
-  imageUrl?: string | null;
-  category?: string;
-};
-
-type CatalogSearchResponse = {
-  success: boolean;
-  searchAvailable?: boolean;
-  message?: string;
-  items: CatalogProduct[];
-};
-
+import type {
+  CatalogCategory,
+  CatalogProduct,
+  CatalogSearchResponse,
+  ChatAction,
+  ChatMessage,
+  ChatProduct,
+  ConversationState,
+  GuidedSearchState,
+  GuidedStep,
+} from '@/components/chatbot/chatbotTypes';
 const STARTER_PROMPTS = [
   'Tengo 3000 soles y quiero una PC para jugar',
   'Busco una PC para oficina con monitor',
