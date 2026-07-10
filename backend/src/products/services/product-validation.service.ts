@@ -16,7 +16,6 @@ export class ProductValidationService {
   private readonly minDescriptionLength = 10;
   private readonly maxDescriptionLength = 200;
 
-
   ensureNonNegative(field: string, value: any, allowZero = true) {
     if (value === '' || value === undefined || value === null) {
       return;
@@ -220,7 +219,10 @@ export class ProductValidationService {
       throw new BadRequestException('El consumo real de la GPU debe ser mayor a 0');
     }
 
-    if (this.payload.hasValue(data.recommendedPsuWatts) && this.payload.toInt(data.recommendedPsuWatts) <= 0) {
+    if (
+      this.payload.hasValue(data.recommendedPsuWatts) &&
+      this.payload.toInt(data.recommendedPsuWatts) <= 0
+    ) {
       throw new BadRequestException('La PSU recomendada debe ser mayor a 0');
     }
 
@@ -240,10 +242,6 @@ export class ProductValidationService {
 
     if (this.payload.toInt(data.tdpCapacity) <= 0) {
       throw new BadRequestException('El TDP soportado del cooler debe ser mayor a 0');
-    }
-
-    if (coolerType === 'Torre' && this.payload.toInt(data.coolerHeight) <= 0) {
-      throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
     }
 
     if (coolerType === 'Líquida' && this.payload.toInt(data.radiatorSize) <= 0) {
@@ -277,7 +275,9 @@ export class ProductValidationService {
 
   private validateCaseCategory(data: any) {
     this.validateBrandRequired(data, 'Selecciona la marca del gabinete.');
-    const supportedFormFactors = this.payload.toStringArray(data.supportedFormFactors ?? data.formFactor);
+    const supportedFormFactors = this.payload.toStringArray(
+      data.supportedFormFactors ?? data.formFactor,
+    );
 
     if (supportedFormFactors.length === 0) {
       throw new BadRequestException('Selecciona al menos un soporte de placa para el gabinete.');
@@ -288,11 +288,8 @@ export class ProductValidationService {
     }
 
     if (data.radiatorSupportMm !== undefined && data.radiatorSupportMm !== '') {
-      this.ensureNonNegative('radiatorSupportMm', data.radiatorSupportMm, false);
-    }
-
-    if (data.maxCoolerHeight !== undefined && data.maxCoolerHeight !== '') {
-      this.ensureNonNegative('maxCoolerHeight', data.maxCoolerHeight, false);
+      // Zero is the persisted representation of "No soporta".
+      this.ensureNonNegative('radiatorSupportMm', data.radiatorSupportMm);
     }
   }
   private validatePeripheralCategoryFields(category: string, data: any) {
@@ -310,9 +307,9 @@ export class ProductValidationService {
   private validateKeyboardMouseConnections(category: string, data: any) {
     const validConnections = ['Cableado', 'Bluetooth', 'Dongle USB', 'Inalambrico', '2.4 GHz'];
     if ((category === 'KEYBOARD' || category === 'MOUSE') && data.connections !== undefined) {
-      const invalidConnection = this.payload.toStringArray(data.connections).find(
-        (connection) => !validConnections.includes(connection),
-      );
+      const invalidConnection = this.payload
+        .toStringArray(data.connections)
+        .find((connection) => !validConnections.includes(connection));
       if (invalidConnection) {
         throw new BadRequestException('Tipo de conexion no valido');
       }
@@ -536,7 +533,6 @@ export class ProductValidationService {
     }
   }
 
-
   validateCpuBrandSocket(brand: string, socket: string) {
     const socketsByBrand: Record<string, string[]> = {
       AMD: ['AM4', 'AM5', 'sTR4', 'sTRX4', 'sWRX8', 'sTR5'],
@@ -551,5 +547,4 @@ export class ProductValidationService {
       throw new BadRequestException('El socket no corresponde a la marca del procesador');
     }
   }
-
 }

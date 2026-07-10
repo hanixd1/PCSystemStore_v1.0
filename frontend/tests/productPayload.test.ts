@@ -79,11 +79,32 @@ describe('buildProductPayload', () => {
       supportedFormFactors: [],
       radiatorSupportMmValues: ['240', '360'],
       includesPsu: 'no',
+      supportsTowerCooler: 'No',
     });
 
     expect(payload.supportedFormFactors).toBeUndefined();
     expect(payload.radiatorSupportMmValues).toEqual(['240', '360']);
     expect(payload.includesPsu).toBe(false);
+    expect(payload.supportsTowerCooler).toBe(false);
+  });
+
+  it('keeps the no-radiator case selection without coercing its tower support', () => {
+    const payload = buildProductPayload({
+      ...baseProduct,
+      category: 'CASE',
+      brand: 'NZXT',
+      supportedFormFactors: ['ATX'],
+      maxGpuLength: '360',
+      radiatorSupportMm: '0',
+      radiatorSupportMmValues: ['0'],
+      supportsTowerCooler: 'false',
+    });
+
+    expect(payload).toMatchObject({
+      radiatorSupportMm: '0',
+      radiatorSupportMmValues: ['0'],
+      supportsTowerCooler: false,
+    });
   });
 
   it('does not activate sales during product creation', () => {
@@ -93,5 +114,116 @@ describe('buildProductPayload', () => {
     );
 
     expect(payload).toMatchObject({ isOnSale: false, salePrice: null });
+  });
+
+  it.each([
+    [
+      'CPU',
+      {
+        cpuBrand: 'AMD',
+        socket: 'AM5',
+        baseTdpWatts: '65',
+        tdp: '120',
+        cores: '8',
+        threads: '16',
+        frequency: '5.2',
+        integratedGraphics: 'true',
+        includesCooler: 'false',
+      },
+    ],
+    [
+      'MOTHERBOARD',
+      {
+        brand: 'ASUS',
+        socket: 'AM5',
+        formFactor: 'ATX',
+        memoryType: 'DDR5',
+        memorySlots: '4',
+        m2Slots: '2',
+        supportedM2FormFactors: ['2242', '2280'],
+      },
+    ],
+    [
+      'RAM',
+      {
+        brand: 'Kingston',
+        memoryType: 'DDR5',
+        capacity: '16',
+        modules: '2',
+        speed: '6000',
+        latency: 'CL36',
+        hasRGB: 'false',
+      },
+    ],
+    [
+      'GPU',
+      {
+        brand: 'ASUS',
+        chipset: 'NVIDIA',
+        vram: '12',
+        typeVram: 'GDDR6X',
+        length: '320',
+        gpuPowerWatts: '285',
+        recommendedPsuWatts: '750',
+        fans: '3',
+      },
+    ],
+    [
+      'PSU',
+      {
+        brand: 'Corsair',
+        wattage: '750',
+        certification: '80 Plus Gold',
+        modular: 'Full Modular',
+        formFactor: 'ATX',
+      },
+    ],
+    [
+      'CASE',
+      {
+        brand: 'NZXT',
+        supportedFormFactors: ['ATX', 'Micro ATX'],
+        maxGpuLength: '365',
+        includesPsu: 'false',
+        supportsTowerCooler: 'true',
+        includedFans: '3',
+        radiatorSupportMmValues: ['240', '360'],
+      },
+    ],
+    [
+      'COOLER',
+      {
+        brand: 'DeepCool',
+        type: 'Líquida',
+        compatibleSockets: ['AM5', 'LGA1700'],
+        tdpCapacity: '250',
+        radiatorSize: '360',
+        hasScreen: 'false',
+        hasRGB: 'true',
+      },
+    ],
+    [
+      'STORAGE',
+      {
+        type: 'Sólido M.2',
+        interface: 'PCIe 4.0',
+        capacity: '1000',
+        readSpeed: '7000',
+        writeSpeed: '6500',
+        m2FormFactor: '2280',
+      },
+    ],
+  ])('keeps create/edit technical payload parity for %s', (category, specs) => {
+    const formData = {
+      ...baseProduct,
+      category,
+      sku: `${category}-QA-001`,
+      isOnSale: false,
+      ...specs,
+    };
+
+    expect(buildProductPayload(formData, { mode: 'create' })).toEqual(
+      buildProductPayload(formData, { mode: 'edit' }),
+    );
   });
 });

@@ -43,7 +43,7 @@ type BuilderProduct = {
     formFactor?: string | null;
     supportedFormFactors?: string[] | null;
     maxGpuLength?: number | null;
-    maxCoolerHeight?: number | null;
+    supportsTowerCooler?: boolean | null;
     includedFans?: number | null;
     radiatorSupportMm?: number | null;
     radiatorSupportMmValues?: string[] | null;
@@ -53,7 +53,6 @@ type BuilderProduct = {
     compatibleSockets?: string[] | null;
     tdpCapacity?: number | null;
     type?: string | null;
-    coolerHeight?: number | null;
     radiatorSize?: number | null;
   } | null;
   storageSpecs?: {
@@ -420,21 +419,20 @@ export class BuilderService {
 
     const coolerType = this.normalizeCoolerType(cooler.coolerSpecs?.type);
     if (coolerType === 'TORRE') {
-      const coolerHeight = this.toNumber(cooler.coolerSpecs?.coolerHeight);
-      const caseMaxCoolerHeight = this.toNumber(pcCase.caseSpecs?.maxCoolerHeight);
-      if (!coolerHeight || !caseMaxCoolerHeight) {
+      const supportsTowerCooler = pcCase.caseSpecs?.supportsTowerCooler;
+      if (supportsTowerCooler === null || supportsTowerCooler === undefined) {
         warnings.push({
-          code: 'COOLER_CASE_HEIGHT_METADATA_MISSING',
-          message: 'Falta metadata para validar altura de cooler contra gabinete.',
+          code: 'COOLER_CASE_TOWER_METADATA_MISSING',
+          message: 'El gabinete no declara si soporta refrigeración de torre.',
           products: [cooler.id, pcCase.id],
         });
         return;
       }
 
-      if (coolerHeight > caseMaxCoolerHeight) {
+      if (!supportsTowerCooler) {
         errors.push({
-          code: 'COOLER_CASE_HEIGHT_EXCEEDED',
-          message: 'El cooler seleccionado excede la altura maxima soportada por el gabinete.',
+          code: 'COOLER_CASE_TOWER_UNSUPPORTED',
+          message: 'El gabinete seleccionado no soporta refrigeración de torre.',
           products: [cooler.id, pcCase.id],
         });
       }

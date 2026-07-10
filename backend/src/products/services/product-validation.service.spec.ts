@@ -27,4 +27,25 @@ describe('ProductValidationService', () => {
     expect(() => service.ensureNonNegative('stock', 0)).not.toThrow();
     expect(() => service.ensureNonNegative('stock', -1)).toThrow('no puede ser negativo');
   });
+
+  it('accepts a case without liquid radiator support and a tower cooler without height', () => {
+    expect(() =>
+      service.validateCategoryFields('CASE', {
+        brand: 'NZXT',
+        supportedFormFactors: ['ATX'],
+        maxGpuLength: 360,
+        radiatorSupportMm: 0,
+        supportsTowerCooler: false,
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      service.validateCategoryFields('COOLER', {
+        brand: 'DeepCool',
+        type: 'Torre',
+        compatibleSockets: ['AM5'],
+        tdpCapacity: 180,
+      }),
+    ).not.toThrow();
+  });
 });

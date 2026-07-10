@@ -6,6 +6,7 @@ const BOOLEAN_FIELDS = new Set([
   'includesCooler',
   'hasRGB',
   'includesPsu',
+  'supportsTowerCooler',
   'hasScreen',
   'hasHdmiOutput',
   'hasRj45Output',
@@ -151,8 +152,8 @@ export function buildProductPayload(
           'formFactor',
           'supportedFormFactors',
           'maxGpuLength',
-          'maxCoolerHeight',
           'includesPsu',
+          'supportsTowerCooler',
           'includedFans',
           'radiatorSupportMm',
           'radiatorSupportMmValues',
@@ -171,7 +172,6 @@ export function buildProductPayload(
           'hasScreen',
           'hasRGB',
           'tdpCapacity',
-          'coolerHeight',
         ]),
       );
       break;

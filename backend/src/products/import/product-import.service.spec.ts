@@ -136,8 +136,8 @@ function caseRow(overrides: Record<string, unknown> = {}) {
     imagenesArchivos: 'case.jpg',
     soportePlaca: 'ATX; Micro-ATX; Mini-ITX',
     largoGpuMax: '330',
-    alturaCoolerMax: '160',
     soporteRadiadorLiquido: '120 mm; 240 mm; 360 mm',
+    soportaRefrigeracionTorre: 'Si',
     ventiladoresIncluidos: '3',
     ...overrides,
   };
@@ -155,7 +155,6 @@ function coolerRow(overrides: Record<string, unknown> = {}) {
     imagenesArchivos: 'cooler.jpg',
     tipo: 'Liquida',
     socketSoportado: 'AM4; AM5; LGA1700; LGA1851',
-    alturaMm: '',
     radiadorMm: '360',
     tdpSoportado: '300',
     pantallaLcd: 'No',
@@ -502,7 +501,7 @@ describe('ProductImportService', () => {
     );
   });
 
-  it('CASE importa soportePlaca multiple, alturaCoolerMax y radiadores multiples', async () => {
+  it('CASE importa soportePlaca multiple, soporte de torre y radiadores multiples', async () => {
     const { service, productsService } = createService();
     productsService.create.mockResolvedValue({ id: 'case-1', name: 'Case QA', sku: 'CASE-QA-1' });
 
@@ -516,7 +515,7 @@ describe('ProductImportService', () => {
       expect.objectContaining({
         supportedFormFactors: ['ATX', 'Micro-ATX', 'Mini-ITX'],
         maxGpuLength: 330,
-        maxCoolerHeight: 160,
+        supportsTowerCooler: true,
         radiatorSupportMmValues: ['120', '240', '360'],
         includedFans: 3,
       }),
@@ -581,7 +580,7 @@ describe('ProductImportService', () => {
     const preview = await service.preview(
       { category: 'COMPONENTES', productType: 'Refrigeracion' },
       {
-        excel: [excelFile([coolerRow({ tipo: 'Aire', alturaMm: '155', radiadorMm: '' })])],
+        excel: [excelFile([coolerRow({ tipo: 'Aire', radiadorMm: '' })])],
         imagesZip: [zipFile(['cooler.jpg'])],
       },
     );

@@ -7,6 +7,8 @@ import { ProductPricingService } from './services/product-pricing.service';
 import { ProductPayloadService } from './services/product-payload.service';
 import { ProductSpecsService } from './services/product-specs.service';
 import { ProductValidationService } from './services/product-validation.service';
+import { ProductCompatibilityService } from './services/product-compatibility.service';
+import { ProductSlugService } from './services/product-slug.service';
 import { ProductImportController } from './import/product-import.controller';
 import { ProductImportService } from './import/product-import.service';
 import { ProductTemplateService } from './import/product-template.service';
@@ -20,6 +22,8 @@ import { ProductTemplateService } from './import/product-template.service';
     ProductPayloadService,
     ProductValidationService,
     ProductSpecsService,
+    ProductCompatibilityService,
+    ProductSlugService,
     ProductImportService,
     ProductTemplateService,
   ],

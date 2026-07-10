@@ -177,9 +177,6 @@ export function validateProductForm(
     if (Number(formData.tdpCapacity) <= 0) {
       return 'El TDP soportado del cooler debe ser mayor a 0.';
     }
-    if (formData.type === 'Torre' && Number(formData.coolerHeight) <= 0) {
-      return 'La altura del cooler de torre debe ser mayor a 0.';
-    }
     if (
       (formData.type === 'Líquida' || formData.type === 'Liquida') &&
       Number(formData.radiatorSize) <= 0
@@ -200,9 +197,6 @@ export function validateProductForm(
     }
     if (Number(formData.maxGpuLength) <= 0) {
       return 'El largo maximo de GPU del gabinete debe ser mayor a 0.';
-    }
-    if (Number(formData.maxCoolerHeight) <= 0) {
-      return 'La altura maxima de cooler del gabinete debe ser mayor a 0.';
     }
     if (
       formData.includedFans !== '' &&

@@ -102,9 +102,9 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
     ['Marca', 'brand'],
     ['Soporte de placa', 'supportedFormFactors'],
     ['Max largo GPU (mm)', 'maxGpuLength', 'mm'],
-    ['Altura maxima de cooler (mm)', 'maxCoolerHeight', 'mm'],
     ['Incluye fuente', 'includesPsu'],
     ['Soporte radiador liquido', 'radiatorSupportMmValues', 'mm'],
+    ['Soporta refrigeración de torre', 'supportsTowerCooler'],
     ['Ventiladores incluidos', 'includedFans'],
   ],
   COOLER: [
@@ -115,7 +115,6 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
     ['Ventiladores', 'fanCount'],
     ['Radiador (mm)', 'radiatorSize', 'mm'],
     ['TDP soportado', 'tdpCapacity', 'W'],
-    ['Altura (mm)', 'coolerHeight', 'mm'],
     ['RGB', 'hasRGB'],
     ['Pantalla integrada', 'hasScreen'],
   ],

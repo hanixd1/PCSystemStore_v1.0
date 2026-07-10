@@ -161,7 +161,9 @@ export class ProductSpecsService {
   }
 
   private buildCreateCaseSpecs(data: CreateProductDto & { uploadedImages?: string[] }) {
-    const supportedFormFactors = this.payload.toStringArray(data.supportedFormFactors ?? data.formFactor);
+    const supportedFormFactors = this.payload.toStringArray(
+      data.supportedFormFactors ?? data.formFactor,
+    );
     const radiatorValues = this.payload.normalizeRadiatorValues(
       data.radiatorSupportMmValues ?? data.radiatorSupportMm,
     );
@@ -176,9 +178,11 @@ export class ProductSpecsService {
           formFactor: supportedFormFactors[0] || data.formFactor || 'ATX',
           supportedFormFactors,
           maxGpuLength: this.payload.toInt(data.maxGpuLength),
-          maxCoolerHeight:
-            data.maxCoolerHeight !== undefined ? this.payload.toInt(data.maxCoolerHeight) : null,
           includesPsu: this.payload.toBool(data.includesPsu),
+          supportsTowerCooler:
+            data.supportsTowerCooler === undefined
+              ? true
+              : this.payload.toBool(data.supportsTowerCooler),
           includedFans: this.payload.toInt(data.includedFans),
           radiatorSupportMm: maxRadiator,
           radiatorSupportMmValues: radiatorValues,
@@ -201,7 +205,6 @@ export class ProductSpecsService {
           hasScreen: this.payload.toBool(data.hasScreen),
           hasRGB: this.payload.toBool(data.hasRGB),
           tdpCapacity: this.payload.toInt(data.tdpCapacity),
-          coolerHeight: coolerType === 'Torre' ? this.payload.toInt(data.coolerHeight) : null,
         },
       },
     };
@@ -217,7 +220,9 @@ export class ProductSpecsService {
           interface: data.interface || 'SATA',
           readSpeed: this.payload.toInt(data.readSpeed),
           writeSpeed: this.payload.toInt(data.writeSpeed),
-          m2FormFactor: this.payload.isM2StorageType(storageType) ? data.m2FormFactor || null : null,
+          m2FormFactor: this.payload.isM2StorageType(storageType)
+            ? data.m2FormFactor || null
+            : null,
         },
       },
     };
@@ -297,7 +302,9 @@ export class ProductSpecsService {
       keyboardSpecs: {
         create: {
           connection:
-            data.connection || this.payload.toStringArray(data.connections).join(', ') || 'Cableado',
+            data.connection ||
+            this.payload.toStringArray(data.connections).join(', ') ||
+            'Cableado',
           switchType: data.switchType || '',
           layout: data.layoutLanguage || data.layout || 'EspaÃ±ol',
           hasRGB: this.payload.toBool(data.hasRGB !== undefined ? data.hasRGB : data.hasLighting),
@@ -320,7 +327,9 @@ export class ProductSpecsService {
       mouseSpecs: {
         create: {
           connection:
-            data.connection || this.payload.toStringArray(data.connections).join(', ') || 'Cableado',
+            data.connection ||
+            this.payload.toStringArray(data.connections).join(', ') ||
+            'Cableado',
           dpi: isGamerMouse ? this.payload.toInt(data.dpi) : 0,
           sensor: data.sensor || 'Optico',
           hasRGB: this.payload.toBool(data.hasRGB),
@@ -328,7 +337,9 @@ export class ProductSpecsService {
           mouseType,
           connections: this.payload.toStringArray(data.connections),
           buttonCount:
-            isGamerMouse && data.buttonCount !== undefined ? this.payload.toInt(data.buttonCount) : null,
+            isGamerMouse && data.buttonCount !== undefined
+              ? this.payload.toInt(data.buttonCount)
+              : null,
           pollingRateHz:
             isGamerMouse && data.pollingRateHz !== undefined
               ? this.payload.toInt(data.pollingRateHz)
@@ -392,11 +403,15 @@ export class ProductSpecsService {
           noiseCancel: this.payload.toBool(data.noiseCancel),
           hasRGB: this.payload.toBool(data.hasRGB),
           audioType: data.audioType || 'Headset',
-          micIntegrated: data.micIntegrated !== undefined ? this.payload.toBool(data.micIntegrated) : true,
-          micRemovable: data.micRemovable !== undefined ? this.payload.toBool(data.micRemovable) : false,
+          micIntegrated:
+            data.micIntegrated !== undefined ? this.payload.toBool(data.micIntegrated) : true,
+          micRemovable:
+            data.micRemovable !== undefined ? this.payload.toBool(data.micRemovable) : false,
           surroundSound: data.surroundSound || 'No',
           consoleCompatible:
-            data.consoleCompatible !== undefined ? this.payload.toBool(data.consoleCompatible) : false,
+            data.consoleCompatible !== undefined
+              ? this.payload.toBool(data.consoleCompatible)
+              : false,
           color: data.color || '',
         },
       },
@@ -414,9 +429,12 @@ export class ProductSpecsService {
           microphoneType: data.microphoneType || '',
           connectionTypes: this.payload.toStringArray(data.connectionTypes),
           frequencyResponse: data.frequencyResponse || '',
-          includesArm: data.includesArm !== undefined ? this.payload.toBool(data.includesArm) : false,
+          includesArm:
+            data.includesArm !== undefined ? this.payload.toBool(data.includesArm) : false,
           includesPopFilter:
-            data.includesPopFilter !== undefined ? this.payload.toBool(data.includesPopFilter) : false,
+            data.includesPopFilter !== undefined
+              ? this.payload.toBool(data.includesPopFilter)
+              : false,
           color: data.color || '',
         },
       },
@@ -434,8 +452,10 @@ export class ProductSpecsService {
           speakerType: data.speakerType || '',
           channels: data.channels || '',
           connectionTypes: this.payload.toStringArray(data.connectionTypes),
-          hasSubwoofer: data.hasSubwoofer !== undefined ? this.payload.toBool(data.hasSubwoofer) : false,
-          remoteControl: data.remoteControl !== undefined ? this.payload.toBool(data.remoteControl) : false,
+          hasSubwoofer:
+            data.hasSubwoofer !== undefined ? this.payload.toBool(data.hasSubwoofer) : false,
+          remoteControl:
+            data.remoteControl !== undefined ? this.payload.toBool(data.remoteControl) : false,
           color: data.color || '',
         },
       },
@@ -474,7 +494,8 @@ export class ProductSpecsService {
           brand: data.brand || 'Otros',
           type: cableHubType,
           cableType: cableHubType === 'Cable' ? data.cableType || null : null,
-          cableLengthMeters: cableHubType === 'Cable' ? this.payload.toInt(data.cableLengthMeters) : null,
+          cableLengthMeters:
+            cableHubType === 'Cable' ? this.payload.toInt(data.cableLengthMeters) : null,
           hubInputType: cableHubType === 'Hub' ? data.hubInputType || null : null,
           hasHdmiOutput: cableHubType === 'Hub' ? this.payload.toBool(data.hasHdmiOutput) : null,
           hasRj45Output: cableHubType === 'Hub' ? this.payload.toBool(data.hasRj45Output) : null,
@@ -640,7 +661,9 @@ export class ProductSpecsService {
           ...(data.socket !== undefined ? { socket: data.socket } : {}),
           ...(data.formFactor !== undefined ? { formFactor: data.formFactor } : {}),
           ...(data.memoryType !== undefined ? { memoryType: data.memoryType } : {}),
-          ...(data.memorySlots !== undefined ? { memorySlots: this.payload.toInt(data.memorySlots) } : {}),
+          ...(data.memorySlots !== undefined
+            ? { memorySlots: this.payload.toInt(data.memorySlots) }
+            : {}),
           ...(data.m2Slots !== undefined ? { m2Slots: this.payload.toInt(data.m2Slots) } : {}),
           ...(data.supportedM2FormFactors !== undefined
             ? {
@@ -715,7 +738,10 @@ export class ProductSpecsService {
       throw new BadRequestException('El consumo real de la GPU debe ser mayor a 0');
     }
 
-    if (this.payload.hasValue(data.recommendedPsuWatts) && this.payload.toInt(data.recommendedPsuWatts) <= 0) {
+    if (
+      this.payload.hasValue(data.recommendedPsuWatts) &&
+      this.payload.toInt(data.recommendedPsuWatts) <= 0
+    ) {
       throw new BadRequestException('La PSU recomendada debe ser mayor a 0');
     }
 
@@ -757,8 +783,8 @@ export class ProductSpecsService {
       data.formFactor === undefined &&
       data.supportedFormFactors === undefined &&
       data.maxGpuLength === undefined &&
-      data.maxCoolerHeight === undefined &&
       data.includesPsu === undefined &&
+      data.supportsTowerCooler === undefined &&
       data.includedFans === undefined &&
       data.radiatorSupportMm === undefined &&
       data.radiatorSupportMmValues === undefined
@@ -781,7 +807,9 @@ export class ProductSpecsService {
           );
     const nextRadiatorValues =
       data.radiatorSupportMmValues !== undefined || data.radiatorSupportMm !== undefined
-        ? this.payload.normalizeRadiatorValues(data.radiatorSupportMmValues ?? data.radiatorSupportMm)
+        ? this.payload.normalizeRadiatorValues(
+            data.radiatorSupportMmValues ?? data.radiatorSupportMm,
+          )
         : this.payload.normalizeRadiatorValues(
             currentProduct.caseSpecs?.radiatorSupportMmValues?.length
               ? currentProduct.caseSpecs.radiatorSupportMmValues
@@ -804,10 +832,12 @@ export class ProductSpecsService {
           ...(data.maxGpuLength !== undefined
             ? { maxGpuLength: this.payload.toInt(data.maxGpuLength) }
             : {}),
-          ...(data.maxCoolerHeight !== undefined
-            ? { maxCoolerHeight: this.payload.toInt(data.maxCoolerHeight) }
+          ...(data.includesPsu !== undefined
+            ? { includesPsu: this.payload.toBool(data.includesPsu) }
             : {}),
-          ...(data.includesPsu !== undefined ? { includesPsu: this.payload.toBool(data.includesPsu) } : {}),
+          ...(data.supportsTowerCooler !== undefined
+            ? { supportsTowerCooler: this.payload.toBool(data.supportsTowerCooler) }
+            : {}),
           ...(data.includedFans !== undefined
             ? { includedFans: this.payload.toInt(data.includedFans) }
             : {}),
@@ -825,7 +855,6 @@ export class ProductSpecsService {
       data.type === undefined &&
       data.compatibleSockets === undefined &&
       data.tdpCapacity === undefined &&
-      data.coolerHeight === undefined &&
       data.radiatorSize === undefined &&
       data.hasRGB === undefined &&
       data.hasScreen === undefined
@@ -834,7 +863,9 @@ export class ProductSpecsService {
     }
 
     const nextCoolerBrand = String(data.brand ?? currentProduct.coolerSpecs?.brand ?? '').trim();
-    const nextCoolerType = this.payload.normalizeCoolerType(data.type ?? currentProduct.coolerSpecs?.type);
+    const nextCoolerType = this.payload.normalizeCoolerType(
+      data.type ?? currentProduct.coolerSpecs?.type,
+    );
     const nextCompatibleSockets =
       data.compatibleSockets !== undefined
         ? this.payload.toStringArray(data.compatibleSockets)
@@ -859,18 +890,10 @@ export class ProductSpecsService {
       throw new BadRequestException('El TDP soportado del cooler debe ser mayor a 0');
     }
 
-    const nextCoolerHeight =
-      data.coolerHeight !== undefined
-        ? this.payload.toInt(data.coolerHeight)
-        : this.payload.toInt(currentProduct.coolerSpecs?.coolerHeight);
     const nextRadiatorSize =
       data.radiatorSize !== undefined
         ? this.payload.toInt(data.radiatorSize)
         : this.payload.toInt(currentProduct.coolerSpecs?.radiatorSize);
-
-    if (nextCoolerType === 'Torre' && nextCoolerHeight <= 0) {
-      throw new BadRequestException('La altura del cooler de torre debe ser mayor a 0');
-    }
 
     if (nextCoolerType === 'Líquida' && nextRadiatorSize <= 0) {
       throw new BadRequestException('Selecciona el tamaño de radiador del cooler líquido');
@@ -887,11 +910,8 @@ export class ProductSpecsService {
                 socketSupport: this.payload.toStringArray(data.compatibleSockets).join(', '),
               }
             : {}),
-          ...(data.tdpCapacity !== undefined ? { tdpCapacity: this.payload.toInt(data.tdpCapacity) } : {}),
-          ...(data.coolerHeight !== undefined || data.type !== undefined
-            ? {
-                coolerHeight: nextCoolerType === 'Torre' ? nextCoolerHeight : null,
-              }
+          ...(data.tdpCapacity !== undefined
+            ? { tdpCapacity: this.payload.toInt(data.tdpCapacity) }
             : {}),
           ...(data.radiatorSize !== undefined || data.type !== undefined
             ? {
@@ -899,7 +919,9 @@ export class ProductSpecsService {
               }
             : {}),
           ...(data.hasRGB !== undefined ? { hasRGB: this.payload.toBool(data.hasRGB) } : {}),
-          ...(data.hasScreen !== undefined ? { hasScreen: this.payload.toBool(data.hasScreen) } : {}),
+          ...(data.hasScreen !== undefined
+            ? { hasScreen: this.payload.toBool(data.hasScreen) }
+            : {}),
         },
       },
     };
@@ -971,8 +993,12 @@ export class ProductSpecsService {
           ...(data.type !== undefined ? { type: nextStorageType } : {}),
           ...(data.capacity !== undefined ? { capacity: this.payload.toInt(data.capacity) } : {}),
           ...(data.interface !== undefined ? { interface: data.interface } : {}),
-          ...(data.readSpeed !== undefined ? { readSpeed: this.payload.toInt(data.readSpeed) } : {}),
-          ...(data.writeSpeed !== undefined ? { writeSpeed: this.payload.toInt(data.writeSpeed) } : {}),
+          ...(data.readSpeed !== undefined
+            ? { readSpeed: this.payload.toInt(data.readSpeed) }
+            : {}),
+          ...(data.writeSpeed !== undefined
+            ? { writeSpeed: this.payload.toInt(data.writeSpeed) }
+            : {}),
           ...(data.m2FormFactor !== undefined || data.type !== undefined
             ? { m2FormFactor: isM2 ? data.m2FormFactor || nextM2FormFactor || null : null }
             : {}),
@@ -1012,7 +1038,9 @@ export class ProductSpecsService {
           ...(data.ram !== undefined ? { ram: data.ram } : {}),
           ...(data.storage !== undefined ? { storage: data.storage } : {}),
           ...(data.screenSize !== undefined ? { screenSize: data.screenSize } : {}),
-          ...(data.refreshRate !== undefined ? { refreshRate: this.payload.toInt(data.refreshRate) } : {}),
+          ...(data.refreshRate !== undefined
+            ? { refreshRate: this.payload.toInt(data.refreshRate) }
+            : {}),
           ...(data.panelType !== undefined ? { panelType: data.panelType } : {}),
           ...(data.hasDedicatedGpu !== undefined
             ? { hasDedicatedGpu: this.payload.toBool(data.hasDedicatedGpu) }
@@ -1090,12 +1118,16 @@ export class ProductSpecsService {
           ...(data.screenSize !== undefined ? { screenSize: data.screenSize } : {}),
           ...(data.resolution !== undefined ? { resolution: data.resolution } : {}),
           ...(data.panelType !== undefined ? { panelType: data.panelType } : {}),
-          ...(data.refreshRate !== undefined ? { refreshRate: this.payload.toInt(data.refreshRate) } : {}),
+          ...(data.refreshRate !== undefined
+            ? { refreshRate: this.payload.toInt(data.refreshRate) }
+            : {}),
           ...(data.responseTimeMs !== undefined
             ? { responseTimeMs: this.payload.toFloat(data.responseTimeMs) }
             : {}),
           ...(data.ports !== undefined ? { ports: this.payload.toStringArray(data.ports) } : {}),
-          ...(data.hasSpeakers !== undefined ? { hasSpeakers: this.payload.toBool(data.hasSpeakers) } : {}),
+          ...(data.hasSpeakers !== undefined
+            ? { hasSpeakers: this.payload.toBool(data.hasSpeakers) }
+            : {}),
         },
       },
     };
@@ -1193,11 +1225,15 @@ export class ProductSpecsService {
           ...(isUpdatingGamerMouse && data.buttonCount !== undefined
             ? { buttonCount: this.payload.toInt(data.buttonCount) }
             : {}),
-          ...(isUpdatingGamerMouse && data.dpi !== undefined ? { dpi: this.payload.toInt(data.dpi) } : {}),
+          ...(isUpdatingGamerMouse && data.dpi !== undefined
+            ? { dpi: this.payload.toInt(data.dpi) }
+            : {}),
           ...(isUpdatingGamerMouse && data.pollingRateHz !== undefined
             ? { pollingRateHz: this.payload.toInt(data.pollingRateHz) }
             : {}),
-          ...(data.weightGrams !== undefined ? { weightGrams: this.payload.toInt(data.weightGrams) } : {}),
+          ...(data.weightGrams !== undefined
+            ? { weightGrams: this.payload.toInt(data.weightGrams) }
+            : {}),
           ...(data.powerType !== undefined ? { powerType: data.powerType } : {}),
         },
       },
@@ -1298,8 +1334,10 @@ export class ProductSpecsService {
                 cableLengthMeters:
                   nextCableHubType === 'Cable' ? this.payload.toInt(data.cableLengthMeters) : null,
                 hubInputType: nextCableHubType === 'Hub' ? data.hubInputType || null : null,
-                hasHdmiOutput: nextCableHubType === 'Hub' ? this.payload.toBool(data.hasHdmiOutput) : null,
-                hasRj45Output: nextCableHubType === 'Hub' ? this.payload.toBool(data.hasRj45Output) : null,
+                hasHdmiOutput:
+                  nextCableHubType === 'Hub' ? this.payload.toBool(data.hasHdmiOutput) : null,
+                hasRj45Output:
+                  nextCableHubType === 'Hub' ? this.payload.toBool(data.hasRj45Output) : null,
               }
             : {}),
           ...(nextCableHubType === undefined && data.cableType !== undefined
@@ -1336,7 +1374,10 @@ export class ProductSpecsService {
     if (data.brand !== undefined && !String(data.brand || '').trim()) {
       throw new BadRequestException('Selecciona la marca de la base refrigeradora.');
     }
-    if (data.fanCount !== undefined && ![1, 2, 3, 4, 5, 6].includes(this.payload.toInt(data.fanCount))) {
+    if (
+      data.fanCount !== undefined &&
+      ![1, 2, 3, 4, 5, 6].includes(this.payload.toInt(data.fanCount))
+    ) {
       throw new BadRequestException('Selecciona la cantidad de ventiladores.');
     }
     if (
@@ -1450,10 +1491,16 @@ export class ProductSpecsService {
                 supportedConnections: this.payload.toStringArray(data.supportedConnections),
               }
             : {}),
-          ...(data.driverSize !== undefined ? { driverSize: this.payload.toInt(data.driverSize) } : {}),
-          ...(data.impedance !== undefined ? { impedance: this.payload.toInt(data.impedance) } : {}),
+          ...(data.driverSize !== undefined
+            ? { driverSize: this.payload.toInt(data.driverSize) }
+            : {}),
+          ...(data.impedance !== undefined
+            ? { impedance: this.payload.toInt(data.impedance) }
+            : {}),
           ...(data.micType !== undefined ? { micType: data.micType } : {}),
-          ...(data.noiseCancel !== undefined ? { noiseCancel: this.payload.toBool(data.noiseCancel) } : {}),
+          ...(data.noiseCancel !== undefined
+            ? { noiseCancel: this.payload.toBool(data.noiseCancel) }
+            : {}),
           ...(data.hasRGB !== undefined ? { hasRGB: this.payload.toBool(data.hasRGB) } : {}),
           ...(data.audioType !== undefined ? { audioType: data.audioType } : {}),
           ...(data.micIntegrated !== undefined
@@ -1504,7 +1551,9 @@ export class ProductSpecsService {
           ...(data.frequencyResponse !== undefined
             ? { frequencyResponse: data.frequencyResponse }
             : {}),
-          ...(data.includesArm !== undefined ? { includesArm: this.payload.toBool(data.includesArm) } : {}),
+          ...(data.includesArm !== undefined
+            ? { includesArm: this.payload.toBool(data.includesArm) }
+            : {}),
           ...(data.includesPopFilter !== undefined
             ? { includesPopFilter: this.payload.toBool(data.includesPopFilter) }
             : {}),
@@ -1597,7 +1646,9 @@ export class ProductSpecsService {
           ...(data.brand !== undefined ? { brand: data.brand } : {}),
           ...(data.color !== undefined ? { color: data.color } : {}),
           ...(data.material !== undefined ? { material: data.material } : {}),
-          ...(data.maxWeightKg !== undefined ? { maxWeightKg: this.payload.toInt(data.maxWeightKg) } : {}),
+          ...(data.maxWeightKg !== undefined
+            ? { maxWeightKg: this.payload.toInt(data.maxWeightKg) }
+            : {}),
         },
       },
     };

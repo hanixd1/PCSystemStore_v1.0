@@ -325,16 +325,15 @@ export class CreateProductDto {
   @IsString({ each: true })
   supportedFormFactors?: string[];
 
-  @Transform(toOptionalNumber)
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  maxCoolerHeight?: number;
-
   @Transform(toOptionalBoolean)
   @IsOptional()
   @IsBoolean()
   includesPsu?: boolean;
+
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  supportsTowerCooler?: boolean;
 
   @Transform(toOptionalNumber)
   @IsOptional()
@@ -388,12 +387,6 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   tdpCapacity?: number;
-
-  @Transform(toOptionalNumber)
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  coolerHeight?: number;
 
   @Transform(toTrimmedString)
   @IsOptional()
@@ -516,9 +509,21 @@ export class CreateProductDto {
   @Transform(toOptionalStringArray)
   @IsOptional()
   @IsArray()
-  @IsIn(['Cable USB', 'USB', 'USB-C', 'Jack 3.5 mm', 'Jack 3.5mm', 'USB Dongle 2.4 GHz', 'Bluetooth', '2.4 GHz'], {
-    each: true,
-  })
+  @IsIn(
+    [
+      'Cable USB',
+      'USB',
+      'USB-C',
+      'Jack 3.5 mm',
+      'Jack 3.5mm',
+      'USB Dongle 2.4 GHz',
+      'Bluetooth',
+      '2.4 GHz',
+    ],
+    {
+      each: true,
+    },
+  )
   supportedConnections?: string[];
 
   @ValidateIf((product) => product.category === 'MONITOR')

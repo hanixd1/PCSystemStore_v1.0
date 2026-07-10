@@ -640,13 +640,15 @@ export class ProductImportService {
           rowNumber,
           errors,
         );
-        payload.maxCoolerHeight = this.requiredInteger(
-          row.alturacoolermax,
-          'alturaCoolerMax',
-          rowNumber,
-          errors,
-        );
+        if (normalizeText(row.alturacoolermax)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'alturaCoolerMax',
+            message: 'alturaCoolerMax es un campo legacy y fue ignorado.',
+          });
+        }
         payload.includesPsu = parseImportBoolean(row.fuenteincluida) ?? false;
+        payload.supportsTowerCooler = parseImportBoolean(row.soportarefrigeraciontorre);
         payload.includedFans =
           this.optionalInteger(
             normalizeText(row.ventiladoresincluidos)
@@ -669,7 +671,13 @@ export class ProductImportService {
           errors,
         );
         payload.socketSupport = (payload.compatibleSockets as string[]).join(', ');
-        payload.coolerHeight = this.optionalInteger(row.alturamm) ?? 1;
+        if (normalizeText(row.alturamm)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'alturaMm',
+            message: 'alturaMm es un campo legacy y fue ignorado.',
+          });
+        }
         payload.radiatorSize = this.optionalInteger(row.radiadormm) ?? 0;
         payload.fanCount = this.optionalInteger(row.ventiladores) ?? 1;
         payload.hasRGB = parseImportBoolean(row.rgb) ?? false;
@@ -813,12 +821,7 @@ export class ProductImportService {
       }
       case 'KEYBOARD': {
         const connections = this.splitImportList(row.conectividad);
-        payload.keyboardType = this.requiredText(
-          row.tipoteclado,
-          'tipoTeclado',
-          rowNumber,
-          errors,
-        );
+        payload.keyboardType = this.requiredText(row.tipoteclado, 'tipoTeclado', rowNumber, errors);
         payload.connections = connections.length ? connections : ['Cableado'];
         payload.connection = (payload.connections as string[])[0];
         payload.layoutLanguage = this.requiredText(
@@ -955,7 +958,12 @@ export class ProductImportService {
           errors,
         );
         payload.frequencyResponse = normalizeText(row.frecuenciarespuesta) || '';
-        payload.includesArm = this.requiredBoolean(row.incluyebrazo, 'incluyeBrazo', rowNumber, errors);
+        payload.includesArm = this.requiredBoolean(
+          row.incluyebrazo,
+          'incluyeBrazo',
+          rowNumber,
+          errors,
+        );
         payload.includesPopFilter = this.requiredBoolean(
           row.incluyefiltropop,
           'incluyeFiltroPop',
@@ -973,7 +981,12 @@ export class ProductImportService {
           errors,
         );
         payload.channels = normalizeText(row.canales) || '';
-        payload.wattage = this.requiredInteger(row.potenciawatts, 'potenciaWatts', rowNumber, errors);
+        payload.wattage = this.requiredInteger(
+          row.potenciawatts,
+          'potenciaWatts',
+          rowNumber,
+          errors,
+        );
         payload.connection = this.requiredText(row.conectividad, 'conectividad', rowNumber, errors);
         payload.connectionTypes = this.requiredList(
           row.tipoconexion,
@@ -1636,12 +1649,7 @@ export class ProductImportService {
       .filter(Boolean);
   }
 
-  private requiredList(
-    value: unknown,
-    field: string,
-    row: number,
-    errors: ProductImportIssue[],
-  ) {
+  private requiredList(value: unknown, field: string, row: number, errors: ProductImportIssue[]) {
     const list = this.splitImportList(value);
     if (!list.length) {
       this.pushError(errors, row, field, `El campo ${this.getFieldLabel(field)} es obligatorio.`);
@@ -1752,8 +1760,8 @@ export class ProductImportService {
       potenciaWatts: 'Potencia (Watts)',
       soportePlaca: 'Soporte de placa',
       largoGpuMax: 'Max largo GPU (mm)',
-      alturaCoolerMax: 'Altura maxima de cooler (mm)',
       soporteRadiadorLiquido: 'Soporte radiador liquido',
+      soportaRefrigeracionTorre: 'Soporta refrigeracion de torre',
       ventiladoresIncluidos: 'Ventiladores incluidos',
       pantallaLcd: 'Pantalla LCD',
       capacidadGB: 'Capacidad (GB)',

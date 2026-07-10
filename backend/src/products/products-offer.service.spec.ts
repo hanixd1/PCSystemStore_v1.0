@@ -30,7 +30,7 @@ describe('ProductsService ofertas API/service', () => {
   const createService = (current = baseProduct) => {
     const prisma = {
       product: {
-        findUnique: jest.fn(async () => current),
+        findUnique: jest.fn(async ({ where }) => (where.sku || where.slug ? null : current)),
         update: jest.fn(async ({ data }) => ({ ...current, ...data })),
         create: jest.fn(async ({ data }) => ({ id: 'created-1', ...data })),
       },
@@ -50,6 +50,7 @@ describe('ProductsService ofertas API/service', () => {
 
     await service.create(
       {
+        sku: 'QA-OFFER-001',
         name: 'QA Producto Creacion Sin Oferta',
         description: 'Producto QA creado desde flujo de agregar sin permitir oferta inicial.',
         price: 1000,

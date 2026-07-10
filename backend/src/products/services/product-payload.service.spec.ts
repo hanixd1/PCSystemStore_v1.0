@@ -20,4 +20,39 @@ describe('ProductPayloadService', () => {
     expect(service.toStringArray('AM4; AM5')).toEqual(['AM4', 'AM5']);
     expect(service.normalizeRadiatorValues(['240 mm', '360 mm'])).toEqual(['240', '360']);
   });
+
+  it('builds the create base payload with stock zero intact', () => {
+    expect(
+      service.buildCreateProductBasePayload(
+        {
+          name: 'CPU QA',
+          description: 'Descripcion valida para producto de prueba',
+          price: '199.90',
+          stock: 0,
+          category: 'CPU',
+        } as any,
+        ['cpu.png'],
+        'CPU-QA-001',
+        'cpu-qa',
+      ),
+    ).toMatchObject({ stock: 0, price: 199.9, isOnSale: false, salePrice: null });
+  });
+
+  it('builds sparse updates without removing omitted fields or false values', () => {
+    const update = service.buildProductUpdatePayload(
+      { price: 1000, isOnSale: true, salePrice: 900, images: ['kept.png'] },
+      { stock: 0, isOnSale: false } as any,
+    );
+
+    expect(update).toEqual({ stock: 0, isOnSale: false, salePrice: null });
+    expect(update).not.toHaveProperty('images');
+  });
+
+  it('keeps valid update images while removing only blank entries', () => {
+    expect(
+      service.buildProductUpdatePayload({ price: 1000, isOnSale: false, salePrice: null }, {
+        images: [' cover.png ', '', 'detail.png'],
+      } as any),
+    ).toMatchObject({ images: [' cover.png ', 'detail.png'] });
+  });
 });

@@ -213,8 +213,8 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
     specificColumns: [
       'soportePlaca',
       'largoGpuMax',
-      'alturaCoolerMax',
       'soporteRadiadorLiquido',
+      'soportaRefrigeracionTorre',
       'ventiladoresIncluidos',
     ],
     example: {
@@ -224,20 +224,23 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
       precio: 260,
       stock: 5,
       descripcion:
-        'Gabinete MSI MAG Forge 120A Airflow compatible con placas ATX, Micro-ATX y Mini-ITX, soporte para GPU de hasta 330 mm y cooler de hasta 160 mm.',
+        'Gabinete MSI MAG Forge 120A Airflow compatible con placas ATX, Micro-ATX y Mini-ITX, soporte para GPU de hasta 330 mm y refrigeración de torre.',
       imagenPrincipal: 'msi-mag-forge-120a-1.jpg',
       imagenesArchivos: 'msi-mag-forge-120a-1.jpg; msi-mag-forge-120a-2.jpg',
       soportePlaca: 'ATX; Micro-ATX; Mini-ITX',
       largoGpuMax: 330,
-      alturaCoolerMax: 160,
       soporteRadiadorLiquido: '120 mm; 240 mm; 360 mm',
+      soportaRefrigeracionTorre: 'Si',
       ventiladoresIncluidos: 3,
     },
     allowedValues: [
       ['soportePlaca', 'ATX; Micro-ATX; Mini-ITX; E-ATX'],
       ['largoGpuMax', 'Numero en milimetros. Ej: 330'],
-      ['alturaCoolerMax', 'Numero en milimetros. Ej: 160'],
-      ['soporteRadiadorLiquido', 'No soporta; 120 mm; 140 mm; 240 mm; 280 mm; 360 mm; 420 mm'],
+      [
+        'soporteRadiadorLiquido',
+        'No soporta; 120 mm; 140 mm; 240 mm; 280 mm; 360 mm; 420 mm; 460 mm',
+      ],
+      ['soportaRefrigeracionTorre', 'Si, No'],
       ['ventiladoresIncluidos', 'Numero entero. Ej: 3'],
       ...COMMON_ALLOWED_VALUES,
     ],
@@ -247,7 +250,6 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
     specificColumns: [
       'tipo',
       'socketSoportado',
-      'alturaMm',
       'radiadorMm',
       'tdpSoportado',
       'pantallaLcd',
@@ -265,7 +267,6 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
       imagenesArchivos: 'deepcool-ls720-se-1.jpg; deepcool-ls720-se-2.jpg',
       tipo: 'Líquida',
       socketSoportado: 'AM4; AM5; LGA1700; LGA1851',
-      alturaMm: '',
       radiadorMm: 360,
       tdpSoportado: 300,
       pantallaLcd: 'No',
@@ -274,7 +275,6 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
     allowedValues: [
       ['tipo', 'Torre, Líquida'],
       ['socketSoportado', 'AM4; AM5; sTR5; LGA1700; LGA1851'],
-      ['alturaMm', 'Usar para cooler tipo Torre. Numero en milimetros.'],
       ['radiadorMm', 'Usar para refrigeracion liquida. Numero en milimetros.'],
       ['pantallaLcd', 'Si, No'],
       ['rgb', 'Si, No'],
@@ -511,7 +511,10 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
       puertoUsbC: 'No',
     },
     allowedValues: [
-      ['resolucion', 'HD (1366x768), FHD (1920x1080), QHD (2560x1440), UWQHD (3440x1440), 4K (3840x2160)'],
+      [
+        'resolucion',
+        'HD (1366x768), FHD (1920x1080), QHD (2560x1440), UWQHD (3440x1440), 4K (3840x2160)',
+      ],
       ['panel', 'IPS, VA, TN, OLED, Mini LED'],
       ['hz', '60 Hz, 75 Hz, 100 Hz, 120 Hz, 144 Hz, 165 Hz, 180 Hz, 200 Hz, 240 Hz, 360 Hz'],
       ['latenciaMs', 'Numero en milisegundos. Ej: 1'],
@@ -549,7 +552,10 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
       ['idiomaLayout', 'Espanol, Ingles, Latinoamericano'],
       ['formatoTeclado', 'Completo, TKL, 80%, 75%, 65%, 60%'],
       ['tipoSwitch mecanico', 'Red, Blue, Brown, Silver, Black, Silent Red, Speed'],
-      ['tipoSwitch magnetico', 'Magnetic HE, Hall Effect, Magnetic Jade, Magnetic White, Magnetic Red'],
+      [
+        'tipoSwitch magnetico',
+        'Magnetic HE, Hall Effect, Magnetic Jade, Magnetic White, Magnetic Red',
+      ],
       ['tipoSwitch optico', 'Optical Red, Optical Blue, Optical Brown'],
       ['tipoSwitch membrana', 'Membrana, Rubber Dome, No aplica'],
       ...COMMON_ALLOWED_VALUES,
@@ -576,7 +582,10 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
       pesoGramos: 60,
     },
     allowedValues: [
-      ['conectividad', 'Cableado, Inalambrico, Bluetooth, 2.4 GHz, Cableado; Bluetooth, Bluetooth; 2.4 GHz'],
+      [
+        'conectividad',
+        'Cableado, Inalambrico, Bluetooth, 2.4 GHz, Cableado; Bluetooth, Bluetooth; 2.4 GHz',
+      ],
       ['sensor', 'Optico, Laser'],
       ['rgb', 'Si, No'],
       ...COMMON_ALLOWED_VALUES,
@@ -591,7 +600,8 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
       marca: 'HyperX',
       precio: 70,
       stock: 10,
-      descripcion: 'Mousepad HyperX Fury S tamano Large con superficie de tela y base antideslizante.',
+      descripcion:
+        'Mousepad HyperX Fury S tamano Large con superficie de tela y base antideslizante.',
       imagenPrincipal: 'hyperx-fury-s-large-1.jpg',
       imagenesArchivos: 'hyperx-fury-s-large-1.jpg',
       tamano: 'Large',
@@ -698,7 +708,8 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
       marca: 'Logitech',
       precio: 280,
       stock: 5,
-      descripcion: 'Webcam Logitech C920 con resolucion Full HD 1080p, 30 FPS y microfono integrado.',
+      descripcion:
+        'Webcam Logitech C920 con resolucion Full HD 1080p, 30 FPS y microfono integrado.',
       imagenPrincipal: 'logitech-c920-1.jpg',
       imagenesArchivos: 'logitech-c920-1.jpg',
       resolucion: '1080p',
@@ -824,8 +835,14 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
     },
     allowedValues: [
       ['tipoAudio', 'Audifono, Headset, In-ear, On-ear, Over-ear'],
-      ['conectividad', 'Cableado, Inalambrico, Bluetooth, 2.4 GHz, Cableado; Bluetooth, Bluetooth; 2.4 GHz'],
-      ['tipoConexion', 'USB, USB-C, Jack 3.5mm, Bluetooth, 2.4 GHz, USB; Jack 3.5mm, Bluetooth; 2.4 GHz'],
+      [
+        'conectividad',
+        'Cableado, Inalambrico, Bluetooth, 2.4 GHz, Cableado; Bluetooth, Bluetooth; 2.4 GHz',
+      ],
+      [
+        'tipoConexion',
+        'USB, USB-C, Jack 3.5mm, Bluetooth, 2.4 GHz, USB; Jack 3.5mm, Bluetooth; 2.4 GHz',
+      ],
       ['microfonoIntegrado', 'Si, No'],
       ['microfonoRemovible', 'Si, No'],
       ['cancelacionRuido', 'Si, No'],

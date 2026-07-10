@@ -107,7 +107,7 @@ describe('ProductTemplateService', () => {
     expect(headers).not.toContain('watts');
   });
 
-  it('genera plantilla case con soportePlaca, alturaCoolerMax y soporteRadiadorLiquido', () => {
+  it('genera plantilla case con soportePlaca, soporte de torre y soporteRadiadorLiquido', () => {
     const template = service.generateTemplate({
       category: 'COMPONENTES',
       productType: 'Gabinete / Case',
@@ -119,13 +119,14 @@ describe('ProductTemplateService', () => {
       expect.arrayContaining([
         'soportePlaca',
         'largoGpuMax',
-        'alturaCoolerMax',
         'soporteRadiadorLiquido',
+        'soportaRefrigeracionTorre',
         'ventiladoresIncluidos',
       ]),
     );
     expect(headers).not.toContain('formatoSoportado');
     expect(headers).not.toContain('tipoCase');
+    expect(headers).not.toContain('alturaCoolerMax');
   });
 
   it('genera plantilla refrigeracion con pantallaLcd, rgb y tipo Torre/Líquida', () => {
@@ -138,6 +139,7 @@ describe('ProductTemplateService', () => {
 
     expectUsesSkuOnly(headers);
     expect(headers).toEqual(expect.arrayContaining(['pantallaLcd', 'rgb']));
+    expect(headers).not.toContain('alturaMm');
     expect(String(example.tipo)).not.toBe('Aire');
     expect(['Torre', 'Líquida']).toContain(String(example.tipo));
   });
@@ -358,7 +360,9 @@ describe('ProductTemplateService', () => {
     expectUsesSkuOnly(captureHeaders);
     expectUsesSkuOnly(cableHubHeaders);
     expect(deskHeaders).toEqual(expect.arrayContaining(['largoCm', 'anchoCm', 'alturaCm']));
-    expect(webcamHeaders).toEqual(expect.arrayContaining(['resolucion', 'fps', 'microfonoIntegrado']));
+    expect(webcamHeaders).toEqual(
+      expect.arrayContaining(['resolucion', 'fps', 'microfonoIntegrado']),
+    );
     expect(captureHeaders).toEqual(expect.arrayContaining(['resolucionCaptura', 'fpsCaptura']));
     expect(cableHubHeaders).toEqual(expect.arrayContaining(['tipoAccesorio', 'conectores']));
   });

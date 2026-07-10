@@ -124,8 +124,10 @@ model CaseSpecs {
   formFactor              String
   supportedFormFactors    String[] @default([])
   maxGpuLength            Int
+  // Legacy value retained for existing products; new compatibility uses supportsTowerCooler.
   maxCoolerHeight         Int?
   includesPsu             Boolean
+  supportsTowerCooler     Boolean  @default(true)
   includedFans            Int
   radiatorSupportMm       Int?
   radiatorSupportMmValues String[] @default([])
@@ -144,6 +146,7 @@ model CoolerSpecs {
   hasRGB            Boolean
   hasScreen         Boolean
   tdpCapacity       Int?
+  // Legacy value retained for existing products; it is no longer written or validated.
   coolerHeight      Int?
   product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
@@ -299,8 +302,8 @@ model HeadsetSpecs {
 }
 
 model MicrophoneSpecs {
-  id                String  @id @default(uuid())
-  productId         String  @unique
+  id                String   @id @default(uuid())
+  productId         String   @unique
   brand             String?
   connection        String
   micType           String
@@ -311,12 +314,12 @@ model MicrophoneSpecs {
   includesArm       Boolean?
   includesPopFilter Boolean?
   color             String?
-  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model SpeakerSpecs {
-  id              String  @id @default(uuid())
-  productId       String  @unique
+  id              String   @id @default(uuid())
+  productId       String   @unique
   brand           String?
   connection      String
   wattage         Int
@@ -327,7 +330,7 @@ model SpeakerSpecs {
   hasSubwoofer    Boolean?
   remoteControl   Boolean?
   color           String?
-  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model WebcamSpecs {

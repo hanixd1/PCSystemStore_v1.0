@@ -11,20 +11,107 @@ import {
   FiWind,
   FiBox,
   FiZap,
-  FiMousePointer,
   FiHeadphones,
-  FiLayers,
 } from 'react-icons/fi';
-import { MdComputer, MdLaptop, MdSecurity, MdKeyboard } from 'react-icons/md';
 import { api, getApiErrorMessage } from '@/lib/api';
 import ImageUploader from '@/components/ImageUploader';
 import { buildProductPayload } from '@/lib/products/buildProductPayload';
 import { validateProductForm } from '@/lib/products/validateProductForm';
 import { notify } from '@/lib/notify';
 import { CREATE_PRODUCT_FORM_CONFIG } from '@/features/products/form/productFormConfig';
+import {
+  CaseSpecsFields,
+  CoolerSpecsFields,
+  CpuSpecsFields,
+  GpuSpecsFields,
+  MotherboardSpecsFields,
+  PsuSpecsFields,
+  RamSpecsFields,
+  StorageSpecsFields,
+} from '@/features/products/form/specs/CoreSpecsFields';
 
 // --- CONSTANTES Y LISTAS ---
-const { DEPARTMENTS, CPU_BRANDS, MOTHERBOARD_BRANDS, CPU_SOCKETS_BY_BRAND, SOCKETS, M2_FORM_FACTORS, COOLER_SOCKET_OPTIONS, COOLER_BRANDS, COOLER_RADIATOR_OPTIONS, FORM_FACTORS, CASE_BRANDS, CASE_RADIATOR_SUPPORT_OPTIONS, RAM_TYPES, RAM_BRANDS, RAM_CAPACITIES, PSU_BRANDS, PSU_WATT_OPTIONS, PSU_CERTS, GPU_BRANDS, GPU_CHIPSETS, GPU_VRAM_OPTIONS, GPU_VRAM_TYPES, GPU_FAN_OPTIONS, STORAGE_TYPES, NVME_GENS, PANEL_TYPES, LAPTOP_BRANDS, LAPTOP_COOLING_BASE_BRANDS, LAPTOP_COOLING_BASE_FAN_COUNTS, LAPTOP_ACCESSORY_CONNECTIVITY, BACKPACK_BRANDS, HEADSET_BRANDS, MICROPHONE_BRANDS, SPEAKER_BRANDS, HEADSET_CONNECTION_TYPES, HEADSET_WIRED_CONNECTIONS, HEADSET_WIRELESS_CONNECTIONS, AUDIO_CONNECTIVITY_OPTIONS, AUDIO_CONNECTION_TYPE_OPTIONS, HEADSET_AUDIO_TYPES, HEADSET_SURROUND_OPTIONS, MICROPHONE_TYPES, POLAR_PATTERN_OPTIONS, SPEAKER_TYPES, SPEAKER_CHANNELS, LAPTOP_RAM_OPTIONS, LAPTOP_STORAGE_OPTIONS, LAPTOP_SCREEN_OPTIONS, LAPTOP_REFRESH_OPTIONS, LAPTOP_SUPPORTED_SIZE_OPTIONS, ACCESSORY_COLOR_OPTIONS, MONITOR_BRANDS, MONITOR_RESOLUTION_OPTIONS, MONITOR_REFRESH_OPTIONS, LAPTOP_RAM_LABELS, LAPTOP_STORAGE_LABELS, DESKTOP_COOLER_TYPES, MONITOR_PORTS, PERIPHERAL_CONNECTIONS, MOUSE_CONNECTIONS, KEYBOARD_BRANDS, KEYBOARD_TYPES, KEYBOARD_FORM_FACTORS, LAYOUT_LANGUAGES, MOUSE_TYPES, MOUSE_BRANDS, MOUSEPAD_BRANDS, WEBCAM_BRANDS, CAPTURE_CARD_BRANDS, CABLE_HUB_BRANDS, VIDEO_RESOLUTION_OPTIONS, WEBCAM_FPS_OPTIONS, CAPTURE_CARD_FPS_OPTIONS, CABLE_HUB_TYPES, CABLE_TYPES, CABLE_LENGTHS, HUB_INPUT_TYPES, POLLING_RATES, CHAIR_MATERIALS, MOUSE_POWER_TYPES } = CREATE_PRODUCT_FORM_CONFIG;
+const {
+  DEPARTMENTS,
+  CPU_BRANDS,
+  MOTHERBOARD_BRANDS,
+  CPU_SOCKETS_BY_BRAND,
+  SOCKETS,
+  M2_FORM_FACTORS,
+  COOLER_SOCKET_OPTIONS,
+  COOLER_BRANDS,
+  COOLER_RADIATOR_OPTIONS,
+  FORM_FACTORS,
+  CASE_BRANDS,
+  CASE_RADIATOR_SUPPORT_OPTIONS,
+  RAM_TYPES,
+  RAM_BRANDS,
+  RAM_CAPACITIES,
+  PSU_BRANDS,
+  PSU_WATT_OPTIONS,
+  PSU_CERTS,
+  GPU_BRANDS,
+  GPU_CHIPSETS,
+  GPU_VRAM_OPTIONS,
+  GPU_VRAM_TYPES,
+  GPU_FAN_OPTIONS,
+  STORAGE_TYPES,
+  NVME_GENS,
+  PANEL_TYPES,
+  LAPTOP_BRANDS,
+  LAPTOP_COOLING_BASE_BRANDS,
+  LAPTOP_COOLING_BASE_FAN_COUNTS,
+  LAPTOP_ACCESSORY_CONNECTIVITY,
+  BACKPACK_BRANDS,
+  HEADSET_BRANDS,
+  MICROPHONE_BRANDS,
+  SPEAKER_BRANDS,
+  HEADSET_WIRED_CONNECTIONS,
+  HEADSET_WIRELESS_CONNECTIONS,
+  AUDIO_CONNECTIVITY_OPTIONS,
+  AUDIO_CONNECTION_TYPE_OPTIONS,
+  HEADSET_AUDIO_TYPES,
+  HEADSET_SURROUND_OPTIONS,
+  MICROPHONE_TYPES,
+  POLAR_PATTERN_OPTIONS,
+  SPEAKER_TYPES,
+  SPEAKER_CHANNELS,
+  LAPTOP_RAM_OPTIONS,
+  LAPTOP_STORAGE_OPTIONS,
+  LAPTOP_SCREEN_OPTIONS,
+  LAPTOP_REFRESH_OPTIONS,
+  LAPTOP_SUPPORTED_SIZE_OPTIONS,
+  ACCESSORY_COLOR_OPTIONS,
+  MONITOR_BRANDS,
+  MONITOR_RESOLUTION_OPTIONS,
+  MONITOR_REFRESH_OPTIONS,
+  LAPTOP_RAM_LABELS,
+  LAPTOP_STORAGE_LABELS,
+  DESKTOP_COOLER_TYPES,
+  MONITOR_PORTS,
+  PERIPHERAL_CONNECTIONS,
+  MOUSE_CONNECTIONS,
+  KEYBOARD_BRANDS,
+  KEYBOARD_TYPES,
+  KEYBOARD_FORM_FACTORS,
+  LAYOUT_LANGUAGES,
+  MOUSE_TYPES,
+  MOUSE_BRANDS,
+  MOUSEPAD_BRANDS,
+  WEBCAM_BRANDS,
+  CAPTURE_CARD_BRANDS,
+  CABLE_HUB_BRANDS,
+  VIDEO_RESOLUTION_OPTIONS,
+  WEBCAM_FPS_OPTIONS,
+  CAPTURE_CARD_FPS_OPTIONS,
+  CABLE_HUB_TYPES,
+  CABLE_TYPES,
+  CABLE_LENGTHS,
+  HUB_INPUT_TYPES,
+  POLLING_RATES,
+  CHAIR_MATERIALS,
+  MOUSE_POWER_TYPES,
+} = CREATE_PRODUCT_FORM_CONFIG;
 
 function getKeyboardSwitchPlaceholder(keyboardType: string) {
   switch (keyboardType) {
@@ -79,9 +166,9 @@ const INITIAL_FORM_DATA = {
   certification: '80+ Bronze',
   modular: 'No Modular',
   maxGpuLength: '',
-  maxCoolerHeight: '',
   supportedFormFactors: ['ATX'],
   includesPsu: 'false',
+  supportsTowerCooler: 'true',
   includedFans: '0',
   radiatorSupportMm: '0',
   radiatorSupportMmValues: ['0'],
@@ -92,7 +179,6 @@ const INITIAL_FORM_DATA = {
   hasScreen: 'false',
   compatibleSockets: ['AM4', 'AM5'],
   tdpCapacity: '',
-  coolerHeight: '',
   interface: 'PCIe 4.0',
   readSpeed: '',
   writeSpeed: '',
@@ -223,13 +309,11 @@ const NON_NEGATIVE_FIELDS = new Set([
   'fans',
   'wattage',
   'maxGpuLength',
-  'maxCoolerHeight',
   'includedFans',
   'radiatorSupportMm',
   'fanCount',
   'radiatorSize',
   'tdpCapacity',
-  'coolerHeight',
   'readSpeed',
   'writeSpeed',
   'refreshRate',
@@ -685,141 +769,14 @@ export default function AddProductPage() {
                   <div className="col-span-2 flex items-center gap-2 text-blue-800 font-bold border-b border-blue-200 pb-2">
                     <FiCpu /> Datos de Procesador
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('cpuBrand')} className="label-admin">
-                      Marca del procesador
-                    </label>
-                    <select
-                      id={fieldId('cpuBrand')}
-                      name="cpuBrand"
-                      value={formData.cpuBrand}
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {CPU_BRANDS.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('socket')} className="label-admin">
-                      Socket
-                    </label>
-                    <select
-                      id={fieldId('socket')}
-                      name="socket"
-                      value={formData.socket}
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {(CPU_SOCKETS_BY_BRAND[formData.cpuBrand] || []).map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('baseTdpWatts')} className="label-admin">
-                      TDP base (Watts)
-                    </label>
-                    <input
-                      id={fieldId('baseTdpWatts')}
-                      name="baseTdpWatts"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 65"
-                    />
-                    <span className="text-xs text-gray-500">
-                      Dato informativo del consumo base del procesador.
-                    </span>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('tdp')} className="label-admin">
-                      TDP maximo (Watts)
-                    </label>
-                    <input
-                      id={fieldId('tdp')}
-                      name="tdp"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 105"
-                      required
-                    />
-                    <span className="text-xs text-gray-500">
-                      Usado para validar fuente de poder y refrigeracion.
-                    </span>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('cores')} className="label-admin">
-                      Nucleos
-                    </label>
-                    <input
-                      id={fieldId('cores')}
-                      name="cores"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 8"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('threads')} className="label-admin">
-                      Threads
-                    </label>
-                    <input
-                      id={fieldId('threads')}
-                      name="threads"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 16"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('frequency')} className="label-admin">
-                      Frecuencia (GHz)
-                    </label>
-                    <input
-                      id={fieldId('frequency')}
-                      name="frequency"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 4.2"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('integratedGraphics')} className="label-admin">
-                      Graficos Integrados
-                    </label>
-                    <select
-                      id={fieldId('integratedGraphics')}
-                      name="integratedGraphics"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="false">No</option>
-                      <option value="true">Si</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('includesCooler')} className="label-admin">
-                      Incluye Cooler?
-                    </label>
-                    <select
-                      id={fieldId('includesCooler')}
-                      name="includesCooler"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="false">No (Requiere comprar aparte)</option>
-                      <option value="true">Si (De stock)</option>
-                    </select>
-                  </div>
+                  <CpuSpecsFields
+                    mode="create"
+                    values={formData}
+                    onChange={handleChange}
+                    fieldId={fieldId}
+                    cpuBrands={CPU_BRANDS}
+                    socketsByBrand={CPU_SOCKETS_BY_BRAND}
+                  />
                 </>
               )}
 
@@ -829,128 +786,19 @@ export default function AddProductPage() {
                   <div className="col-span-2 flex items-center gap-2 text-blue-800 font-bold border-b border-blue-200 pb-2">
                     <FiGrid /> Datos de Placa
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('brand')} className="label-admin">
-                      Marca
-                    </label>
-                    <select
-                      id={fieldId('brand')}
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleChange}
-                      className="input-admin"
-                      required
-                    >
-                      <option value="">Selecciona marca</option>
-                      {MOTHERBOARD_BRANDS.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('socket')} className="label-admin">
-                      Socket
-                    </label>
-                    <select
-                      id={fieldId('socket')}
-                      name="socket"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {SOCKETS.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('formFactor')} className="label-admin">
-                      Formato
-                    </label>
-                    <select
-                      id={fieldId('formFactor')}
-                      name="formFactor"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {FORM_FACTORS.map((f) => (
-                        <option key={f} value={f}>
-                          {f}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('memoryType')} className="label-admin">
-                      Tipo de RAM
-                    </label>
-                    <select
-                      id={fieldId('memoryType')}
-                      name="memoryType"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {RAM_TYPES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('memorySlots')} className="label-admin">
-                      Slots de RAM
-                    </label>
-                    <select
-                      id={fieldId('memorySlots')}
-                      name="memorySlots"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="2">2 Slots</option>
-                      <option value="4">4 Slots</option>
-                      <option value="8">8 Slots</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('m2Slots')} className="label-admin">
-                      Slots M.2
-                    </label>
-                    <select
-                      id={fieldId('m2Slots')}
-                      name="m2Slots"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="1">1 Slot</option>
-                      <option value="2">2 Slots</option>
-                      <option value="3">3 Slots</option>
-                      <option value="4">4 Slots</option>
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="label-admin">Tamanos M.2 soportados</span>
-                    <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-                      {M2_FORM_FACTORS.map((size) => (
-                        <label
-                          htmlFor={fieldOptionId('supportedM2FormFactors', size)}
-                          key={size}
-                          className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
-                        >
-                          <input
-                            id={fieldOptionId('supportedM2FormFactors', size)}
-                            type="checkbox"
-                            checked={formData.supportedM2FormFactors.includes(size)}
-                            onChange={() => handleMultiSelectChange('supportedM2FormFactors', size)}
-                          />
-                          <span>{size}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
+                  <MotherboardSpecsFields
+                    mode="create"
+                    values={formData}
+                    onChange={handleChange}
+                    fieldId={fieldId}
+                    onToggle={handleMultiSelectChange}
+                    optionId={fieldOptionId}
+                    brands={MOTHERBOARD_BRANDS}
+                    sockets={SOCKETS}
+                    formFactors={FORM_FACTORS}
+                    ramTypes={RAM_TYPES}
+                    m2FormFactors={M2_FORM_FACTORS}
+                  />
                 </>
               )}
 
@@ -960,119 +808,15 @@ export default function AddProductPage() {
                   <div className="col-span-2 flex items-center gap-2 text-blue-800 font-bold border-b border-blue-200 pb-2">
                     <FiZap /> Datos de Memoria
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('brand')} className="label-admin">
-                      Marca
-                    </label>
-                    <select
-                      id={fieldId('brand')}
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleChange}
-                      className="input-admin"
-                      required
-                    >
-                      <option value="">Selecciona marca</option>
-                      {RAM_BRANDS.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('memoryType')} className="label-admin">
-                      Tipo de RAM
-                    </label>
-                    <select
-                      id={fieldId('memoryType')}
-                      name="memoryType"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {RAM_TYPES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('capacity')} className="label-admin">
-                      Capacidad por modulo (GB)
-                    </label>
-                    <select
-                      id={fieldId('capacity')}
-                      name="capacity"
-                      value={formData.capacity}
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {RAM_CAPACITIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c} GB
-                        </option>
-                      ))}
-                    </select>
-                    <span className="text-xs text-gray-500">
-                      Capacidad individual de cada modulo RAM.
-                    </span>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('modules')} className="label-admin">
-                      Modulos
-                    </label>
-                    <select
-                      id={fieldId('modules')}
-                      name="modules"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="1">1 Modulo (Single)</option>
-                      <option value="2">2 Modulos (Dual Kit)</option>
-                      <option value="4">4 Modulos (Quad Kit)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('speed')} className="label-admin">
-                      Frecuencia (MHz)
-                    </label>
-                    <input
-                      id={fieldId('speed')}
-                      name="speed"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 6000"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('latency')} className="label-admin">
-                      Latencia
-                    </label>
-                    <input
-                      id={fieldId('latency')}
-                      name="latency"
-                      value={formData.latency}
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: CL36"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('hasRGB')} className="label-admin">
-                      Iluminacion RGB
-                    </label>
-                    <select
-                      id={fieldId('hasRGB')}
-                      name="hasRGB"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="false">No</option>
-                      <option value="true">Si</option>
-                    </select>
-                  </div>
+                  <RamSpecsFields
+                    mode="create"
+                    values={formData}
+                    onChange={handleChange}
+                    fieldId={fieldId}
+                    brands={RAM_BRANDS}
+                    ramTypes={RAM_TYPES}
+                    capacities={RAM_CAPACITIES}
+                  />
                 </>
               )}
 
@@ -1082,150 +826,17 @@ export default function AddProductPage() {
                   <div className="col-span-2 flex items-center gap-2 text-blue-800 font-bold border-b border-blue-200 pb-2">
                     <FiMonitor /> Datos de Video
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('brand')} className="label-admin">
-                      Marca ensambladora
-                    </label>
-                    <select
-                      id={fieldId('brand')}
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleChange}
-                      className="input-admin"
-                      required
-                    >
-                      <option value="">Selecciona marca</option>
-                      {GPU_BRANDS.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('chipset')} className="label-admin">
-                      Chipset
-                    </label>
-                    <select
-                      id={fieldId('chipset')}
-                      name="chipset"
-                      value={formData.chipset}
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {GPU_CHIPSETS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('vram')} className="label-admin">
-                      VRAM (GB)
-                    </label>
-                    <select
-                      id={fieldId('vram')}
-                      name="vram"
-                      value={formData.vram}
-                      onChange={handleChange}
-                      className="input-admin"
-                      required
-                    >
-                      {GPU_VRAM_OPTIONS.map((vram) => (
-                        <option key={vram} value={vram}>
-                          {vram} GB
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('typeVram')} className="label-admin">
-                      Tipo de VRAM
-                    </label>
-                    <select
-                      id={fieldId('typeVram')}
-                      name="typeVram"
-                      value={formData.typeVram}
-                      onChange={handleChange}
-                      className="input-admin"
-                      required
-                    >
-                      {GPU_VRAM_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('length')} className="label-admin">
-                      Largo (mm)
-                    </label>
-                    <input
-                      id={fieldId('length')}
-                      name="length"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 320"
-                      required
-                    />
-                    <span className="text-xs text-red-500">Vital para validar con Case.</span>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('gpuPowerWatts')} className="label-admin">
-                      TGP / Consumo real (Watts)
-                    </label>
-                    <input
-                      id={fieldId('gpuPowerWatts')}
-                      name="gpuPowerWatts"
-                      type="number"
-                      value={formData.gpuPowerWatts}
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 280"
-                      required
-                    />
-                    <span className="text-xs text-red-500">
-                      Usado por el armador para estimar el consumo del sistema.
-                    </span>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('recommendedPsuWatts')} className="label-admin">
-                      PSU recomendada (Watts)
-                    </label>
-                    <input
-                      id={fieldId('recommendedPsuWatts')}
-                      name="recommendedPsuWatts"
-                      type="number"
-                      value={formData.recommendedPsuWatts}
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 650"
-                    />
-                    <span className="text-xs text-gray-500">
-                      Referencia del fabricante para la fuente minima sugerida.
-                    </span>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('fans')} className="label-admin">
-                      Ventiladores
-                    </label>
-                    <select
-                      id={fieldId('fans')}
-                      name="fans"
-                      value={formData.fans}
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {GPU_FAN_OPTIONS.map((fans) => (
-                        <option key={fans} value={fans}>
-                          {fans}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <GpuSpecsFields
+                    mode="create"
+                    values={formData}
+                    onChange={handleChange}
+                    fieldId={fieldId}
+                    brands={GPU_BRANDS}
+                    chipsets={GPU_CHIPSETS}
+                    vramOptions={GPU_VRAM_OPTIONS}
+                    vramTypes={GPU_VRAM_TYPES}
+                    fanOptions={GPU_FAN_OPTIONS}
+                  />
                 </>
               )}
 
@@ -1235,92 +846,16 @@ export default function AddProductPage() {
                   <div className="col-span-2 flex items-center gap-2 text-blue-800 font-bold border-b border-blue-200 pb-2">
                     <FiZap /> Datos de Fuente
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('brand')} className="label-admin">
-                      Marca
-                    </label>
-                    <select
-                      id={fieldId('brand')}
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleChange}
-                      className="input-admin"
-                      required
-                    >
-                      <option value="">Seleccionar marca</option>
-                      {PSU_BRANDS.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('wattage')} className="label-admin">
-                      Potencia (Watts)
-                    </label>
-                    <select
-                      id={fieldId('wattage')}
-                      name="wattage"
-                      value={formData.wattage}
-                      onChange={handleChange}
-                      className="input-admin"
-                      required
-                    >
-                      <option value="">Seleccionar potencia</option>
-                      {PSU_WATT_OPTIONS.map((watts) => (
-                        <option key={watts} value={watts}>
-                          {watts} W
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('certification')} className="label-admin">
-                      Certificacion
-                    </label>
-                    <select
-                      id={fieldId('certification')}
-                      name="certification"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {PSU_CERTS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('modular')} className="label-admin">
-                      Modularidad
-                    </label>
-                    <select
-                      id={fieldId('modular')}
-                      name="modular"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="No Modular">No Modular</option>
-                      <option value="Semi Modular">Semi Modular</option>
-                      <option value="Full Modular">Full Modular</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('formFactor')} className="label-admin">
-                      Formato
-                    </label>
-                    <select
-                      id={fieldId('formFactor')}
-                      name="formFactor"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="ATX">ATX (Estandar)</option>
-                      <option value="SFX">SFX (Pequena)</option>
-                    </select>
-                  </div>
+                  <PsuSpecsFields
+                    mode="create"
+                    values={formData}
+                    onChange={handleChange}
+                    fieldId={fieldId}
+                    brands={PSU_BRANDS}
+                    wattages={PSU_WATT_OPTIONS}
+                    certifications={PSU_CERTS}
+                    modularOptions={['No Modular', 'Semi Modular', 'Full Modular']}
+                  />
                 </>
               )}
 
@@ -1330,126 +865,20 @@ export default function AddProductPage() {
                   <div className="col-span-2 flex items-center gap-2 text-blue-800 font-bold border-b border-blue-200 pb-2">
                     <FiBox /> Datos de Gabinete
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('brand')} className="label-admin">
-                      Marca
-                    </label>
-                    <select
-                      id={fieldId('brand')}
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleChange}
-                      className="input-admin"
-                      required
-                    >
-                      <option value="">Seleccionar marca</option>
-                      {CASE_BRANDS.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="label-admin">Soporte de placa</span>
-                    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                      {FORM_FACTORS.map((formFactor) => (
-                        <label
-                          htmlFor={fieldOptionId('supportedFormFactors', formFactor)}
-                          key={formFactor}
-                          className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
-                        >
-                          <input
-                            id={fieldOptionId('supportedFormFactors', formFactor)}
-                            type="checkbox"
-                            checked={formData.supportedFormFactors.includes(formFactor)}
-                            onChange={() =>
-                              handleMultiSelectChange('supportedFormFactors', formFactor)
-                            }
-                          />
-                          <span>{formFactor}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('maxGpuLength')} className="label-admin">
-                      Max Largo GPU (mm)
-                    </label>
-                    <input
-                      id={fieldId('maxGpuLength')}
-                      name="maxGpuLength"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 340"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('maxCoolerHeight')} className="label-admin">
-                      Altura maxima de cooler (mm)
-                    </label>
-                    <input
-                      id={fieldId('maxCoolerHeight')}
-                      name="maxCoolerHeight"
-                      type="number"
-                      value={formData.maxCoolerHeight}
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 160"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('includesPsu')} className="label-admin">
-                      Incluye Fuente?
-                    </label>
-                    <select
-                      id={fieldId('includesPsu')}
-                      name="includesPsu"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="false">No</option>
-                      <option value="true">Si (Generica)</option>
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="label-admin">Soporte radiador liquido</span>
-                    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                      {CASE_RADIATOR_SUPPORT_OPTIONS.map((option) => (
-                        <label
-                          htmlFor={fieldOptionId('radiatorSupportMmValues', option.value)}
-                          key={option.value}
-                          className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
-                        >
-                          <input
-                            id={fieldOptionId('radiatorSupportMmValues', option.value)}
-                            type="checkbox"
-                            checked={formData.radiatorSupportMmValues.includes(option.value)}
-                            onChange={() =>
-                              handleMultiSelectChange('radiatorSupportMmValues', option.value)
-                            }
-                          />
-                          <span>{option.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('includedFans')} className="label-admin">
-                      Ventiladores Incluidos
-                    </label>
-                    <input
-                      id={fieldId('includedFans')}
-                      name="includedFans"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 3"
-                    />
-                  </div>
+                  <CaseSpecsFields
+                    mode="create"
+                    values={formData}
+                    onChange={handleChange}
+                    fieldId={fieldId}
+                    onToggle={handleMultiSelectChange}
+                    optionId={fieldOptionId}
+                    brands={CASE_BRANDS}
+                    formFactors={FORM_FACTORS}
+                    radiatorOptions={CASE_RADIATOR_SUPPORT_OPTIONS.map((option) => option.value)}
+                    radiatorLabels={Object.fromEntries(
+                      CASE_RADIATOR_SUPPORT_OPTIONS.map((option) => [option.value, option.label]),
+                    )}
+                  />
                 </>
               )}
 
@@ -1459,166 +888,18 @@ export default function AddProductPage() {
                   <div className="col-span-2 flex items-center gap-2 text-blue-800 font-bold border-b border-blue-200 pb-2">
                     <FiWind /> Datos de Refrigeracion
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('brand')} className="label-admin">
-                      Marca
-                    </label>
-                    <select
-                      id={fieldId('brand')}
-                      name="brand"
-                      value={formData.brand}
-                      onChange={handleChange}
-                      className="input-admin"
-                      required
-                    >
-                      <option value="">Seleccionar marca</option>
-                      {COOLER_BRANDS.map((brand) => (
-                        <option key={brand} value={brand}>
-                          {brand}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="label-admin">Tipo de Refrigeracion</span>
-                    <div className="flex gap-4 mt-2">
-                      <label
-                        htmlFor={fieldOptionId('type', 'Torre')}
-                        className="inline-flex items-center gap-2 border p-3 rounded-lg cursor-pointer hover:bg-blue-50"
-                      >
-                        <input
-                          id={fieldOptionId('type', 'Torre')}
-                          type="radio"
-                          name="type"
-                          value="Torre"
-                          checked={formData.type === 'Torre'}
-                          onChange={handleChange}
-                        />
-                        <span>Torre</span>
-                      </label>
-                      <label
-                        htmlFor={fieldOptionId('type', 'Líquida')}
-                        className="inline-flex items-center gap-2 border p-3 rounded-lg cursor-pointer hover:bg-blue-50"
-                      >
-                        <input
-                          id={fieldOptionId('type', 'Líquida')}
-                          type="radio"
-                          name="type"
-                          value="Líquida"
-                          checked={formData.type === 'Líquida'}
-                          onChange={handleChange}
-                        />
-                        <span>Líquida</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="col-span-2">
-                    <span className="label-admin">Sockets compatibles</span>
-                    <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-                      {COOLER_SOCKET_OPTIONS.map((socket) => (
-                        <label
-                          htmlFor={fieldOptionId('compatibleSockets', socket)}
-                          key={socket}
-                          className="flex items-center gap-2 rounded-lg border bg-white p-3 text-sm font-semibold"
-                        >
-                          <input
-                            id={fieldOptionId('compatibleSockets', socket)}
-                            type="checkbox"
-                            checked={formData.compatibleSockets.includes(socket)}
-                            onChange={() => handleMultiSelectChange('compatibleSockets', socket)}
-                          />
-                          <span>{socket}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor={fieldId('tdpCapacity')} className="label-admin">
-                      TDP soportado (Watts)
-                    </label>
-                    <input
-                      id={fieldId('tdpCapacity')}
-                      name="tdpCapacity"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 180"
-                      required
-                    />
-                    <span className="text-xs text-gray-500">
-                      Debe ser igual o mayor al TDP del CPU.
-                    </span>
-                  </div>
-
-                  {formData.type === 'Torre' && (
-                    <div>
-                      <label htmlFor={fieldId('coolerHeight')} className="label-admin">
-                        Altura del cooler (mm)
-                      </label>
-                      <input
-                        id={fieldId('coolerHeight')}
-                        name="coolerHeight"
-                        type="number"
-                        onChange={handleChange}
-                        className="input-admin"
-                        placeholder="Ej: 155"
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {formData.type === 'Líquida' && (
-                    <div>
-                      <label htmlFor={fieldId('radiatorSize')} className="label-admin">
-                        Tamano Radiador
-                      </label>
-                      <select
-                        id={fieldId('radiatorSize')}
-                        name="radiatorSize"
-                        value={formData.radiatorSize}
-                        onChange={handleChange}
-                        className="input-admin"
-                        required
-                      >
-                        {COOLER_RADIATOR_OPTIONS.map((size) => (
-                          <option key={size} value={size}>
-                            {size} mm
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label htmlFor={fieldId('hasScreen')} className="label-admin">
-                      Tiene Pantalla LCD?
-                    </label>
-                    <select
-                      id={fieldId('hasScreen')}
-                      name="hasScreen"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="false">No</option>
-                      <option value="true">Si</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('hasRGB')} className="label-admin">
-                      RGB?
-                    </label>
-                    <select
-                      id={fieldId('hasRGB')}
-                      name="hasRGB"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      <option value="false">No</option>
-                      <option value="true">Si</option>
-                    </select>
-                  </div>
+                  <CoolerSpecsFields
+                    mode="create"
+                    values={formData}
+                    onChange={handleChange}
+                    fieldId={fieldId}
+                    onToggle={handleMultiSelectChange}
+                    optionId={fieldOptionId}
+                    brands={COOLER_BRANDS}
+                    types={['Torre', 'Líquida']}
+                    sockets={COOLER_SOCKET_OPTIONS}
+                    radiatorOptions={COOLER_RADIATOR_OPTIONS}
+                  />
                 </>
               )}
 
@@ -1628,105 +909,15 @@ export default function AddProductPage() {
                   <div className="col-span-2 flex items-center gap-2 text-blue-800 font-bold border-b border-blue-200 pb-2">
                     <FiHardDrive /> Datos de Almacenamiento
                   </div>
-                  <div>
-                    <label htmlFor={fieldId('type')} className="label-admin">
-                      Tipo
-                    </label>
-                    <select
-                      id={fieldId('type')}
-                      name="type"
-                      onChange={handleChange}
-                      className="input-admin"
-                    >
-                      {STORAGE_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {formData.type === 'Sólido M.2' && (
-                    <div>
-                      <label htmlFor={fieldId('interface')} className="label-admin">
-                        Generacion
-                      </label>
-                      <select
-                        id={fieldId('interface')}
-                        name="interface"
-                        value={formData.interface}
-                        onChange={handleChange}
-                        className="input-admin"
-                      >
-                        {NVME_GENS.map((g) => (
-                          <option key={g} value={g}>
-                            {g}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label htmlFor={fieldId('capacity')} className="label-admin">
-                      Capacidad (GB)
-                    </label>
-                    <input
-                      id={fieldId('capacity')}
-                      name="capacity"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 1000"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('readSpeed')} className="label-admin">
-                      Velocidad Lectura (MB/s)
-                    </label>
-                    <input
-                      id={fieldId('readSpeed')}
-                      name="readSpeed"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 7000"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={fieldId('writeSpeed')} className="label-admin">
-                      Velocidad Escritura (MB/s)
-                    </label>
-                    <input
-                      id={fieldId('writeSpeed')}
-                      name="writeSpeed"
-                      type="number"
-                      onChange={handleChange}
-                      className="input-admin"
-                      placeholder="Ej: 5000"
-                    />
-                  </div>
-                  {formData.type === 'Sólido M.2' && (
-                    <div>
-                      <label htmlFor={fieldId('m2FormFactor')} className="label-admin">
-                        Tamano fisico M.2
-                      </label>
-                      <select
-                        id={fieldId('m2FormFactor')}
-                        name="m2FormFactor"
-                        value={formData.m2FormFactor}
-                        onChange={handleChange}
-                        className="input-admin"
-                      >
-                        {M2_FORM_FACTORS.map((size) => (
-                          <option key={size} value={size}>
-                            {size}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <StorageSpecsFields
+                    mode="create"
+                    values={formData}
+                    onChange={handleChange}
+                    fieldId={fieldId}
+                    types={STORAGE_TYPES}
+                    interfaces={NVME_GENS}
+                    m2FormFactors={M2_FORM_FACTORS}
+                  />
                 </>
               )}
 

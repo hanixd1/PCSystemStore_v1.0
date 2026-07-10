@@ -28,9 +28,21 @@ const BUILDER_STORAGE_KEY = 'pcsystemstore_pc_builder_state';
 
 const STEPS = [
   { id: 'cpu', title: 'Procesador', shortTitle: 'CPU', category: 'CPU', icon: FiCpu },
-  { id: 'motherboard', title: 'Placa Madre', shortTitle: 'Placa', category: 'MOTHERBOARD', icon: FiGrid },
+  {
+    id: 'motherboard',
+    title: 'Placa Madre',
+    shortTitle: 'Placa',
+    category: 'MOTHERBOARD',
+    icon: FiGrid,
+  },
   { id: 'ram', title: 'Memoria RAM', shortTitle: 'RAM', category: 'RAM', icon: FiZap },
-  { id: 'storage', title: 'Almacenamiento', shortTitle: 'SSD', category: 'STORAGE', icon: FiHardDrive },
+  {
+    id: 'storage',
+    title: 'Almacenamiento',
+    shortTitle: 'SSD',
+    category: 'STORAGE',
+    icon: FiHardDrive,
+  },
   { id: 'gpu', title: 'Tarjeta de Video', shortTitle: 'GPU', category: 'GPU', icon: FiMonitor },
   { id: 'cooler', title: 'Refrigeración', shortTitle: 'Cooler', category: 'COOLER', icon: FiWind },
   { id: 'case', title: 'Case', shortTitle: 'Case', category: 'CASE', icon: FiBox },
@@ -242,7 +254,12 @@ function isM2Storage(product: any) {
   const type = normalizeText(specs.type);
   const storageInterface = normalizeText(specs.interface);
   const formFactor = normalizeText(specs.m2FormFactor);
-  return type.includes('m.2') || type.includes('nvme') || storageInterface.includes('nvme') || formFactor.includes('m.2');
+  return (
+    type.includes('m.2') ||
+    type.includes('nvme') ||
+    storageInterface.includes('nvme') ||
+    formFactor.includes('m.2')
+  );
 }
 
 function normalizeCoolerType(product: any) {
@@ -251,15 +268,14 @@ function normalizeCoolerType(product: any) {
   return 'Torre';
 }
 
-function getCaseMaxCoolerHeight(product: any) {
+function getCaseTowerCoolerSupport(product: any): boolean | undefined {
   const specs = product.caseSpecs || {};
-  return Number(
-    specs.maxCoolerHeight ??
-      specs.maxCoolerHeightMm ??
-      specs.coolerHeightMm ??
-      specs.alturaMaximaCoolerMm ??
-      0,
-  );
+  if (typeof specs.supportsTowerCooler === 'boolean') return specs.supportsTowerCooler;
+
+  const value = compactText(specs.supportsTowerCooler);
+  if (['TRUE', 'SI', 'YES', '1'].includes(value)) return true;
+  if (['FALSE', 'NO', '0'].includes(value)) return false;
+  return undefined;
 }
 
 function getCaseFormFactors(product: any) {
@@ -307,9 +323,7 @@ function caseSupportsGpu(pcCase: any, gpu: any) {
 function caseSupportsCooler(pcCase: any, cooler: any) {
   if (!pcCase || !cooler) return true;
   if (normalizeCoolerType(cooler) === 'Torre') {
-    const coolerHeight = Number(cooler.coolerSpecs?.coolerHeight || 0);
-    const caseHeight = getCaseMaxCoolerHeight(pcCase);
-    return coolerHeight <= 0 || caseHeight <= 0 || coolerHeight <= caseHeight;
+    return getCaseTowerCoolerSupport(pcCase) !== false;
   }
 
   const radiatorSize = Number(cooler.coolerSpecs?.radiatorSize || 0);
@@ -321,7 +335,8 @@ function validateCpuMotherboardCompatibility(build: Record<string, any>) {
   if (
     build.cpu &&
     build.motherboard &&
-    compactText(build.cpu.cpuSpecs?.socket) !== compactText(build.motherboard.motherboardSpecs?.socket)
+    compactText(build.cpu.cpuSpecs?.socket) !==
+      compactText(build.motherboard.motherboardSpecs?.socket)
   ) {
     return ['La placa madre no coincide con el socket del procesador.'];
   }
@@ -329,7 +344,10 @@ function validateCpuMotherboardCompatibility(build: Record<string, any>) {
   return [];
 }
 
-function validateCoolerCompatibility(build: Record<string, any>, skipped: Record<string, SkippedStep>) {
+function validateCoolerCompatibility(
+  build: Record<string, any>,
+  skipped: Record<string, SkippedStep>,
+) {
   const errors: string[] = [];
   const cpuSocket = build.cpu?.cpuSpecs?.socket;
   const cpuTdp = Number(build.cpu?.cpuSpecs?.tdp || 0);
@@ -338,7 +356,9 @@ function validateCoolerCompatibility(build: Record<string, any>, skipped: Record
     return errors;
   }
 
-  if (!getCoolerSockets(build.cooler).some((socket) => compactText(socket) === compactText(cpuSocket))) {
+  if (
+    !getCoolerSockets(build.cooler).some((socket) => compactText(socket) === compactText(cpuSocket))
+  ) {
     errors.push('La refrigeración seleccionada no es compatible con el socket del procesador.');
   }
 
@@ -349,7 +369,10 @@ function validateCoolerCompatibility(build: Record<string, any>, skipped: Record
   return errors;
 }
 
-function validateCoolerCaseCompatibility(build: Record<string, any>, skipped: Record<string, SkippedStep>) {
+function validateCoolerCaseCompatibility(
+  build: Record<string, any>,
+  skipped: Record<string, SkippedStep>,
+) {
   if (!build.cooler || !build.case || skipped.cooler) return [];
   return normalizeCoolerType(build.cooler) === 'Torre'
     ? validateTowerCoolerCaseCompatibility(build)
@@ -357,12 +380,8 @@ function validateCoolerCaseCompatibility(build: Record<string, any>, skipped: Re
 }
 
 function validateTowerCoolerCaseCompatibility(build: Record<string, any>) {
-  const coolerHeight = Number(build.cooler.coolerSpecs?.coolerHeight || 0);
-  const caseHeight = getCaseMaxCoolerHeight(build.case);
-  if (coolerHeight > 0 && caseHeight > 0 && coolerHeight > caseHeight) {
-    return [
-      `Este case no soporta la altura de la refrigeración seleccionada. Requiere ${coolerHeight} mm y el case soporta hasta ${caseHeight} mm.`,
-    ];
+  if (getCaseTowerCoolerSupport(build.case) === false) {
+    return ['Este case no soporta refrigeración de torre.'];
   }
 
   return [];
@@ -403,10 +422,16 @@ function validateStorageCompatibility(build: Record<string, any>) {
   return errors;
 }
 
-function validatePsuCompatibility(build: Record<string, any>, skipped: Record<string, SkippedStep>, requiredWatts: number) {
+function validatePsuCompatibility(
+  build: Record<string, any>,
+  skipped: Record<string, SkippedStep>,
+  requiredWatts: number,
+) {
   if (skipped.psu) return [];
   if (build.psu && Number(build.psu.psuSpecs?.wattage || 0) < requiredWatts) {
-    return [`La fuente seleccionada no cubre el consumo estimado con margen de seguridad (${requiredWatts}W).`];
+    return [
+      `La fuente seleccionada no cubre el consumo estimado con margen de seguridad (${requiredWatts}W).`,
+    ];
   }
 
   return [];
@@ -464,7 +489,11 @@ function getProductSpecsSummary(product: any) {
   if (product.category === 'CASE') {
     return [
       product.caseSpecs?.maxGpuLength ? `GPU hasta ${product.caseSpecs.maxGpuLength} mm` : null,
-      product.caseSpecs?.maxCoolerHeight ? `Cooler hasta ${product.caseSpecs.maxCoolerHeight} mm` : null,
+      product.caseSpecs?.supportsTowerCooler === true
+        ? 'Compatible con refrigeración de torre'
+        : product.caseSpecs?.supportsTowerCooler === false
+          ? 'No soporta refrigeración de torre'
+          : null,
       caseIncludesPowerSupply(product) ? 'Incluye fuente' : null,
     ];
   }
@@ -565,7 +594,15 @@ export default function PCBuilderPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [platform, currentStep, build.cpu?.id, build.motherboard?.id, build.gpu?.id, build.cooler?.id, build.case?.id]);
+  }, [
+    platform,
+    currentStep,
+    build.cpu?.id,
+    build.motherboard?.id,
+    build.gpu?.id,
+    build.cooler?.id,
+    build.case?.id,
+  ]);
 
   const getRequiredPsuWatts = () => calculateRecommendedPsuWatts(build);
 
@@ -647,7 +684,9 @@ export default function PCBuilderPage() {
     const stepDef = STEPS[currentStep];
     if (!('category' in stepDef)) return [];
 
-    let filtered = products.filter((product) => product.category === stepDef.category && product.stock > 0);
+    let filtered = products.filter(
+      (product) => product.category === stepDef.category && product.stock > 0,
+    );
 
     if (stepDef.id === 'cpu') {
       filtered = filtered.filter((product) => cpuMatchesPlatform(product, platform));
@@ -708,7 +747,9 @@ export default function PCBuilderPage() {
 
     if (stepDef.id === 'psu') {
       const requiredWatts = getRequiredPsuWatts();
-      filtered = filtered.filter((product) => Number(product.psuSpecs?.wattage || 0) >= requiredWatts);
+      filtered = filtered.filter(
+        (product) => Number(product.psuSpecs?.wattage || 0) >= requiredWatts,
+      );
     }
 
     return filtered;
@@ -847,7 +888,9 @@ export default function PCBuilderPage() {
   const handleAddToCart = async () => {
     const missingSteps = getMissingRequiredSteps();
     if (missingSteps.length > 0) {
-      notify.error(`Completa los pasos obligatorios: ${missingSteps.map((step) => step.title).join(', ')}.`);
+      notify.error(
+        `Completa los pasos obligatorios: ${missingSteps.map((step) => step.title).join(', ')}.`,
+      );
       return;
     }
 
@@ -955,47 +998,51 @@ export default function PCBuilderPage() {
             <div className="mt-8 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="mx-auto flex w-max min-w-full items-center justify-start gap-2 md:justify-center">
                 {STEPS.filter((step) => 'category' in step).map((step, idx) => {
-                const isCompleted = idx < currentStep;
-                const isActive = idx === currentStep;
-                const isSkipped = Boolean(skipped[step.id]);
+                  const isCompleted = idx < currentStep;
+                  const isActive = idx === currentStep;
+                  const isSkipped = Boolean(skipped[step.id]);
 
-                return (
-                  <div key={step.id} className="flex shrink-0 items-center">
-                    <button
-                      type="button"
-                      onClick={() => goToStep(idx)}
-                      disabled={idx >= currentStep}
-                      title={idx < currentStep ? `Volver a ${step.title}` : step.title}
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-black transition md:h-11 md:w-11 ${
-                        isActive
-                          ? 'border-gray-950 bg-gray-950 text-white ring-4 ring-cyan-100'
-                          : isCompleted
-                            ? isSkipped
-                              ? 'border-amber-300 bg-amber-50 text-amber-700 hover:border-amber-400'
-                              : 'border-brand-cyan bg-brand-cyan text-gray-950 hover:scale-105'
-                            : 'border-gray-200 bg-gray-100 text-gray-400'
-                      }`}
-                    >
-                      <step.icon size={18} />
-                    </button>
-                    <div className="ml-1.5 min-w-10 text-left md:min-w-12">
-                      <p
-                        className={`text-[10px] font-black uppercase leading-tight md:text-[11px] ${
-                          isActive ? 'text-gray-950' : isCompleted ? 'text-gray-700' : 'text-gray-400'
+                  return (
+                    <div key={step.id} className="flex shrink-0 items-center">
+                      <button
+                        type="button"
+                        onClick={() => goToStep(idx)}
+                        disabled={idx >= currentStep}
+                        title={idx < currentStep ? `Volver a ${step.title}` : step.title}
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-black transition md:h-11 md:w-11 ${
+                          isActive
+                            ? 'border-gray-950 bg-gray-950 text-white ring-4 ring-cyan-100'
+                            : isCompleted
+                              ? isSkipped
+                                ? 'border-amber-300 bg-amber-50 text-amber-700 hover:border-amber-400'
+                                : 'border-brand-cyan bg-brand-cyan text-gray-950 hover:scale-105'
+                              : 'border-gray-200 bg-gray-100 text-gray-400'
                         }`}
                       >
-                        {STEP_SHORT_LABELS[step.id] ?? step.title}
-                      </p>
+                        <step.icon size={18} />
+                      </button>
+                      <div className="ml-1.5 min-w-10 text-left md:min-w-12">
+                        <p
+                          className={`text-[10px] font-black uppercase leading-tight md:text-[11px] ${
+                            isActive
+                              ? 'text-gray-950'
+                              : isCompleted
+                                ? 'text-gray-700'
+                                : 'text-gray-400'
+                          }`}
+                        >
+                          {STEP_SHORT_LABELS[step.id] ?? step.title}
+                        </p>
+                      </div>
+                      {idx < STEPS.filter((item) => 'category' in item).length - 1 && (
+                        <div
+                          className={`mx-2 h-1 w-5 rounded-full md:w-7 ${
+                            idx < currentStep ? 'bg-brand-cyan' : 'bg-gray-200'
+                          }`}
+                        />
+                      )}
                     </div>
-                    {idx < STEPS.filter((item) => 'category' in item).length - 1 && (
-                      <div
-                        className={`mx-2 h-1 w-5 rounded-full md:w-7 ${
-                          idx < currentStep ? 'bg-brand-cyan' : 'bg-gray-200'
-                        }`}
-                      />
-                    )}
-                  </div>
-                );
+                  );
                 })}
               </div>
             </div>
@@ -1005,9 +1052,7 @@ export default function PCBuilderPage() {
         <div className="min-h-[520px]">
           {!platform && (
             <div className="animate-fade-in mx-auto max-w-4xl text-center">
-              <h2 className="mb-3 text-3xl font-black text-gray-950">
-                ¿Qué bando eliges?
-              </h2>
+              <h2 className="mb-3 text-3xl font-black text-gray-950">¿Qué bando eliges?</h2>
 
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <button
@@ -1095,7 +1140,8 @@ export default function PCBuilderPage() {
                 <>
                   <div className="mb-4 flex flex-col gap-2 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between">
                     <span>
-                      Mostrando {paginatedProducts.length} de {filteredProducts.length} opciones compatibles.
+                      Mostrando {paginatedProducts.length} de {filteredProducts.length} opciones
+                      compatibles.
                     </span>
                     <span className="font-bold text-gray-700">
                       Página {page} de {totalPages}
@@ -1206,7 +1252,9 @@ export default function PCBuilderPage() {
                   <FiCheckCircle size={40} />
                 </div>
                 <h2 className="text-3xl font-black text-gray-900">Tu PC está lista</h2>
-                <p className="mt-2 text-gray-500">Revisa el armado y agrega los componentes al carrito.</p>
+                <p className="mt-2 text-gray-500">
+                  Revisa el armado y agrega los componentes al carrito.
+                </p>
               </div>
 
               <div className="mb-8 border border-gray-200 bg-gray-50 p-6 md:p-10">
@@ -1225,10 +1273,16 @@ export default function PCBuilderPage() {
                             <step.icon size={20} />
                           </div>
                           <div>
-                            <p className="text-xs font-black uppercase text-gray-400">{step.title}</p>
+                            <p className="text-xs font-black uppercase text-gray-400">
+                              {step.title}
+                            </p>
                             <p
                               className={`font-semibold ${
-                                item ? 'text-gray-900' : skippedStep ? 'text-amber-700' : 'text-gray-400 italic'
+                                item
+                                  ? 'text-gray-900'
+                                  : skippedStep
+                                    ? 'text-amber-700'
+                                    : 'text-gray-400 italic'
                               }`}
                             >
                               {item
