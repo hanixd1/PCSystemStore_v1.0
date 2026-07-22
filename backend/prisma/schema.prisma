@@ -402,6 +402,11 @@ model User {
   resetToken          String?           @unique
   resetTokenExpiry    DateTime?
   status              String            @default("ACTIVE")
+  failedLoginAttempts Int               @default(0)
+  failedLoginWindowStartedAt DateTime?
+  lockedUntil         DateTime?
+  lastFailedLoginAt   DateTime?
+  lastSuccessfulLoginAt DateTime?
   updatedAt           DateTime          @updatedAt
   addresses           Address[]
   accountTokens       AccountToken[]
@@ -445,6 +450,22 @@ model AccountToken {
 
   @@index([userId, type])
   @@index([type, expiresAt])
+}
+
+/// Shared, short-lived counters used by authentication and API throttling.
+/// `key` is always an HMAC-derived identifier; raw emails and IPs are never
+/// persisted in this table.
+model SecurityRateLimit {
+  key          String   @id
+  hits         Int      @default(0)
+  expiresAt    DateTime
+  blockedUntil DateTime?
+  penaltyLevel Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@index([blockedUntil])
 }
 
 model Address {

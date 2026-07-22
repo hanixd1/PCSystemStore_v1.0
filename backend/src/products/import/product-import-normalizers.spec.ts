@@ -1,4 +1,5 @@
 import {
+  isSafeZipEntryName,
   normalizeHeader,
   normalizePartNumber,
   normalizeSocket,
@@ -28,4 +29,11 @@ describe('product import normalizers', () => {
   ])('normalizes socket alias %j as %j', (value, expected) => {
     expect(normalizeSocket(value)).toBe(expected);
   });
+
+  it.each(['../evil.jpg', '/absolute.jpg', 'C:/evil.jpg', 'folder/../../evil.jpg'])(
+    'rechaza una ruta ZIP insegura: %s',
+    (entry) => {
+      expect(isSafeZipEntryName(entry)).toBe(false);
+    },
+  );
 });

@@ -1,4 +1,9 @@
 {
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev:frontend": "pnpm --dir frontend dev",
+    "dev:backend": "npm --prefix backend run start:dev"
+  },
   "dependencies": {
     "@prisma/client": "7.8.0",
     "prisma": "7.8.0"

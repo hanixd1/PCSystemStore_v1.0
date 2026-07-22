@@ -20,7 +20,9 @@ import {
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
 import { getEffectivePrice } from '@/lib/pricing';
+import { getProductPrimaryImage } from '@/lib/product-images';
 import { calculateRecommendedPsuWatts } from '@/lib/products/psuRecommendation';
+import { getCanonicalProductPath } from '@/lib/product-url';
 import { confirmAction, notify } from '@/lib/notify';
 
 const PRODUCTS_PER_PAGE = 9;
@@ -84,7 +86,7 @@ type PersistedBuilderState = {
 };
 
 function getProductPath(product: { id: string; slug?: string | null }) {
-  return `/producto/${product.slug || product.id}`;
+  return getCanonicalProductPath(product);
 }
 
 function normalizeText(value: unknown) {
@@ -1166,15 +1168,11 @@ export default function PCBuilderPage() {
                             onClick={(event) => event.stopPropagation()}
                             className="mb-4 flex h-40 items-center justify-center border border-gray-200 bg-white/70 p-3"
                           >
-                            {product.images?.[0] ? (
-                              <img
-                                src={product.images[0]}
-                                alt={product.name}
-                                className="max-h-full max-w-full object-contain mix-blend-multiply transition-transform group-hover:scale-105"
-                              />
-                            ) : (
-                              <FiBox className="text-4xl text-gray-300" />
-                            )}
+                            <img
+                              src={getProductPrimaryImage(product)}
+                              alt={product.name}
+                              className="max-h-full max-w-full object-contain mix-blend-multiply transition-transform group-hover:scale-105"
+                            />
                           </Link>
 
                           <Link

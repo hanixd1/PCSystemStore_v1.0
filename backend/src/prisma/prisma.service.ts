@@ -1,57 +1,48 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  BeforeApplicationShutdown,
+  Injectable,
+  Logger,
+  OnApplicationShutdown,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-
-function getDatabaseDiagnostics(databaseUrl?: string) {
-  if (!databaseUrl?.trim()) {
-    return {
-      configured: false,
-      host: 'missing',
-      protocol: 'missing',
-      usesSsl: false,
-    };
-  }
-
-  try {
-    const parsedUrl = new URL(databaseUrl);
-    const params = parsedUrl.searchParams;
-
-    return {
-      configured: true,
-      host: parsedUrl.host || 'unknown',
-      protocol: parsedUrl.protocol.replace(':', '') || 'unknown',
-      usesSsl: params.get('sslmode') === 'require',
-    };
-  } catch {
-    return {
-      configured: true,
-      host: 'invalid-url',
-      protocol: 'invalid-url',
-      usesSsl: databaseUrl.includes('sslmode=require'),
-    };
-  }
-}
+import {
+  inspectPostgresConnectionString,
+  normalizePostgresConnectionString,
+} from './database-url';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy, BeforeApplicationShutdown, OnApplicationShutdown
+{
   private readonly logger = new Logger(PrismaService.name);
   private isDatabaseConnected = false;
+  private disconnectPromise: Promise<void> | undefined;
+  private shutdownSignal: string | undefined;
 
   constructor() {
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) {
       throw new Error('DATABASE_URL must be configured for Prisma runtime.');
     }
+    const connectionString = normalizePostgresConnectionString(databaseUrl);
 
     super({
       adapter: new PrismaPg({
-        connectionString: databaseUrl,
+        connectionString,
       }),
     });
   }
 
   async onModuleInit() {
-    const databaseDiagnostics = getDatabaseDiagnostics(process.env.DATABASE_URL);
+    const databaseUrl = process.env.DATABASE_URL;
+    const normalizedDatabaseUrl = databaseUrl
+      ? normalizePostgresConnectionString(databaseUrl)
+      : undefined;
+    const databaseDiagnostics = inspectPostgresConnectionString(normalizedDatabaseUrl);
 
     try {
       await this.$connect();
@@ -67,11 +58,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       const message = [
         `No se pudo conectar a PostgreSQL/Neon en ${databaseDiagnostics.host}.`,
         `DATABASE_URL configurada: ${databaseDiagnostics.configured ? 'si' : 'no'}.`,
-        `sslmode=require: ${databaseDiagnostics.usesSsl ? 'si' : 'no'}.`,
+        `sslmode=${databaseDiagnostics.sslMode}.`,
         isReachabilityError
           ? 'Prisma devolvio P1001: el host existe en la configuracion, pero no responde desde esta maquina o desde esta red.'
           : 'Prisma no pudo inicializar la conexion con la base de datos.',
-        'Revisa DATABASE_URL, sslmode=require, credenciales, conectividad local, firewall y el estado del proyecto en Neon.',
+        'Revisa DATABASE_URL, sslmode=verify-full, credenciales, conectividad local, firewall y el estado del proyecto en Neon.',
       ].join(' ');
 
       this.logger.error(message);
@@ -83,7 +74,23 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    this.disconnectPromise ??= this.disconnect();
+    await this.disconnectPromise;
+  }
+
+  beforeApplicationShutdown(signal?: string) {
+    if (!signal || this.shutdownSignal) {
+      return;
+    }
+
+    this.shutdownSignal = signal;
+    this.logger.log(`[BOOT] ${signal} received. Closing backend...`);
+  }
+
+  onApplicationShutdown(signal?: string) {
+    if (signal && signal === this.shutdownSignal) {
+      this.logger.log('[BOOT] Backend closed successfully.');
+    }
   }
 
   getConnectionState() {
@@ -99,5 +106,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       this.isDatabaseConnected = false;
       return false;
     }
+  }
+
+  private async disconnect(): Promise<void> {
+    await this.$disconnect();
+    this.isDatabaseConnected = false;
+    this.logger.log('Prisma desconectado.');
   }
 }

@@ -18,14 +18,7 @@ import { MulterUploadExceptionFilter } from './multer-upload-exception.filter';
 import { ADMIN_IMAGE_UPLOAD_OPTIONS, BANNER_IMAGE_UPLOAD_OPTIONS } from './multer-options';
 
 type UploadType =
-  | 'product'
-  | 'products'
-  | 'banner'
-  | 'banners'
-  | 'branding'
-  | 'logo'
-  | 'payment'
-  | 'payments';
+  'product' | 'products' | 'banner' | 'banners' | 'branding' | 'logo' | 'payment' | 'payments';
 
 @Controller('admin/uploads')
 export class UploadsController {

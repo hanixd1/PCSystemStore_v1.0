@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Roles } from '../../auth/roles.decorator';
 import { JwtUserPayload } from '../../auth/auth.constants';
@@ -19,11 +20,12 @@ import { MulterUploadExceptionFilter } from '../../uploads/multer-upload-excepti
 import { ProductImportService } from './product-import.service';
 import { ProductTemplateService } from './product-template.service';
 import type { ProductImportBody } from './product-import.types';
+import { getImportLimits } from '../../security/security.config';
 
 const IMPORT_UPLOAD_OPTIONS = {
   storage: memoryStorage(),
   limits: {
-    fileSize: 200 * 1024 * 1024,
+    fileSize: getImportLimits().zipMaxFileSize,
     files: 2,
     fields: 8,
     parts: 12,
@@ -34,12 +36,24 @@ const IMPORT_UPLOAD_OPTIONS = {
     file: Express.Multer.File,
     callback: (error: Error | null, acceptFile: boolean) => void,
   ) => {
-    if (file.fieldname === 'excel' && /\.xlsx$/i.test(file.originalname)) {
+    const mime = file.mimetype.toLowerCase();
+    if (
+      file.fieldname === 'excel' &&
+      /\.xlsx$/i.test(file.originalname) &&
+      [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/octet-stream',
+      ].includes(mime)
+    ) {
       callback(null, true);
       return;
     }
 
-    if (file.fieldname === 'imagesZip' && /\.zip$/i.test(file.originalname)) {
+    if (
+      file.fieldname === 'imagesZip' &&
+      /\.zip$/i.test(file.originalname) &&
+      ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'].includes(mime)
+    ) {
       callback(null, true);
       return;
     }
@@ -61,7 +75,7 @@ export class ProductImportController {
     @Query() query: ProductImportBody,
     @Res({ passthrough: false }) response: Response,
   ): Promise<void> {
-    const template = this.productTemplateService.generateTemplate(query);
+    const template = await this.productTemplateService.generateTemplate(query);
     response.status(200);
     response.setHeader('Content-Type', template.contentType);
     response.setHeader('Content-Disposition', `attachment; filename="${template.filename}"`);
@@ -70,6 +84,7 @@ export class ProductImportController {
   }
 
   @Roles('ADMIN')
+  @Throttle({ default: { limit: 5, ttl: 10 * 60 * 1000 } })
   @Post('preview')
   @UseFilters(new MulterUploadExceptionFilter('Archivo de importacion invalido.'))
   @UseInterceptors(
@@ -90,6 +105,7 @@ export class ProductImportController {
   }
 
   @Roles('ADMIN')
+  @Throttle({ default: { limit: 2, ttl: 10 * 60 * 1000 } })
   @Post('confirm')
   @UseFilters(new MulterUploadExceptionFilter('Archivo de importacion invalido.'))
   @UseInterceptors(

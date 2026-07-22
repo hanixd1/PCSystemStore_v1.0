@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { PaymentMethod, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import * as bcrypt from 'bcryptjs';
+import { PasswordHashingService } from '../src/auth/password-hashing.service';
+import { normalizePostgresConnectionString } from '../src/prisma/database-url';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -10,9 +11,16 @@ if (!databaseUrl) {
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
-    connectionString: databaseUrl,
+    connectionString: normalizePostgresConnectionString(databaseUrl),
   }),
 });
+const passwordHashing = new PasswordHashingService();
+
+function getSeedPassword(name: string, administrative: boolean): string {
+  const password = process.env[name] ?? '';
+  passwordHashing.assertPasswordPolicy(password, administrative);
+  return password;
+}
 
 async function cleanCatalogData() {
   await prisma.payment.deleteMany();
@@ -50,20 +58,26 @@ async function cleanCatalogData() {
 }
 
 async function seedUsersAndBranding() {
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash('admin123', salt);
+  const adminPassword = getSeedPassword('SEED_ADMIN_PASSWORD', true);
+  const editorPassword = getSeedPassword('SEED_EDITOR_PASSWORD', true);
+  const customerPlainPassword = getSeedPassword('SEED_CUSTOMER_PASSWORD', false);
+  const [hashedPassword, hashedEditorPassword, customerPassword] = await Promise.all([
+    passwordHashing.hashPassword(adminPassword),
+    passwordHashing.hashPassword(editorPassword),
+    passwordHashing.hashPassword(customerPlainPassword),
+  ]);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@pcsystem.com' },
     update: {
-      password: hashedPassword,
+      password: hashedEditorPassword,
       role: 'ADMIN',
       status: 'ACTIVE',
     },
     create: {
       email: 'admin@pcsystem.com',
       name: 'Administrador Principal',
-      password: hashedPassword,
+      password: hashedEditorPassword,
       role: 'ADMIN',
       status: 'ACTIVE',
     },
@@ -86,7 +100,6 @@ async function seedUsersAndBranding() {
     },
   });
 
-  const customerPassword = await bcrypt.hash('h12345', salt);
   const customer = await prisma.user.upsert({
     where: { email: 'hanny@test.com' },
     update: {
@@ -381,8 +394,7 @@ async function main() {
   await seedUsersAndBranding();
   await seedCatalog();
   console.log('Seed completado con exito.');
-  console.log('Admin: admin@pcsystem.com / admin123');
-  console.log('Cliente: hanny@test.com / h12345');
+  console.log('Credenciales de seed leidas desde variables de entorno; no se muestran.');
   console.log('Metodo de pago de prueba soportado:', PaymentMethod.CARD_CREDIT);
 }
 

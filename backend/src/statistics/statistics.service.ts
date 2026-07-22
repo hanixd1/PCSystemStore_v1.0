@@ -7,12 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-type InventoryStatus =
-  | 'NORMAL'
-  | 'LOW_STOCK'
-  | 'OUT_OF_STOCK'
-  | 'BREAK_RISK'
-  | 'PREDICTIVE_RISK';
+type InventoryStatus = 'NORMAL' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'BREAK_RISK' | 'PREDICTIVE_RISK';
 type AiMode = 'AI_SERVICE' | 'LOCAL_FALLBACK';
 type StockAlertType = 'OUT_OF_STOCK' | 'LOW_STOCK' | 'PREDICTIVE_RISK';
 type StockAlertStateStatus = 'ACTIVE' | 'REVIEWED' | 'DISMISSED';
@@ -147,61 +142,56 @@ export class StatisticsService {
       const sevenDaysAgo = this.getDateDaysAgo(7);
       const thirtyDaysAgo = this.getDateDaysAgo(30);
 
-      const [
-        totalProducts,
-        products,
-        salesLast7Days,
-        salesLast30Days,
-        persistedAlertStates,
-      ] = await Promise.all([
-        this.prisma.product.count(),
-        this.prisma.product.findMany({
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            price: true,
-            isOnSale: true,
-            salePrice: true,
-            stock: true,
-            cpuSpecs: { select: { id: true } },
-            motherboardSpecs: { select: { id: true } },
-            ramSpecs: { select: { id: true } },
-            gpuSpecs: { select: { id: true } },
-            psuSpecs: { select: { id: true } },
-            caseSpecs: { select: { id: true } },
-            storageSpecs: { select: { id: true } },
-            monitorSpecs: { select: { id: true } },
-            keyboardSpecs: { select: { id: true } },
-            mouseSpecs: { select: { id: true } },
-          },
-          orderBy: [{ stock: 'asc' }, { updatedAt: 'desc' }],
-        }),
-        this.prisma.orderItem.groupBy({
-          by: ['productId'],
-          where: {
-            order: {
-              status: 'PAID',
-              paidAt: { gte: sevenDaysAgo },
+      const [totalProducts, products, salesLast7Days, salesLast30Days, persistedAlertStates] =
+        await Promise.all([
+          this.prisma.product.count(),
+          this.prisma.product.findMany({
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              price: true,
+              isOnSale: true,
+              salePrice: true,
+              stock: true,
+              cpuSpecs: { select: { id: true } },
+              motherboardSpecs: { select: { id: true } },
+              ramSpecs: { select: { id: true } },
+              gpuSpecs: { select: { id: true } },
+              psuSpecs: { select: { id: true } },
+              caseSpecs: { select: { id: true } },
+              storageSpecs: { select: { id: true } },
+              monitorSpecs: { select: { id: true } },
+              keyboardSpecs: { select: { id: true } },
+              mouseSpecs: { select: { id: true } },
             },
-          },
-          _sum: { quantity: true },
-        }),
-        this.prisma.orderItem.groupBy({
-          by: ['productId'],
-          where: {
-            order: {
-              status: 'PAID',
-              paidAt: { gte: thirtyDaysAgo },
+            orderBy: [{ stock: 'asc' }, { updatedAt: 'desc' }],
+          }),
+          this.prisma.orderItem.groupBy({
+            by: ['productId'],
+            where: {
+              order: {
+                status: 'PAID',
+                paidAt: { gte: sevenDaysAgo },
+              },
             },
-          },
-          _sum: { quantity: true },
-        }),
-        this.prisma.stockAlertState.findMany({
-          where: { status: { in: ['REVIEWED', 'DISMISSED'] } },
-          select: { productId: true, alertType: true, status: true },
-        }),
-      ]);
+            _sum: { quantity: true },
+          }),
+          this.prisma.orderItem.groupBy({
+            by: ['productId'],
+            where: {
+              order: {
+                status: 'PAID',
+                paidAt: { gte: thirtyDaysAgo },
+              },
+            },
+            _sum: { quantity: true },
+          }),
+          this.prisma.stockAlertState.findMany({
+            where: { status: { in: ['REVIEWED', 'DISMISSED'] } },
+            select: { productId: true, alertType: true, status: true },
+          }),
+        ]);
       const salesLast7DaysByProduct = this.buildSalesMap(salesLast7Days);
       const salesLast30DaysByProduct = this.buildSalesMap(salesLast30Days);
       const aiResult = await this.getStockStatisticsFromAi(products, {
@@ -389,7 +379,9 @@ export class StatisticsService {
       .filter((alert) => !hiddenAlerts.has(`${alert.productId}:${alert.alertType}`))
       .sort((left, right) => {
         const priority = this.getAlertPriority(right) - this.getAlertPriority(left);
-        if (priority !== 0) return priority;
+        if (priority !== 0) {
+          return priority;
+        }
         return left.stock - right.stock;
       });
   }
@@ -435,9 +427,15 @@ export class StatisticsService {
   }
 
   private getAlertPriority(alert: InventoryAlert): number {
-    if (alert.alertType === 'OUT_OF_STOCK') return 300;
-    if (alert.alertType === 'PREDICTIVE_RISK') return 200 + (alert.risk ?? 0);
-    if (alert.alertType === 'LOW_STOCK') return 100;
+    if (alert.alertType === 'OUT_OF_STOCK') {
+      return 300;
+    }
+    if (alert.alertType === 'PREDICTIVE_RISK') {
+      return 200 + (alert.risk ?? 0);
+    }
+    if (alert.alertType === 'LOW_STOCK') {
+      return 100;
+    }
     return 0;
   }
 

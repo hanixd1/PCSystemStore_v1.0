@@ -4,7 +4,9 @@ import { ProductPricingService } from './services/product-pricing.service';
 function product(overrides: Record<string, unknown>) {
   return {
     id: 'product-id',
+    slug: 'producto-qa',
     name: 'Producto QA',
+    price: 100,
     category: 'CPU',
     stock: 5,
     updatedAt: new Date('2026-01-01T00:00:00Z'),

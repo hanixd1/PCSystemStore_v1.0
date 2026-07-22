@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { FiEdit2, FiEye, FiEyeOff, FiImage, FiPlus, FiSave, FiTrash2, FiX } from 'react-icons/fi';
 import { api, getApiErrorMessage } from '@/lib/api';
 import ImageUploader from '@/components/ImageUploader';
+import { PRODUCT_IMAGE_FALLBACK, resolveImageUrl } from '@/lib/product-images';
 
 type Branding = {
   storeName: string;
@@ -333,7 +334,7 @@ export default function AdminBannersPage() {
                 </span>
               ) : branding.logoUrl ? (
                 <img
-                  src={branding.logoUrl}
+                  src={resolveImageUrl(branding.logoUrl) ?? PRODUCT_IMAGE_FALLBACK}
                   alt={branding.logoAlt || branding.storeName}
                   className="max-h-14 max-w-full object-contain"
                 />
@@ -452,7 +453,7 @@ export default function AdminBannersPage() {
                 >
                   <div className="h-28 overflow-hidden rounded-xl bg-gray-100">
                     <img
-                      src={banner.imageUrl}
+                      src={resolveImageUrl(banner.imageUrl) ?? PRODUCT_IMAGE_FALLBACK}
                       alt={banner.title}
                       className="h-full w-full object-cover"
                     />

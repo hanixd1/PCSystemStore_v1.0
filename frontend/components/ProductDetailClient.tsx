@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FiChevronLeft, FiChevronRight, FiShoppingCart, FiCheck, FiBox } from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
-import { api } from '@/lib/api';
 import { buildSpecificationRows } from '@/lib/productSpecifications';
 import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/pricing';
+import { getProductImages, getProductPrimaryImage } from '@/lib/product-images';
+import { getCanonicalProductPath } from '@/lib/product-url';
 
 // Función mágica que genera las migas de pan leyendo el nombre y specs del producto
 const generateBreadcrumbs = (product: any) => {
@@ -60,14 +61,6 @@ const generateBreadcrumbs = (product: any) => {
 
   return breadcrumbs;
 };
-
-function getPublicProductPath(product: { id: string; slug?: string | null }) {
-  return `/producto/${product.slug || product.id}`;
-}
-
-function getProductImages(product: any): string[] {
-  return Array.isArray(product?.images) ? product.images.filter(Boolean) : [];
-}
 
 function RelatedProductsCarousel({ products }: { products: any[] }) {
   const { addItem } = useCartStore();
@@ -132,7 +125,8 @@ function RelatedProductsCarousel({ products }: { products: any[] }) {
       >
         {visibleProducts.map((item) => {
           const hasStock = Number(item.stock) > 0;
-          const itemPath = getPublicProductPath(item);
+          const itemPath = getCanonicalProductPath(item);
+          const itemImage = getProductPrimaryImage(item);
 
           return (
             <article
@@ -143,17 +137,13 @@ function RelatedProductsCarousel({ products }: { products: any[] }) {
                 href={itemPath}
                 className="relative flex h-40 items-center justify-center bg-transparent p-3 md:h-44"
               >
-                {item.images?.[0] ? (
-                  <img
-                    src={item.images[0]}
-                    alt={item.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <FiBox className="text-5xl text-gray-200" />
-                )}
+                <img
+                  src={itemImage}
+                  alt={item.name}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                />
 
                 {!hasStock ? (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50/85 backdrop-blur-sm">
@@ -226,24 +216,24 @@ function RelatedProductsCarousel({ products }: { products: any[] }) {
   );
 }
 
-export default function ProductDetailClient({ identifier }: { identifier: string }) {
+export default function ProductDetailClient({
+  initialProduct,
+  initialRelatedProducts = [],
+}: {
+  initialProduct: any;
+  initialRelatedProducts?: any[];
+}) {
   const router = useRouter();
-  const pathname = usePathname();
   const { addItem, closeCart } = useCartStore();
-  const [product, setProduct] = useState<any>(null);
-  const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
-  const [relatedLoadError, setRelatedLoadError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const product = initialProduct;
+  const relatedProducts = initialRelatedProducts;
   const [activeImage, setActiveImage] = useState(0);
   const [isImageFading, setIsImageFading] = useState(false);
   const imageTransitionTimeout = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!identifier) return;
-
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    setActiveImage(0);
-  }, [identifier]);
+  }, [product.id]);
 
   useEffect(() => {
     return () => {
@@ -252,59 +242,6 @@ export default function ProductDetailClient({ identifier }: { identifier: string
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!identifier) return;
-
-    setLoading(true);
-    setRelatedLoadError(null);
-    api
-      .get(`/products/resolve/${identifier}`)
-      .then(async (productRes) => {
-        const currentProduct = productRes.data;
-        setProduct(currentProduct);
-        if (currentProduct?.slug && pathname !== getPublicProductPath(currentProduct)) {
-          router.replace(getPublicProductPath(currentProduct));
-        }
-
-        try {
-          const relatedRes = currentProduct?.id
-            ? await api.get(`/products/related/${currentProduct.id}`)
-            : { data: [] };
-          const relatedData = Array.isArray(relatedRes.data)
-            ? relatedRes.data
-            : Array.isArray(relatedRes.data?.items)
-              ? relatedRes.data.items
-              : [];
-          setRelatedProducts(relatedData);
-        } catch (error) {
-          console.warn('No se pudieron cargar productos relacionados:', error);
-          setRelatedProducts([]);
-          setRelatedLoadError('No se pudieron cargar los productos relacionados.');
-        }
-      })
-      .catch((err) => console.error('Error al cargar producto:', err))
-      .finally(() => setLoading(false));
-  }, [identifier, pathname, router]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-brand-cyan"></div>
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="min-h-screen flex flex-col justify-center items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Producto no encontrado</h1>
-        <Link href="/" className="mt-4 text-brand-cyan hover:underline">
-          Volver a la tienda
-        </Link>
-      </div>
-    );
-  }
 
   const breadcrumbs = generateBreadcrumbs(product);
   const productName = String(product.name || 'Producto sin nombre');
@@ -538,7 +475,7 @@ export default function ProductDetailClient({ identifier }: { identifier: string
             />
           ) : (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm font-bold text-gray-500">
-              {relatedLoadError || 'No hay productos relacionados disponibles por el momento.'}
+              No hay productos relacionados disponibles por el momento.
             </div>
           )}
         </section>

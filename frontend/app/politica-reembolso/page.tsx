@@ -1,3 +1,11 @@
+import { publicPageMetadata } from '@/lib/seo';
+
+export const metadata = publicPageMetadata(
+  'Política de reembolso | PCSystemStore',
+  'Condiciones publicadas para cambios, devoluciones y reembolsos en PCSystemStore.',
+  '/politica-reembolso',
+);
+
 const REFUND_SECTIONS = [
   {
     title: 'Política de cambios y devoluciones',

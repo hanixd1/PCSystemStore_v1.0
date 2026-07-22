@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { confirmAction, notify } from '@/lib/notify';
+import { getProductPrimaryImage } from '@/lib/product-images';
 
 type Product = {
   id: string;
@@ -383,7 +384,7 @@ export default function AdminDashboard() {
               ) : (
                 products.map((product) => {
                   const sku = product.sku || product.numeroParte || 'Sin SKU';
-                  const image = Array.isArray(product.images) ? product.images[0] : null;
+                  const image = getProductPrimaryImage(product);
                   const productType = product.productType || product.category || '';
 
                   return (
@@ -391,17 +392,13 @@ export default function AdminDashboard() {
                       <td className="p-4">
                         <div className="flex items-center gap-4">
                           <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-                            {image ? (
-                              <img
-                                src={image}
-                                alt=""
-                                loading="lazy"
-                                decoding="async"
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-400">N/A</span>
-                            )}
+                            <img
+                              src={image}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              className="h-full w-full object-cover"
+                            />
                           </div>
                           <div>
                             <p className="line-clamp-1 font-bold text-gray-900">{product.name}</p>

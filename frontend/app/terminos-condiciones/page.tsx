@@ -1,3 +1,11 @@
+import { publicPageMetadata } from '@/lib/seo';
+
+export const metadata = publicPageMetadata(
+  'Términos y condiciones | PCSystemStore',
+  'Consulta los términos y condiciones aplicables al uso del sitio y las compras en PCSystemStore.',
+  '/terminos-condiciones',
+);
+
 const TERMS_SECTIONS = [
   {
     title: 'Aceptación de los términos',

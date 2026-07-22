@@ -3,6 +3,35 @@ import { isAdminRoute } from '@/lib/adminRouting';
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, '');
 export const API_URL = configuredApiUrl || '';
+const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete']);
+let csrfToken: string | null = null;
+let csrfRequest: Promise<string> | null = null;
+
+function readCsrfCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const raw = document.cookie
+    .split(';')
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith('pcs_csrf_token='))
+    ?.slice('pcs_csrf_token='.length);
+  return raw ? decodeURIComponent(raw) : null;
+}
+
+async function getCsrfToken(): Promise<string> {
+  const cookieToken = readCsrfCookie();
+  if (cookieToken) return cookieToken;
+  if (csrfToken) return csrfToken;
+  if (!csrfRequest) {
+    csrfRequest = axios
+      .get<{ csrfToken: string }>(`${API_URL}/auth/csrf-token`, { withCredentials: true })
+      .then((response) => response.data.csrfToken)
+      .finally(() => {
+        csrfRequest = null;
+      });
+  }
+  csrfToken = await csrfRequest;
+  return csrfToken;
+}
 
 function getApiConfigurationError(): string | null {
   if (!API_URL) {
@@ -32,12 +61,12 @@ function toFriendlyValidationMessage(message: string): string {
     return 'La confirmacion de contrasena es obligatoria.';
   }
 
-  if (message.includes('confirmPassword must be longer than or equal to 6 characters')) {
-    return 'La confirmacion debe tener al menos 6 caracteres.';
+  if (message.includes('confirmPassword must be longer than or equal to 8 characters')) {
+    return 'La confirmacion debe tener al menos 8 caracteres.';
   }
 
-  if (message.includes('password must be longer than or equal to 6 characters')) {
-    return 'La contrasena debe tener al menos 6 caracteres.';
+  if (message.includes('password must be longer than or equal to 8 characters')) {
+    return 'La contrasena debe tener al menos 8 caracteres.';
   }
 
   if (message.includes('email must be an email')) {
@@ -61,17 +90,24 @@ function getFriendlyResponseMessage(responseMessage: unknown): string | null {
   return null;
 }
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
   const configurationError = getApiConfigurationError();
   if (configurationError) {
     return Promise.reject(new Error(configurationError));
   }
 
+  if (typeof window !== 'undefined' && MUTATING_METHODS.has(config.method?.toLowerCase() ?? '')) {
+    config.headers.set('X-CSRF-Token', await getCsrfToken());
+  }
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const rotatedToken = (response.data as { csrfToken?: unknown } | undefined)?.csrfToken;
+    if (typeof rotatedToken === 'string' && rotatedToken) csrfToken = rotatedToken;
+    return response;
+  },
   (error) => {
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 401) {
@@ -103,6 +139,7 @@ export function clearStoredAuthSession() {
   if (typeof window === 'undefined') {
     return;
   }
+  csrfToken = null;
 
   const isAdminPath = isAdminRoute(window.location.pathname);
 

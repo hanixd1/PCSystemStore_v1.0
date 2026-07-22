@@ -1,3 +1,11 @@
+import { publicPageMetadata } from '@/lib/seo';
+
+export const metadata = publicPageMetadata(
+  'Contacto | PCSystemStore',
+  'Canales oficiales para consultas comerciales, pedidos, soporte e información de productos.',
+  '/contactar',
+);
+
 const CONTACT_CHANNELS = [
   {
     label: 'WhatsApp',

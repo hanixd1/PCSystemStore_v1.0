@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { FiMessageSquare, FiX, FiSend, FiCpu } from 'react-icons/fi';
 import { api } from '@/lib/api';
 import { parseBooleanLike } from '@/lib/productPayload';
+import { resolveImageUrl } from '@/lib/product-images';
+import { getCanonicalProductPath } from '@/lib/product-url';
 import { MAX_CART_ITEM_QUANTITY, useCartStore } from '@/store/useCartStore';
 import type {
   CatalogCategory,
@@ -34,8 +36,9 @@ type UnitToken = (typeof UNIT_TOKENS)[number];
 
 function ChatProductImage({ src, alt }: { src?: string | null; alt: string }) {
   const [hasError, setHasError] = useState(false);
+  const imageSource = resolveImageUrl(src, { fallback: null });
 
-  if (!src || hasError) {
+  if (!imageSource || hasError) {
     return (
       <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[10px] font-bold text-gray-400">
         Sin imagen
@@ -45,7 +48,7 @@ function ChatProductImage({ src, alt }: { src?: string | null; alt: string }) {
 
   return (
     <img
-      src={src}
+      src={imageSource}
       alt={alt}
       className="h-16 w-16 shrink-0 rounded-lg object-cover bg-gray-100"
       onError={() => setHasError(true)}
@@ -403,7 +406,7 @@ export default function Chatbot() {
       imageUrl:
         product.imageUrl ??
         (Array.isArray(product.images) && product.images[0] ? product.images[0] : null),
-      productUrl: `/producto/${product.slug || product.id}`,
+      productUrl: getCanonicalProductPath(product),
     }));
 
   const fetchCatalogProducts = async (

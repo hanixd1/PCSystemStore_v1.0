@@ -1,3 +1,11 @@
+import { publicPageMetadata } from '@/lib/seo';
+
+export const metadata = publicPageMetadata(
+  'Política de privacidad | PCSystemStore',
+  'Consulta cómo PCSystemStore trata y protege la información personal de clientes y visitantes.',
+  '/politica-privacidad',
+);
+
 const PRIVACY_SECTIONS = [
   {
     title: 'Datos personales que recopilamos',

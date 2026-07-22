@@ -1,13 +1,11 @@
 import 'dotenv/config';
+import {
+  inspectPostgresConnectionString,
+  normalizePostgresConnectionString,
+} from '../src/prisma/database-url';
 
 function getHost(value?: string): string {
-  if (!value) return 'NO DEFINIDA';
-
-  try {
-    return new URL(value).host;
-  } catch {
-    return 'URL INVÁLIDA';
-  }
+  return inspectPostgresConnectionString(value).host;
 }
 
 function hasPooler(value?: string): boolean {
@@ -15,7 +13,15 @@ function hasPooler(value?: string): boolean {
 }
 
 function hasSslMode(value?: string): boolean {
-  return Boolean(value?.includes('sslmode=require'));
+  if (!value) return false;
+  try {
+    return (
+      inspectPostgresConnectionString(normalizePostgresConnectionString(value)).sslMode ===
+      'verify-full'
+    );
+  } catch {
+    return false;
+  }
 }
 
 console.log({

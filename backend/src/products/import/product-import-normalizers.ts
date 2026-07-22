@@ -55,7 +55,9 @@ export function isSafeZipEntryName(value: string) {
   const normalized = value.replace(/\\/g, '/');
   return (
     Boolean(normalized.trim()) &&
+    !normalized.includes('\0') &&
     !normalized.startsWith('/') &&
+    !/^[a-z]:\//i.test(normalized) &&
     !normalized.includes('../') &&
     !normalized.includes('..\\') &&
     !normalized.split('/').some((part) => part === '..')
@@ -120,21 +122,35 @@ export function isKnownSocket(socket: string) {
 
 export function normalizeFormFactor(value: unknown) {
   const normalized = normalizeText(value).toUpperCase().replace(/\s+/g, ' ');
-  if (['MICRO ATX', 'MICRO-ATX', 'MATX', 'M-ATX'].includes(normalized)) return 'Micro-ATX';
-  if (['MINI ITX', 'MINI-ITX', 'ITX'].includes(normalized)) return 'Mini-ITX';
-  if (normalized === 'E-ATX' || normalized === 'EATX') return 'E-ATX';
-  if (normalized === 'ATX') return 'ATX';
+  if (['MICRO ATX', 'MICRO-ATX', 'MATX', 'M-ATX'].includes(normalized)) {
+    return 'Micro-ATX';
+  }
+  if (['MINI ITX', 'MINI-ITX', 'ITX'].includes(normalized)) {
+    return 'Mini-ITX';
+  }
+  if (normalized === 'E-ATX' || normalized === 'EATX') {
+    return 'E-ATX';
+  }
+  if (normalized === 'ATX') {
+    return 'ATX';
+  }
   return normalizeText(value);
 }
 
 export function normalizeMemoryType(value: unknown) {
   const normalized = normalizeText(value).toUpperCase().replace(/\s+/g, '');
-  if (['DDR3', 'DDR4', 'DDR5'].includes(normalized)) return normalized;
+  if (['DDR3', 'DDR4', 'DDR5'].includes(normalized)) {
+    return normalized;
+  }
   return normalizeText(value);
 }
 
 export function getMimeTypeFromFileName(fileName: string) {
-  if (/\.png$/i.test(fileName)) return 'image/png';
-  if (/\.webp$/i.test(fileName)) return 'image/webp';
+  if (/\.png$/i.test(fileName)) {
+    return 'image/png';
+  }
+  if (/\.webp$/i.test(fileName)) {
+    return 'image/webp';
+  }
   return 'image/jpeg';
 }

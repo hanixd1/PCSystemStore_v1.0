@@ -936,6 +936,10 @@ Estado por módulo:
 
 ## Consideraciones de seguridad
 
+La configuracion completa de Helmet, CORS, CSRF, cookies, throttling, bloqueo administrativo persistente, Argon2id y limites XLSX/ZIP se documenta en [docs/security-hardening.md](docs/security-hardening.md).
+
+Antes de desplegar, configure como minimo `CORS_ORIGINS`, `CSRF_ALLOWED_ORIGINS`, `TRUST_PROXY`, `JWT_SECRET` y los limites descritos en `backend/.env.example`. Aplique migraciones con `prisma migrate deploy`; no use `db push` en produccion.
+
 * No almacenar credenciales en el repositorio.
 * Usar variables de entorno.
 * No exponer `JWT_SECRET`.

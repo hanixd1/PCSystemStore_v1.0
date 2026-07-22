@@ -183,10 +183,10 @@ AI_SERVICE_URL=https://pcsystemstore-ai-production.up.railway.app
 Frontend:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
-Ajustar `NEXT_PUBLIC_API_URL` al puerto real del backend si no usa `3000`.
+En desarrollo local, `NEXT_PUBLIC_API_URL` apunta al backend NestJS en `3001`.
 
 ## 7. Validacion funcional post-deploy
 
@@ -210,3 +210,8 @@ Ajustar `NEXT_PUBLIC_API_URL` al puerto real del backend si no usa `3000`.
 - El microservicio IA usa reglas como fallback hasta integrar un modelo entrenado desde `MODEL_PATH`.
 - Si `AI_SERVICE_URL` falla o no esta configurado, el backend degrada sin romper el e-commerce y devuelve predicciones vacias.
 - Mantener migraciones Prisma versionadas y ejecutar `npx prisma migrate deploy` en Railway.
+# Seguridad de frontend y API
+
+La topologia Vercel (frontend) -> Railway (API) es cross-site. Configure en Railway `CORS_ORIGINS` y `CSRF_ALLOWED_ORIGINS` con la URL HTTPS exacta de Vercel, `COOKIE_SAME_SITE=none` y `TRUST_PROXY=1`. No agregue localhost en produccion. Si se asignan subdominios bajo el mismo sitio registrable, cambie a `COOKIE_SAME_SITE=lax` despues de probar OAuth y autenticacion.
+
+Antes de promover una version aplique `prisma migrate deploy`. En multiples replicas, sustituya el storage en memoria de throttling por uno compartido. Consulte `docs/security-hardening.md` para variables, limites y verificaciones.

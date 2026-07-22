@@ -1,6 +1,8 @@
-import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+import { Prisma, PrismaClient } from '@prisma/client';
 import crypto from 'node:crypto';
+import { PasswordHashingService } from '../../src/auth/password-hashing.service';
+
+const passwordHashing = new PasswordHashingService();
 
 const getQaPassword = (envName: string): string =>
   process.env[envName] ?? `QA_${crypto.randomUUID()}_Test`;
@@ -51,9 +53,9 @@ export async function resetQaDatabase(prisma: PrismaClient) {
 
 export async function seedQaDatabase(prisma: PrismaClient) {
   const [adminPassword, editorPassword, customerPassword] = await Promise.all([
-    bcrypt.hash(qaUsers.admin.password, 10),
-    bcrypt.hash(qaUsers.editor.password, 10),
-    bcrypt.hash(qaUsers.customer.password, 10),
+    passwordHashing.hashPassword(qaUsers.admin.password),
+    passwordHashing.hashPassword(qaUsers.editor.password),
+    passwordHashing.hashPassword(qaUsers.customer.password),
   ]);
 
   const [admin, editor, customer] = await Promise.all([
@@ -86,7 +88,7 @@ export async function seedQaDatabase(prisma: PrismaClient) {
     }),
   ]);
 
-  const createProduct = (data: any) => prisma.product.create({ data });
+  const createProduct = (data: Prisma.ProductCreateInput) => prisma.product.create({ data });
 
   const cpuAmd = await createProduct({
     sku: qaSkus.cpuAmd,

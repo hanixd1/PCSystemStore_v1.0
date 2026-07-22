@@ -130,18 +130,11 @@ describe('Security (e2e)', () => {
     process.env.JWT_SECRET = 'test-jwt-secret';
     process.env.JWT_EXPIRES_IN = '1d';
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    const moduleBuilder = Test.createTestingModule({
       imports: [AuthModule],
       controllers: [AppController, ProductsController, ProductImportController, UsersController],
       providers: [
         AppService,
-        {
-          provide: PrismaService,
-          useValue: {
-            getConnectionState: jest.fn(() => 'mocked'),
-            ping: jest.fn(async () => true),
-          },
-        },
         { provide: ProductsService, useValue: productsServiceMock },
         { provide: ProductImportService, useValue: productImportServiceMock },
         ProductTemplateService,
@@ -156,7 +149,14 @@ describe('Security (e2e)', () => {
           useClass: RolesGuard,
         },
       ],
-    }).compile();
+    });
+    const moduleFixture: TestingModule = await moduleBuilder
+      .overrideProvider(PrismaService)
+      .useValue({
+        getConnectionState: jest.fn(() => 'mocked'),
+        ping: jest.fn(async () => true),
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
@@ -404,7 +404,7 @@ describe('Security (e2e)', () => {
       .send({
         name: 'Editor Nuevo',
         email: 'nuevo-editor@example.com',
-        password: 'secret123',
+        password: 'frase-segura-123',
         role: 'ADMIN',
       })
       .expect(201);
@@ -425,7 +425,7 @@ describe('Security (e2e)', () => {
       .send({
         name: 'Editor Nuevo',
         email: 'editor-internal@example.com',
-        password: 'secret123',
+        password: 'frase-segura-123',
         role: 'EDITOR',
       })
       .expect(201);
@@ -446,7 +446,7 @@ describe('Security (e2e)', () => {
       .send({
         name: 'Admin Nuevo',
         email: 'admin-internal@example.com',
-        password: 'secret123',
+        password: 'frase-segura-123',
         role: 'ADMIN',
       })
       .expect(201);
@@ -467,7 +467,7 @@ describe('Security (e2e)', () => {
       .send({
         name: 'No permitido',
         email: 'forbidden-editor@example.com',
-        password: 'secret123',
+        password: 'frase-segura-123',
         role: 'EDITOR',
       })
       .expect(403);
@@ -486,7 +486,7 @@ describe('Security (e2e)', () => {
       .send({
         name: 'Empleado legacy',
         email: 'legacy@example.com',
-        password: 'secret123',
+        password: 'frase-segura-123',
         role: 'EMPLOYEE',
       })
       .expect(400);

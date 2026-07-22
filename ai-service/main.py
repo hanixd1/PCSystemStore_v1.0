@@ -26,6 +26,9 @@ if allowed_origins:
     )
 
 app.include_router(chatbot.router, prefix="/chat", tags=["Chatbot"])
+# Backward compatibility:
+# /predict-stock is the legacy route kept for existing clients.
+# /stock-prediction is the canonical route.
 app.include_router(stock_prediction.router, prefix="/stock-prediction", tags=["Stock Prediction"])
 app.include_router(stock_prediction.router, prefix="/predict-stock", tags=["Stock Prediction"])
 app.include_router(statistics.router, prefix="/statistics", tags=["Statistics"])

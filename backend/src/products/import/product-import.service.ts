@@ -1,10 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, PayloadTooLargeException } from '@nestjs/common';
 import AdmZip from 'adm-zip';
-import * as XLSX from 'xlsx';
+import { Workbook, type Cell } from 'exceljs';
+import { PassThrough } from 'node:stream';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { CLOUDINARY_UPLOAD_FOLDERS, CloudinaryService } from '../../uploads/cloudinary.service';
 import { ProductsService } from '../products.service';
+import { CreateProductDto } from '../dto/create-product.dto';
 import {
   ProductImportBody,
   ProductImportConfirmResult,
@@ -33,6 +35,7 @@ import {
   splitFileList,
   getMimeTypeFromFileName,
 } from './product-import-normalizers';
+import { getImportLimits } from '../../security/security.config';
 
 type ImportFiles = {
   excel?: Express.Multer.File[];
@@ -132,7 +135,7 @@ export class ProductImportService {
         if (row.action === 'update' && row.productId) {
           await this.productsService.update(
             row.productId,
-            { ...row.payload, images: imageUrls } as any,
+            { ...row.payload, images: imageUrls },
             actorId,
           );
           updated += 1;
@@ -143,11 +146,14 @@ export class ProductImportService {
             entityType: 'Product',
             entityId: row.productId,
             entityName: String(row.payload.name),
-            description: `Producto actualizado por importacion masiva: ${row.payload.name}.`,
+            description: `Producto actualizado por importacion masiva: ${String(row.payload.name)}.`,
             metadata: { row: row.row, sku: String(row.payload.sku ?? '') },
           });
         } else {
-          const product = await this.productsService.create(payload as any, actorId);
+          const product = await this.productsService.create(
+            payload as CreateProductDto & { uploadedImages?: string[] },
+            actorId,
+          );
           created += 1;
           await this.audit.log({
             actorId,
@@ -226,7 +232,7 @@ export class ProductImportService {
     const zipFile = this.getRequiredFile(files.imagesZip, 'ZIP de imagenes');
     this.validateUploadedFiles(excelFile, zipFile);
 
-    const rawRows = this.readExcelRows(excelFile);
+    const rawRows = await this.readExcelRows(excelFile);
     const zipEntries = this.buildZipEntryMap(this.readZip(zipFile));
     const missingColumns = this.getMissingColumns(rawRows, productCategory);
     const errors: ProductImportIssue[] = [];
@@ -288,8 +294,11 @@ export class ProductImportService {
           payload,
           imageFiles,
         });
-        if (action === 'update') productsToUpdate += 1;
-        else newProducts += 1;
+        if (action === 'update') {
+          productsToUpdate += 1;
+        } else {
+          newProducts += 1;
+        }
       }
 
       rows.push({
@@ -354,6 +363,13 @@ export class ProductImportService {
   }
 
   private validateUploadedFiles(excel: Express.Multer.File, zip: Express.Multer.File) {
+    const limits = getImportLimits();
+    if (excel.buffer.length > limits.excelMaxFileSize) {
+      throw new PayloadTooLargeException('El archivo Excel supera el limite permitido.');
+    }
+    if (zip.buffer.length > limits.zipMaxFileSize) {
+      throw new PayloadTooLargeException('El archivo ZIP supera el limite permitido.');
+    }
     if (!/\.xlsx$/i.test(excel.originalname)) {
       throw new BadRequestException('El archivo Excel debe tener extension .xlsx.');
     }
@@ -361,49 +377,202 @@ export class ProductImportService {
     if (!/\.zip$/i.test(zip.originalname)) {
       throw new BadRequestException('El archivo de imagenes debe ser un ZIP.');
     }
+    if (!this.hasZipSignature(excel.buffer)) {
+      throw new BadRequestException('El archivo renombrado no contiene un XLSX valido.');
+    }
+    if (!this.hasZipSignature(zip.buffer)) {
+      throw new BadRequestException('El archivo de imagenes no contiene un ZIP valido.');
+    }
   }
 
-  private readExcelRows(file: Express.Multer.File) {
-    const workbook = XLSX.read(file.buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    if (!sheetName) {
+  private async readExcelRows(file: Express.Multer.File): Promise<RawRow[]> {
+    const limits = getImportLimits();
+    let archive: AdmZip;
+    try {
+      archive = new AdmZip(file.buffer);
+    } catch {
+      throw new BadRequestException('No se pudo leer el archivo XLSX.');
+    }
+    this.validateArchiveLimits(archive, 'XLSX');
+    const workbook = new Workbook();
+    try {
+      const stream = new PassThrough();
+      stream.end(file.buffer);
+      await workbook.xlsx.read(stream);
+    } catch {
+      throw new BadRequestException('No se pudo leer el archivo XLSX.');
+    }
+    if (workbook.worksheets.length === 0) {
       throw new BadRequestException('El Excel no contiene hojas para leer.');
     }
-
-    const rows = XLSX.utils.sheet_to_json<RawRow>(workbook.Sheets[sheetName], {
-      defval: '',
-      raw: false,
-    });
-
+    if (workbook.worksheets.length > limits.maxSheets) {
+      throw new BadRequestException('El Excel contiene mas hojas de las permitidas.');
+    }
+    const sheet = workbook.worksheets[0];
+    if (!sheet || sheet.actualRowCount === 0) {
+      throw new BadRequestException('El Excel no contiene productos para importar.');
+    }
+    const headerRow = sheet.getRow(1);
+    const columnCount = headerRow.actualCellCount;
+    if (columnCount === 0) {
+      throw new BadRequestException('La hoja de productos esta vacia.');
+    }
+    if (columnCount > limits.maxColumns) {
+      throw new BadRequestException('El Excel contiene mas columnas de las permitidas.');
+    }
+    if (sheet.actualRowCount - 1 > limits.maxRows) {
+      throw new PayloadTooLargeException('El Excel contiene mas filas de las permitidas.');
+    }
+    const headers: string[] = [];
+    const seenHeaders = new Set<string>();
+    for (let column = 1; column <= columnCount; column += 1) {
+      const header = String(this.readCellValue(headerRow.getCell(column)) ?? '').trim();
+      const normalized = normalizeHeader(header);
+      if (['proto', 'constructor', 'prototype'].includes(normalized)) {
+        throw new BadRequestException('El Excel contiene un encabezado inseguro.');
+      }
+      if (normalized && seenHeaders.has(normalized)) {
+        throw new BadRequestException(`El Excel contiene el encabezado duplicado ${header}.`);
+      }
+      if (normalized) {
+        seenHeaders.add(normalized);
+      }
+      headers.push(header);
+    }
+    const rows: RawRow[] = [];
+    for (let rowNumber = 2; rowNumber <= sheet.actualRowCount; rowNumber += 1) {
+      const source = sheet.getRow(rowNumber);
+      const row = Object.create(null) as RawRow;
+      let hasValue = false;
+      for (let column = 1; column <= columnCount; column += 1) {
+        const value = this.readCellValue(source.getCell(column));
+        if (value !== '') {
+          hasValue = true;
+        }
+        if (headers[column - 1]) {
+          row[headers[column - 1]] = value;
+        }
+      }
+      if (hasValue) {
+        rows.push(row);
+      }
+    }
     if (rows.length === 0) {
       throw new BadRequestException('El Excel no contiene productos para importar.');
     }
-
+    if (rows.length > limits.maxRows) {
+      throw new PayloadTooLargeException('El Excel contiene mas filas de las permitidas.');
+    }
     return rows;
   }
 
+  private readCellValue(cell: Cell): unknown {
+    if (cell.formula) {
+      throw new BadRequestException('Las formulas no estan permitidas durante la importacion.');
+    }
+    const value = cell.value;
+    if (value === null || value === undefined) {
+      return '';
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    if (typeof value !== 'object') {
+      return value;
+    }
+    if ('richText' in value && Array.isArray(value.richText)) {
+      return value.richText.map((part) => part.text).join('');
+    }
+    if ('text' in value && typeof value.text === 'string') {
+      return value.text;
+    }
+    return String(value);
+  }
+
   private readZip(file: Express.Multer.File) {
+    let zip: AdmZip;
     try {
-      return new AdmZip(file.buffer);
+      zip = new AdmZip(file.buffer);
     } catch {
       throw new BadRequestException('No se pudo leer el ZIP de imagenes.');
     }
+    this.validateArchiveLimits(zip, 'ZIP');
+    return zip;
   }
 
   private buildZipEntryMap(zip: AdmZip) {
     const entries = new Map<string, AdmZip.IZipEntry>();
     for (const entry of zip.getEntries()) {
-      if (entry.isDirectory) continue;
+      if (entry.isDirectory) {
+        continue;
+      }
       if (!isSafeZipEntryName(entry.entryName)) {
         throw new BadRequestException(`El ZIP contiene una ruta no permitida: ${entry.entryName}`);
       }
       if (!isAllowedImageFile(entry.entryName)) {
         continue;
       }
+      const data = entry.getData();
+      if (!this.hasImageSignature(entry.entryName, data)) {
+        throw new BadRequestException(
+          `El ZIP contiene una imagen con firma invalida: ${entry.entryName}`,
+        );
+      }
       const fileName = normalizeZipFileName(entry.entryName);
-      if (fileName) entries.set(fileName, entry);
+      if (fileName) {
+        entries.set(fileName, entry);
+      }
     }
     return entries;
+  }
+
+  private validateArchiveLimits(zip: AdmZip, label: string) {
+    const limits = getImportLimits();
+    const entries = zip.getEntries();
+    if (entries.length > limits.maxZipEntries) {
+      throw new PayloadTooLargeException(`${label} contiene demasiados archivos internos.`);
+    }
+    let totalUncompressed = 0;
+    for (const entry of entries) {
+      if (!isSafeZipEntryName(entry.entryName)) {
+        throw new BadRequestException(`${label} contiene una ruta interna no permitida.`);
+      }
+      const uncompressed = Number(entry.header.size);
+      const compressed = Number(entry.header.compressedSize);
+      totalUncompressed += uncompressed;
+      if (totalUncompressed > limits.maxUncompressedSize) {
+        throw new PayloadTooLargeException(`${label} supera el tamano descomprimido permitido.`);
+      }
+      if (uncompressed > 0 && uncompressed / Math.max(1, compressed) > limits.maxCompressionRatio) {
+        throw new BadRequestException(`${label} supera la proporcion de compresion permitida.`);
+      }
+    }
+  }
+
+  private hasZipSignature(buffer: Buffer) {
+    return (
+      buffer.length >= 4 &&
+      buffer[0] === 0x50 &&
+      buffer[1] === 0x4b &&
+      ((buffer[2] === 0x03 && buffer[3] === 0x04) ||
+        (buffer[2] === 0x05 && buffer[3] === 0x06) ||
+        (buffer[2] === 0x07 && buffer[3] === 0x08))
+    );
+  }
+
+  private hasImageSignature(fileName: string, buffer: Buffer) {
+    if (/\.png$/i.test(fileName)) {
+      return buffer
+        .subarray(0, 8)
+        .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    }
+    if (/\.webp$/i.test(fileName)) {
+      return (
+        buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+        buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+      );
+    }
+    return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
   }
 
   private getMissingColumns(rawRows: RawRow[], category: string) {
@@ -420,7 +589,7 @@ export class ProductImportService {
   }
 
   private normalizeRow(row: RawRow): NormalizedRow {
-    const normalized: NormalizedRow = {};
+    const normalized = Object.create(null) as NormalizedRow;
     for (const [key, value] of Object.entries(row)) {
       normalized[normalizeHeader(key)] = value;
     }
@@ -457,8 +626,12 @@ export class ProductImportService {
       brand,
     };
 
-    if (!name) this.pushError(errors, rowNumber, 'nombre', 'El nombre es obligatorio.');
-    if (!sku) this.pushError(errors, rowNumber, 'sku', 'El SKU del Producto es obligatorio.');
+    if (!name) {
+      this.pushError(errors, rowNumber, 'nombre', 'El nombre es obligatorio.');
+    }
+    if (!sku) {
+      this.pushError(errors, rowNumber, 'sku', 'El SKU del Producto es obligatorio.');
+    }
     if (rawNumeroParte && !rawSku) {
       warnings.push({
         row: rowNumber,
@@ -485,8 +658,9 @@ export class ProductImportService {
         category === 'CPU' ? 'La marca del procesador es obligatoria.' : 'La marca es obligatoria.',
       );
     }
-    if (!description)
+    if (!description) {
       this.pushError(errors, rowNumber, 'descripcion', 'La descripcion es obligatoria.');
+    }
     if (price === undefined || price <= 0) {
       this.pushError(errors, rowNumber, 'precio', 'El precio debe ser mayor a 0.');
     }
@@ -1227,17 +1401,23 @@ export class ProductImportService {
       .map((item) => {
         const text = normalizeText(item);
         const match = text.match(/\d+/);
-        if (!match) return /no/i.test(text) ? '0' : '';
+        if (!match) {
+          return /no/i.test(text) ? '0' : '';
+        }
         return match[0];
       })
       .filter(Boolean);
 
-    if (values.length === 0 || values.includes('0')) return ['0'];
+    if (values.length === 0 || values.includes('0')) {
+      return ['0'];
+    }
     return [...new Set(values)];
   }
 
   private getMaxRadiatorValue(values: string[]) {
-    if (values.includes('0')) return 0;
+    if (values.includes('0')) {
+      return 0;
+    }
     return Math.max(0, ...values.map((value) => Number(value)).filter(Number.isFinite));
   }
 
@@ -1268,8 +1448,12 @@ export class ProductImportService {
       return 'Torre';
     }
 
-    if (normalized.includes('liqu')) return 'Líquida';
-    if (normalized === 'torre') return 'Torre';
+    if (normalized.includes('liqu')) {
+      return 'Líquida';
+    }
+    if (normalized === 'torre') {
+      return 'Torre';
+    }
 
     this.pushError(errors, row, field, 'El tipo de refrigeracion debe ser Torre o Liquida.');
     return rawType;
@@ -1303,8 +1487,12 @@ export class ProductImportService {
       }
       return 'Sólido M.2';
     }
-    if (normalized === 'SSD' || normalized.includes('SSD 2.5')) return 'SSD 2.5';
-    if (normalized === 'HDD' || normalized.includes('HDD 3.5')) return 'HDD 3.5';
+    if (normalized === 'SSD' || normalized.includes('SSD 2.5')) {
+      return 'SSD 2.5';
+    }
+    if (normalized === 'HDD' || normalized.includes('HDD 3.5')) {
+      return 'HDD 3.5';
+    }
 
     this.pushError(
       errors,
@@ -1355,15 +1543,23 @@ export class ProductImportService {
       return 'SATA';
     }
 
-    if (!rawGeneration) return storageType === 'Sólido M.2' ? 'PCIe 4.0' : 'SATA';
+    if (!rawGeneration) {
+      return storageType === 'Sólido M.2' ? 'PCIe 4.0' : 'SATA';
+    }
 
     const normalized = rawGeneration.toUpperCase();
-    if (normalized.includes('SATA')) return 'SATA';
-    if (normalized.includes('5.0')) return 'PCIe 5.0';
+    if (normalized.includes('SATA')) {
+      return 'SATA';
+    }
+    if (normalized.includes('5.0')) {
+      return 'PCIe 5.0';
+    }
     if (normalized.includes('4.0') || normalized.includes('NVME') || normalized.includes('PCIE')) {
       return normalized.includes('3.0') ? 'PCIe 3.0' : 'PCIe 4.0';
     }
-    if (normalized.includes('3.0')) return 'PCIe 3.0';
+    if (normalized.includes('3.0')) {
+      return 'PCIe 3.0';
+    }
     return rawGeneration;
   }
 
@@ -1373,7 +1569,9 @@ export class ProductImportService {
     row: number,
     errors: ProductImportIssue[],
   ) {
-    if (storageType !== 'Sólido M.2') return null;
+    if (storageType !== 'Sólido M.2') {
+      return null;
+    }
 
     const match = normalizeText(value).match(/2230|2242|2260|2280|22110/);
     if (!match) {
@@ -1449,10 +1647,18 @@ export class ProductImportService {
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
-    if (normalized.includes('serie')) return 'De serie';
-    if (normalized.includes('torre') || normalized.includes('aire')) return 'Torre';
-    if (normalized.includes('liqu')) return 'Líquida';
-    if (normalized.includes('no incluye') || normalized.includes('noincluye')) return 'No incluye';
+    if (normalized.includes('serie')) {
+      return 'De serie';
+    }
+    if (normalized.includes('torre') || normalized.includes('aire')) {
+      return 'Torre';
+    }
+    if (normalized.includes('liqu')) {
+      return 'Líquida';
+    }
+    if (normalized.includes('no incluye') || normalized.includes('noincluye')) {
+      return 'No incluye';
+    }
     this.pushError(
       errors,
       row,
@@ -1607,8 +1813,9 @@ export class ProductImportService {
 
   private requiredText(value: unknown, field: string, row: number, errors: ProductImportIssue[]) {
     const text = normalizeText(value);
-    if (!text)
+    if (!text) {
       this.pushError(errors, row, field, `El campo ${this.getFieldLabel(field)} es obligatorio.`);
+    }
     return text;
   }
 

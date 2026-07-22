@@ -58,7 +58,8 @@ BACKEND_URL=http://localhost:3000
 
 - `GET /health`
 - `POST /chat`
-- `POST /predict-stock`
+- `POST /stock-prediction` (ruta canónica)
+- `POST /predict-stock` (legacy, compatibilidad hacia atrás)
 - `GET /stock-prediction/health`
 - `POST /stock-prediction/risk-score`
 - `POST /stock-prediction/batch-risk-score`
@@ -66,6 +67,13 @@ BACKEND_URL=http://localhost:3000
 - `POST /statistics/summary`
 
 ## Motor de riesgo predictivo de stock
+
+## Compatibilidad de rutas de stock
+
+`/stock-prediction` es el prefijo canónico. `/predict-stock` se mantiene como
+ruta legacy para clientes existentes y usa exactamente el mismo router y
+payloads. No debe eliminarse sin una deprecación versionada y coordinación con
+los consumidores.
 
 La version actual usa `HEURISTIC_V1`: un scoring heuristico operativo, no un
 modelo ML entrenado. Combina presion de stock, velocidad de ventas cuando el

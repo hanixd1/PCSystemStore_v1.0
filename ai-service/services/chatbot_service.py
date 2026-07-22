@@ -1,5 +1,6 @@
 import re
 import unicodedata
+from dataclasses import dataclass
 
 from schemas.chatbot_schema import (
     CatalogProduct,
@@ -141,6 +142,58 @@ CHECKOUT_MARKERS = [
     "hacer pedido",
     "confirmar compra",
 ]
+
+
+@dataclass(frozen=True)
+class ComponentQuery:
+    category: str | None = None
+    vendor: str | None = None
+    search_terms: tuple[str, ...] = ()
+
+
+def detect_component_query(
+    message: str, state: ConversationState | None = None
+) -> ComponentQuery:
+    """Maps commercial wording to stable catalog terms without changing API payloads."""
+    normalized = normalize_text(message)
+    vendor = None
+    if any(term in normalized for term in ("amd", "ryzen", "threadripper")):
+        vendor = "AMD"
+    elif any(term in normalized for term in ("intel", "core i", "core ultra")) or re.search(
+        r"\bi[3579]-\d", normalized
+    ):
+        vendor = "INTEL"
+
+    category = None
+    if re.search(
+        r"\b(proce|procesador|cpu|ryzen|threadripper|core\s+(?:i|ultra)|i[3579]-\d)",
+        normalized,
+    ):
+        category = "CPU"
+    elif any(term in normalized for term in ("grafica", "tarjeta grafica", "gpu", "rtx", "gtx", "radeon")):
+        category = "GPU"
+    elif any(term in normalized for term in ("ram", "memoria", "ddr4", "ddr5")):
+        category = "RAM"
+    elif any(term in normalized for term in ("fuente", "psu", "watts")) or re.search(
+        r"\b\d{3,4}w\b", normalized
+    ):
+        category = "PSU"
+    elif any(term in normalized for term in ("ssd", "nvme", "disco", "almacenamiento")):
+        category = "STORAGE"
+
+    if category is None and vendor and state and state.awaiting == "cpu_brand":
+        category = "CPU"
+
+    terms: list[str] = []
+    if vendor == "AMD":
+        terms.extend(["amd", "ryzen", "threadripper"])
+    elif vendor == "INTEL":
+        terms.extend(["intel", "core i", "core ultra"])
+    if category:
+        terms.append(category.lower())
+    for pattern in (r"\bryzen\s+[3579]\b", r"\bi[3579]-\d+[a-z]*\b", r"\b(?:rtx|gtx|rx)\s?\d{3,4}\b", r"\bddr[45]\b", r"\b\d{3,4}w\b"):
+        terms.extend(match.group(0) for match in re.finditer(pattern, normalized))
+    return ComponentQuery(category=category, vendor=vendor, search_terms=tuple(dict.fromkeys(terms)))
 
 
 def normalize_text(value: str) -> str:
@@ -312,6 +365,7 @@ def classify_intent(
     mentions: list[str],
     budget: int | None,
     usage: str | None,
+    component_query: ComponentQuery,
 ) -> ChatIntent:
     normalized = normalize_text(message)
     if any(marker in normalized for marker in CHECKOUT_MARKERS):
@@ -320,7 +374,7 @@ def classify_intent(
         return "cart_action"
     if any(marker in normalized for marker in TOTAL_MARKERS):
         return "total_query"
-    if mentions:
+    if mentions or component_query.category is not None:
         return "product_search"
     if budget is not None and ("pc" in normalized or usage is not None):
         return "budget_pc_build"
@@ -340,13 +394,16 @@ def classify_intent(
     return "unknown"
 
 
-def merge_state(request: ChatRequest) -> tuple[ConversationState, list[str], ChatIntent]:
+def merge_state(
+    request: ChatRequest,
+) -> tuple[ConversationState, list[str], ChatIntent, ComponentQuery]:
     state = request.conversationState or ConversationState()
+    component_query = detect_component_query(request.message, state)
     mentions = detect_model_mentions(request.message)
     budget = detect_budget(request.message, bool(mentions))
     usage = detect_usage(request.message)
     includes_peripherals = detect_peripherals(request.message)
-    intent = classify_intent(request.message, state, mentions, budget, usage)
+    intent = classify_intent(request.message, state, mentions, budget, usage, component_query)
 
     if budget is not None:
         state.budget = budget
@@ -359,7 +416,9 @@ def merge_state(request: ChatRequest) -> tuple[ConversationState, list[str], Cha
             dict.fromkeys([*state.mentionedProducts, *mentions])
         )
     state.intent = intent
-    return state, mentions, intent
+    if component_query.category == "CPU" and component_query.vendor is None and not mentions:
+        state.awaiting = "cpu_brand"
+    return state, mentions, intent, component_query
 
 
 def product_to_chat(product: CatalogProduct) -> ChatProduct:
@@ -421,7 +480,7 @@ def find_remembered_product(state: ConversationState, product_id: str | None) ->
 
 
 def search_catalog(
-    catalog: list[CatalogProduct], terms: list[str], message: str
+    catalog: list[CatalogProduct], terms: list[str], message: str, vendor: str | None = None
 ) -> list[CatalogProduct]:
     normalized_message = normalize_text(message)
     search_terms = terms or [
@@ -430,9 +489,15 @@ def search_catalog(
         if len(term) > 2
     ]
     scored: list[tuple[int, CatalogProduct]] = []
+    vendor_terms = {
+        "AMD": ("amd", "ryzen", "threadripper"),
+        "INTEL": ("intel", "core i", "core ultra"),
+    }.get(vendor, ())
 
     for product in catalog:
         product_text = normalize_text(f"{product.name} {product.category}")
+        if vendor_terms and not any(term in product_text for term in vendor_terms):
+            continue
         score = 0
         for term in search_terms:
             parts = term.split()
@@ -486,8 +551,9 @@ def handle_product_search(
     state: ConversationState,
     mentions: list[str],
     intent: ChatIntent,
+    vendor: str | None = None,
 ) -> ChatResponse:
-    matches = search_catalog(request.catalog, mentions, request.message)
+    matches = search_catalog(request.catalog, mentions, request.message, vendor)
     if not matches:
         return ChatResponse(
             reply="No encontre exactamente ese producto en el catalogo actual. Puedes probar con otro modelo o revisar la seccion correspondiente.",
@@ -648,7 +714,7 @@ def handle_checkout_guidance(state: ConversationState) -> ChatResponse:
 
 
 def build_chat_response(payload: ChatRequest) -> ChatResponse:
-    state, mentions, intent = merge_state(payload)
+    state, mentions, intent, component_query = merge_state(payload)
 
     if intent == "checkout_guidance":
         return handle_checkout_guidance(state)
@@ -660,7 +726,29 @@ def build_chat_response(payload: ChatRequest) -> ChatResponse:
         return handle_cart_action(payload, state)
 
     if intent == "product_search":
-        return handle_product_search(payload, state, mentions, intent)
+        if component_query.category == "CPU" and component_query.vendor is None and not mentions:
+            return ChatResponse(
+                reply="Buscas un procesador. Prefieres AMD (Ryzen/Threadripper) o Intel (Core i/Core Ultra)?",
+                intent=intent,
+                conversationState=state,
+                products=[],
+            )
+        return handle_product_search(
+            payload,
+            state,
+            list(dict.fromkeys([*mentions, *component_query.search_terms])),
+            intent,
+            component_query.vendor,
+        )
+
+    if component_query.vendor and component_query.category is None:
+        state.awaiting = "component_category"
+        return ChatResponse(
+            reply=f"Buscas productos {component_query.vendor}. Indica si necesitas procesador, tarjeta grafica u otro componente para afinar la busqueda.",
+            intent="unknown",
+            conversationState=state,
+            products=[],
+        )
 
     if intent in ["pc_build", "budget_pc_build"]:
         return handle_pc_build(payload, state, intent)

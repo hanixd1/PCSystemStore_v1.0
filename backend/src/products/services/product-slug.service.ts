@@ -15,8 +15,12 @@ export class ProductSlugService {
 
     for (const char of normalized) {
       const code = char.codePointAt(0);
-      if (code === undefined) continue;
-      if (this.isCombiningMark(code)) continue;
+      if (code === undefined) {
+        continue;
+      }
+      if (this.isCombiningMark(code)) {
+        continue;
+      }
 
       if (this.isSlugAllowedCharacter(code)) {
         slugChars.push(char);
@@ -43,7 +47,9 @@ export class ProductSlugService {
       const candidate = `${candidateBase || 'producto'}${suffixText}`;
       const existingProduct = await this.prisma.product.findUnique({ where: { slug: candidate } });
 
-      if (!existingProduct || existingProduct.id === currentProductId) return candidate;
+      if (!existingProduct || existingProduct.id === currentProductId) {
+        return candidate;
+      }
     }
 
     throw new BadRequestException('No se pudo generar un slug unico para este producto.');

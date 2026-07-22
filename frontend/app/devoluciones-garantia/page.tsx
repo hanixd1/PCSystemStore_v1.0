@@ -1,3 +1,11 @@
+import { publicPageMetadata } from '@/lib/seo';
+
+export const metadata = publicPageMetadata(
+  'Devoluciones y garantía | PCSystemStore',
+  'Consulta las condiciones publicadas para devoluciones, evaluación de productos y garantías.',
+  '/devoluciones-garantia',
+);
+
 const RETURN_SECTIONS = [
   {
     title: 'Condiciones generales para solicitar una devolución',

@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiShoppingCart } from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
 import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/pricing';
+import { getProductPrimaryImage } from '@/lib/product-images';
+import { getCanonicalProductPath } from '@/lib/product-url';
 
 type HomeProductCarouselProps = {
   title: string;
@@ -12,10 +14,6 @@ type HomeProductCarouselProps = {
   link: string;
   maxItems?: number;
 };
-
-function getProductPath(product: { id: string; slug?: string | null }) {
-  return `/producto/${product.slug || product.id}`;
-}
 
 export default function HomeProductCarousel({
   title,
@@ -98,7 +96,8 @@ export default function HomeProductCarousel({
         >
           {visibleProducts.map((product) => {
             const hasStock = Number(product.stock) > 0;
-            const productPath = getProductPath(product);
+            const productPath = getCanonicalProductPath(product);
+            const productImage = getProductPrimaryImage(product);
 
             return (
               <article
@@ -109,19 +108,13 @@ export default function HomeProductCarousel({
                   href={productPath}
                   className="relative flex h-44 items-center justify-center bg-transparent p-3 md:h-52"
                 >
-                  {product.images?.[0] ? (
-                    <img
-                      src={product.images[0]}
-                      alt={product.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="text-xs font-black tracking-[0.3em] text-gray-300">
-                      SIN IMAGEN
-                    </div>
-                  )}
+                  <img
+                    src={productImage}
+                    alt={product.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                  />
 
                   {!hasStock ? (
                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50/85 backdrop-blur-sm">

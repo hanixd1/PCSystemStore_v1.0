@@ -6,24 +6,8 @@ import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import { api } from '@/lib/api';
-
-type Banner = {
-  id: string;
-  title: string;
-  subtitle?: string | null;
-  imageUrl: string;
-  linkUrl?: string | null;
-};
-
-const fallbackBanners: Banner[] = [
-  {
-    id: 'fallback-pcsystemstore',
-    title: 'PCSystemStore',
-    imageUrl: '',
-    linkUrl: '/tienda',
-  },
-];
+import { resolveImageUrl } from '@/lib/product-images';
+import type { PublicBanner } from '@/lib/catalog-server';
 
 const NextArrow = (props: any) => {
   const { onClick } = props;
@@ -53,31 +37,10 @@ const PrevArrow = (props: any) => {
   );
 };
 
-export default function HeroCarousel() {
+export default function HeroCarousel({ initialBanners }: { initialBanners: PublicBanner[] }) {
   const sliderRef = useRef<Slider | null>(null);
-  const [banners, setBanners] = useState<Banner[]>(fallbackBanners);
   const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadBanners = async () => {
-      try {
-        const res = await api.get('/public/banners');
-        if (mounted && Array.isArray(res.data) && res.data.length > 0) {
-          setBanners(res.data);
-        }
-      } catch (error) {
-        console.error('Error cargando banners publicos:', error);
-      }
-    };
-
-    void loadBanners();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const banners = initialBanners;
 
   useEffect(() => {
     if (banners.length <= 1) {
@@ -113,6 +76,8 @@ export default function HeroCarousel() {
     ),
   };
 
+  if (banners.length === 0) return null;
+
   return (
     <div className="group relative h-[300px] w-full overflow-hidden bg-gray-900 md:h-[500px]">
       <Slider ref={sliderRef} {...settings}>
@@ -126,12 +91,17 @@ export default function HeroCarousel() {
   );
 }
 
-function BannerContent({ banner }: { banner: Banner }) {
+function BannerContent({ banner }: { banner: PublicBanner }) {
+  const bannerImage = resolveImageUrl(banner.imageUrl, { fallback: null });
   const content = (
     <div className="relative flex h-[300px] w-full items-center justify-center overflow-hidden md:h-[500px]">
-      {banner.imageUrl ? (
+      {bannerImage ? (
         <picture className="absolute inset-0">
-          <img src={banner.imageUrl} alt={banner.title} className="h-full w-full object-cover" />
+          <img
+            src={bannerImage}
+            alt={banner.title}
+            className="h-full w-full object-cover object-[center_60%]"
+          />
         </picture>
       ) : (
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-600 via-gray-900 to-cyan-500" />

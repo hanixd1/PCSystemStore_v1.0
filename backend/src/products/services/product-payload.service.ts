@@ -64,9 +64,15 @@ export class ProductPayloadService {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
 
-    if (normalized.includes('M.2') || normalized.includes('NVME')) return 'Sólido M.2';
-    if (normalized === 'SSD' || normalized.includes('SSD 2.5')) return 'SSD 2.5';
-    if (normalized === 'HDD' || normalized.includes('HDD 3.5')) return 'HDD 3.5';
+    if (normalized.includes('M.2') || normalized.includes('NVME')) {
+      return 'Sólido M.2';
+    }
+    if (normalized === 'SSD' || normalized.includes('SSD 2.5')) {
+      return 'SSD 2.5';
+    }
+    if (normalized === 'HDD' || normalized.includes('HDD 3.5')) {
+      return 'HDD 3.5';
+    }
     return String(val || '').trim() || 'SSD 2.5';
   }
 
@@ -78,12 +84,16 @@ export class ProductPayloadService {
     const values = this.toStringArray(val)
       .map((item) => {
         const match = String(item).match(/\d+/);
-        if (!match) return /no/i.test(String(item)) ? '0' : '';
+        if (!match) {
+          return /no/i.test(String(item)) ? '0' : '';
+        }
         return match[0];
       })
       .filter(Boolean);
 
-    if (values.includes('0')) return ['0'];
+    if (values.includes('0')) {
+      return ['0'];
+    }
     return [...new Set(values)];
   }
 
@@ -110,16 +120,30 @@ export class ProductPayloadService {
   buildProductUpdatePayload(currentProduct: any, data: UpdateProductDto & { slug?: string }) {
     const updateData: any = {};
 
-    if (data.sku !== undefined) updateData.sku = data.sku;
-    if (data.slug !== undefined) updateData.slug = data.slug;
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.description !== undefined) updateData.description = String(data.description).trim();
-    if (data.category !== undefined) updateData.category = data.category;
-    if (data.price !== undefined) updateData.price = this.toFloat(data.price);
+    if (data.sku !== undefined) {
+      updateData.sku = data.sku;
+    }
+    if (data.slug !== undefined) {
+      updateData.slug = data.slug;
+    }
+    if (data.name !== undefined) {
+      updateData.name = data.name;
+    }
+    if (data.description !== undefined) {
+      updateData.description = String(data.description).trim();
+    }
+    if (data.category !== undefined) {
+      updateData.category = data.category;
+    }
+    if (data.price !== undefined) {
+      updateData.price = this.toFloat(data.price);
+    }
 
     this.applyPricingUpdate(updateData, currentProduct, data);
 
-    if (data.stock !== undefined) updateData.stock = this.toInt(data.stock);
+    if (data.stock !== undefined) {
+      updateData.stock = this.toInt(data.stock);
+    }
 
     if (data.images !== undefined) {
       if (!Array.isArray(data.images) || data.images.length > 5) {

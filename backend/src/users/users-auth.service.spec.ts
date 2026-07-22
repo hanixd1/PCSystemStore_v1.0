@@ -1,5 +1,5 @@
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { UnauthorizedException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
 
 describe('UsersService auth cliente/admin', () => {
@@ -9,24 +9,44 @@ describe('UsersService auth cliente/admin', () => {
     const prisma = {
       user: {
         findUnique: jest.fn(async () => user),
+        update: jest.fn(async ({ data }) => ({ ...user, ...data })),
       },
       actionLog: {
         create: jest.fn(async (args) => args),
       },
+      securityRateLimit: {
+        findMany: jest.fn(async () => []),
+        deleteMany: jest.fn(async () => ({ count: 1 })),
+      },
+      $queryRaw: jest.fn(async () => [
+        {
+          key: 'test',
+          hits: 1,
+          expiresAt: new Date(Date.now() + 60_000),
+          penaltyLevel: 0,
+          failedLoginAttempts: 1,
+          failedLoginWindowStartedAt: new Date(),
+          lockedUntil: null,
+          lastFailedLoginAt: new Date(),
+        },
+      ]),
+      $transaction: jest.fn(async (value) =>
+        Array.isArray(value) ? Promise.all(value) : value(prisma),
+      ),
     };
     const jwtService = {
       signAsync: jest.fn(async (payload) => `token-${payload.role}`),
     };
 
     return {
-      service: new UsersService(prisma as any, jwtService as any),
+      service: new UsersService(prisma, jwtService as any),
       prisma,
       jwtService,
     };
   };
 
   it('AUTH-01 permite login cliente solo con rol CUSTOMER', async () => {
-    const { service, jwtService } = createService({
+    const { service, prisma, jwtService } = createService({
       id: 'customer-1',
       name: 'Cliente QA',
       email: 'cliente@test.com',
@@ -42,6 +62,14 @@ describe('UsersService auth cliente/admin', () => {
     expect(jwtService.signAsync).toHaveBeenCalledWith(
       expect.objectContaining({ role: 'CUSTOMER' }),
       { expiresIn: '12h' },
+    );
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { password: expect.stringMatching(/^\$argon2id\$/) } }),
+    );
+    expect(prisma.actionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: 'PASSWORD_REHASHED' }),
+      }),
     );
   });
 
@@ -71,7 +99,7 @@ describe('UsersService auth cliente/admin', () => {
     );
   });
 
-  it('AUTH-03 rechaza ADMIN en login cliente', async () => {
+  it('AUTH-03 rechaza ADMIN en login cliente sin revelar el rol', async () => {
     const { service } = createService({
       id: 'admin-1',
       name: 'Admin QA',
@@ -82,11 +110,11 @@ describe('UsersService auth cliente/admin', () => {
     });
 
     await expect(service.customerLogin('admin@test.com', 'secret123')).rejects.toBeInstanceOf(
-      ForbiddenException,
+      UnauthorizedException,
     );
   });
 
-  it('AUTH-04 rechaza CUSTOMER en login admin', async () => {
+  it('AUTH-04 rechaza CUSTOMER en login admin con mensaje no enumerable', async () => {
     const { service } = createService({
       id: 'customer-1',
       name: 'Cliente QA',
@@ -96,9 +124,37 @@ describe('UsersService auth cliente/admin', () => {
       status: 'ACTIVE',
     });
 
-    await expect(service.adminLogin('cliente@test.com', 'secret123')).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(service.adminLogin('cliente@test.com', 'secret123')).rejects.toMatchObject({
+      message: 'Credenciales invalidas o acceso temporalmente restringido.',
+    });
+  });
+
+  it('AUTH-05 no revela si la cuenta administrativa existe', async () => {
+    const unknown = createService(null);
+    const existing = createService({
+      id: 'admin-1',
+      name: 'Admin QA',
+      email: 'admin@test.com',
+      password: hashedPassword,
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
+
+    const unknownResult = unknown.service
+      .adminLogin('missing@test.com', 'incorrecta')
+      .catch((error: unknown) => error);
+    const existingResult = existing.service
+      .adminLogin('admin@test.com', 'incorrecta')
+      .catch((error: unknown) => error);
+
+    await expect(unknownResult).resolves.toMatchObject({
+      message: 'Credenciales invalidas o acceso temporalmente restringido.',
+    });
+    await expect(existingResult).resolves.toMatchObject({
+      message: 'Credenciales invalidas o acceso temporalmente restringido.',
+    });
   });
 
   it('SEC-01 no autentica payload tipo SQL Injection', async () => {

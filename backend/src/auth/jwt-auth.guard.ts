@@ -3,22 +3,9 @@ import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY, JwtUserPayload, ROLES_KEY, UserRole } from './auth.constants';
+import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE, getCookieValue } from './auth-cookies';
 
 type AuthenticatedRequest = Request & { user?: JwtUserPayload };
-
-function getCookieValue(cookieHeader: string | undefined, name: string) {
-  if (!cookieHeader) {
-    return '';
-  }
-
-  return (
-    cookieHeader
-      .split(';')
-      .map((cookie) => cookie.trim())
-      .find((cookie) => cookie.startsWith(`${name}=`))
-      ?.slice(name.length + 1) ?? ''
-  );
-}
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -33,31 +20,37 @@ export class JwtAuthGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (isPublic) {
-      return true;
-    }
-
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    const cookieHeader = request.headers.cookie;
     const roles = Array.isArray(requiredRoles) ? requiredRoles : [];
     const needsCustomerSession = roles.includes('CUSTOMER');
     const needsAdminSession = roles.some((role) => ['ADMIN', 'EDITOR'].includes(role));
     const cookieToken = needsCustomerSession
-      ? getCookieValue(cookieHeader, 'pcs_customer_session')
+      ? getCookieValue(request, CUSTOMER_SESSION_COOKIE)
       : needsAdminSession
-        ? getCookieValue(cookieHeader, 'pcs_admin_session')
-        : getCookieValue(cookieHeader, 'pcs_customer_session') ||
-          getCookieValue(cookieHeader, 'pcs_admin_session');
+        ? getCookieValue(request, ADMIN_SESSION_COOKIE)
+        : getCookieValue(request, CUSTOMER_SESSION_COOKIE) ||
+          getCookieValue(request, ADMIN_SESSION_COOKIE);
 
     const authorization = request.headers.authorization;
     const bearerToken = authorization?.startsWith('Bearer ')
       ? authorization.slice('Bearer '.length).trim()
       : '';
     const token = cookieToken || bearerToken;
+
+    if (isPublic) {
+      if (token) {
+        try {
+          request.user = await this.jwtService.verifyAsync<JwtUserPayload>(token);
+        } catch {
+          // Public routes remain public; optional identity only affects user-aware throttling.
+        }
+      }
+      return true;
+    }
 
     if (!token) {
       throw new UnauthorizedException('Token no proporcionado');

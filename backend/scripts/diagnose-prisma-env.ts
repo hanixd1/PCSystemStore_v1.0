@@ -1,10 +1,14 @@
 import 'dotenv/config';
+import {
+  inspectPostgresConnectionString,
+  normalizePostgresConnectionString,
+} from '../src/prisma/database-url';
 
 type UrlDiagnostics = {
   exists: boolean;
   host: string;
   hasPooler: boolean;
-  usesSslModeRequire: boolean;
+  sslMode: string;
   valid: boolean;
 };
 
@@ -14,19 +18,20 @@ function inspectDatabaseUrl(value: string | undefined): UrlDiagnostics {
       exists: false,
       host: 'missing',
       hasPooler: false,
-      usesSslModeRequire: false,
+      sslMode: 'missing',
       valid: false,
     };
   }
 
   try {
     const parsed = new URL(value);
+    const safe = inspectPostgresConnectionString(normalizePostgresConnectionString(value));
 
     return {
       exists: true,
-      host: parsed.host,
+      host: safe.host,
       hasPooler: parsed.hostname.includes('-pooler'),
-      usesSslModeRequire: parsed.searchParams.get('sslmode') === 'require',
+      sslMode: safe.sslMode,
       valid: true,
     };
   } catch {
@@ -34,7 +39,7 @@ function inspectDatabaseUrl(value: string | undefined): UrlDiagnostics {
       exists: true,
       host: 'invalid-url',
       hasPooler: value.includes('-pooler'),
-      usesSslModeRequire: value.includes('sslmode=require'),
+      sslMode: 'unknown',
       valid: false,
     };
   }
@@ -46,7 +51,7 @@ function printDiagnostics(name: string, diagnostics: UrlDiagnostics) {
   console.log(`  valid: ${diagnostics.valid ? 'yes' : 'no'}`);
   console.log(`  host: ${diagnostics.host}`);
   console.log(`  contains -pooler: ${diagnostics.hasPooler ? 'yes' : 'no'}`);
-  console.log(`  sslmode=require: ${diagnostics.usesSslModeRequire ? 'yes' : 'no'}`);
+  console.log(`  sslmode: ${diagnostics.sslMode}`);
 }
 
 const databaseUrlDiagnostics = inspectDatabaseUrl(process.env.DATABASE_URL);

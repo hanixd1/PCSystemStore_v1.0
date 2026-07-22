@@ -41,7 +41,7 @@ describe('ProductPayloadService', () => {
   it('builds sparse updates without removing omitted fields or false values', () => {
     const update = service.buildProductUpdatePayload(
       { price: 1000, isOnSale: true, salePrice: 900, images: ['kept.png'] },
-      { stock: 0, isOnSale: false } as any,
+      { stock: 0, isOnSale: false },
     );
 
     expect(update).toEqual({ stock: 0, isOnSale: false, salePrice: null });

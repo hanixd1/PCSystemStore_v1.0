@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -24,6 +25,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { CLOUDINARY_UPLOAD_FOLDERS, CloudinaryService } from '../uploads/cloudinary.service';
 import { MulterUploadExceptionFilter } from '../uploads/multer-upload-exception.filter';
 import { PRODUCT_IMAGE_UPLOAD_OPTIONS } from '../uploads/multer-options';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('products')
 export class ProductsController {
@@ -65,6 +67,7 @@ export class ProductsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 60, ttl: 60 * 1000 } })
   @Get()
   findAll(@Query() query: Record<string, string | string[]>) {
     return this.productsService.findAll(query);
@@ -77,12 +80,14 @@ export class ProductsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 60, ttl: 60 * 1000 } })
   @Get('filter-options')
   getFilterOptions(@Query() query: Record<string, string | string[]>) {
     return this.productsService.getFilterOptions(query);
   }
 
   @Public()
+  @Throttle({ default: { limit: 60, ttl: 60 * 1000 } })
   @Get('chat-search')
   chatSearch(@Query() query: Record<string, string | string[]>) {
     return this.productsService.chatSearch(query);
@@ -96,20 +101,26 @@ export class ProductsController {
 
   @Public()
   @Get('slug/:slug')
-  findBySlug(@Param('slug') slug: string) {
-    return this.productsService.findBySlug(slug);
+  async findBySlug(@Param('slug') slug: string) {
+    const product = await this.productsService.findBySlug(slug);
+    if (!product) throw new NotFoundException('Producto no disponible');
+    return product;
   }
 
   @Public()
   @Get('resolve/:identifier')
-  findByIdOrSlug(@Param('identifier') identifier: string) {
-    return this.productsService.findByIdOrSlug(identifier);
+  async findByIdOrSlug(@Param('identifier') identifier: string) {
+    const product = await this.productsService.findByIdOrSlug(identifier);
+    if (!product) throw new NotFoundException('Producto no disponible');
+    return product;
   }
 
   @Public()
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.productsService.findOne(id);
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    const product = await this.productsService.findOne(id);
+    if (!product) throw new NotFoundException('Producto no disponible');
+    return product;
   }
 
   @Roles('ADMIN', 'EDITOR')

@@ -1,9 +1,9 @@
-type CpuProduct = Record<string, any>;
+type CpuProduct = Record<string, unknown> | null | undefined;
 
 export type CpuBrand = 'intel' | 'amd' | 'other';
 
-function normalizeCpuText(value: string) {
-  return value
+function normalizeCpuText(value: unknown) {
+  return String(value ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
@@ -11,31 +11,35 @@ function normalizeCpuText(value: string) {
     .trim();
 }
 
-function serializeSpecs(specs: unknown) {
-  if (!specs) return '';
-  if (typeof specs === 'string') return specs;
-
-  try {
-    return JSON.stringify(specs);
-  } catch {
-    return '';
-  }
+function nestedValue(value: unknown, key: string) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)[key]
+    : undefined;
 }
 
 export function detectCpuBrand(product: CpuProduct): CpuBrand {
-  const normalizedText = normalizeCpuText(
-    [
-      product.name,
-      product.slug,
-      product.brand,
-      product.category,
-      product.subcategory,
-      product.type,
-      serializeSpecs(product.specs),
-    ]
-      .filter(Boolean)
-      .join(' '),
-  );
+  if (!product || typeof product !== 'object') return 'other';
+
+  const structuredCandidates = [
+    nestedValue(product.cpuSpecs, 'brand'),
+    nestedValue(product.cpuSpecs, 'marcaProcesador'),
+    typeof product.brand === 'object' ? nestedValue(product.brand, 'name') : product.brand,
+    product.marca,
+    product.manufacturer,
+    nestedValue(product.specs, 'brand'),
+    nestedValue(product.specs, 'marcaProcesador'),
+  ];
+
+  for (const candidate of structuredCandidates) {
+    const brand = classifyCpuBrand(candidate);
+    if (brand !== 'other') return brand;
+  }
+
+  return classifyCpuBrand([product.name, product.slug].filter(Boolean).join(' '));
+}
+
+function classifyCpuBrand(value: unknown): CpuBrand {
+  const normalizedText = normalizeCpuText(value);
 
   if (
     /\bintel\b/.test(normalizedText) ||
@@ -57,18 +61,31 @@ export function detectCpuBrand(product: CpuProduct): CpuBrand {
 }
 
 export function interleaveCpuBrands<T extends CpuProduct>(products: T[]) {
+  const uniqueProducts: T[] = [];
+  const seenProducts = new Set<unknown>();
+
+  for (const product of products) {
+    if (!product || typeof product !== 'object') continue;
+    const id = typeof product.id === 'string' ? product.id.trim() : '';
+    const slug = typeof product.slug === 'string' ? product.slug.trim() : '';
+    const identity: unknown = id ? `id:${id}` : slug ? `slug:${slug}` : product;
+    if (seenProducts.has(identity)) continue;
+    seenProducts.add(identity);
+    uniqueProducts.push(product);
+  }
+
   const intel: T[] = [];
   const amd: T[] = [];
   const other: T[] = [];
 
-  products.forEach((product) => {
+  uniqueProducts.forEach((product) => {
     const brand = detectCpuBrand(product);
     if (brand === 'intel') intel.push(product);
     else if (brand === 'amd') amd.push(product);
     else other.push(product);
   });
 
-  const firstCpuBrand = products
+  const firstCpuBrand = uniqueProducts
     .map((product) => detectCpuBrand(product))
     .find((brand) => brand === 'intel' || brand === 'amd');
   const first = firstCpuBrand === 'amd' ? amd : intel;
@@ -82,4 +99,12 @@ export function interleaveCpuBrands<T extends CpuProduct>(products: T[]) {
   }
 
   return [...interleaved, ...other];
+}
+
+export function buildHomeProcessorList<T extends CpuProduct>(products: T[], limit = 15) {
+  const safeLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 15;
+  const processors = products.filter(
+    (product) => product && typeof product === 'object' && product.category === 'CPU',
+  );
+  return interleaveCpuBrands(processors).slice(0, safeLimit);
 }

@@ -17,6 +17,7 @@ import {
   rankProductMatch,
   ProductSearchExpansion,
 } from './product-search';
+import { isPublicProductRecord, withPublicProductCriteria } from './product-publication';
 
 type ProductQuery = Record<string, string | string[] | undefined>;
 type ProductChangeLog = {
@@ -1373,9 +1374,11 @@ export class ProductsService {
     const hasFilters = Object.keys(query).length > 0;
 
     if (!hasFilters) {
-      return this.prisma.product.findMany({
+      const products = await this.prisma.product.findMany({
+        where: withPublicProductCriteria(),
         include: this.productInclude,
       });
+      return products.filter(isPublicProductRecord);
     }
 
     const page = Math.max(this.payload.toInt(this.firstQueryValue(query.page)) || 1, 1);
@@ -1388,9 +1391,9 @@ export class ProductsService {
       return this.findAllWithPublicSearch(query, page, limit);
     }
 
-    const where = this.buildProductWhere(query);
+    const where = withPublicProductCriteria(this.buildProductWhere(query));
     const orderBy = this.buildProductOrderBy(query);
-    const [items, total] = await this.prisma.$transaction([
+    const [items, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
         include: this.productInclude,
@@ -1402,7 +1405,7 @@ export class ProductsService {
     ]);
 
     return {
-      items,
+      items: items.filter(isPublicProductRecord),
       total,
       page,
       limit,
@@ -1494,7 +1497,9 @@ export class ProductsService {
   private async findAllWithPublicSearch(query: ProductQuery, page: number, limit: number) {
     const search = this.getPublicSearchQuery(query) || '';
     const expansion = expandProductSearchQuery(search);
-    const where = this.buildProductWhere(this.omitSearchQuery(query));
+    const where = withPublicProductCriteria(
+      this.buildProductWhere(this.omitSearchQuery(query)),
+    );
     const orderBy = this.buildProductOrderBy(query);
     const candidates = await this.prisma.product.findMany({
       where,
@@ -1503,7 +1508,10 @@ export class ProductsService {
       take: 1000,
     });
 
-    const rankedItems = this.rankSearchCandidates(candidates, expansion);
+    const rankedItems = this.rankSearchCandidates(
+      candidates.filter(isPublicProductRecord),
+      expansion,
+    );
     const total = rankedItems.length;
     const start = (page - 1) * limit;
     const items = rankedItems.slice(start, start + limit);
@@ -1543,11 +1551,13 @@ export class ProductsService {
       this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
     const categories = this.getQueryList(query, 'categories');
     const products = await this.prisma.product.findMany({
-      where: category
-        ? { category }
-        : categories.length > 0
-          ? { category: { in: categories } }
-          : {},
+      where: withPublicProductCriteria(
+        category
+          ? { category }
+          : categories.length > 0
+            ? { category: { in: categories } }
+            : {},
+      ),
       include: this.productInclude,
       orderBy: { createdAt: 'desc' },
       take: 500,
@@ -1660,27 +1670,30 @@ export class ProductsService {
     };
   }
 
-  findOne(id: string) {
-    return this.prisma.product.findUnique({
-      where: { id },
+  async findOne(id: string) {
+    const product = await this.prisma.product.findFirst({
+      where: withPublicProductCriteria({ id }),
       include: this.productInclude,
     });
+    return isPublicProductRecord(product) ? product : null;
   }
 
-  findBySlug(slug: string) {
-    return this.prisma.product.findUnique({
-      where: { slug },
+  async findBySlug(slug: string) {
+    const product = await this.prisma.product.findFirst({
+      where: withPublicProductCriteria({ slug }),
       include: this.productInclude,
     });
+    return isPublicProductRecord(product) ? product : null;
   }
 
-  findByIdOrSlug(identifier: string) {
+  async findByIdOrSlug(identifier: string) {
     const where = this.isUuid(identifier) ? { id: identifier } : { slug: identifier };
 
-    return this.prisma.product.findUnique({
-      where,
+    const product = await this.prisma.product.findFirst({
+      where: withPublicProductCriteria(where),
       include: this.productInclude,
     });
+    return isPublicProductRecord(product) ? product : null;
   }
 
   private isUuid(value: string) {
@@ -1688,7 +1701,8 @@ export class ProductsService {
   }
 
   async findRelated(id: string) {
-    return this.compatibility.findRelated(id);
+    const products = await this.compatibility.findRelated(id);
+    return products.filter(isPublicProductRecord);
   }
 
   async update(id: string, data: UpdateProductDto, actorId?: string) {

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { defineConfig, env } from 'prisma/config';
+import { normalizePostgresConnectionString } from './src/prisma/database-url';
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -7,6 +8,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: env('DIRECT_URL'),
+    url: normalizePostgresConnectionString(env('DIRECT_URL'), 'DIRECT_URL'),
   },
 });

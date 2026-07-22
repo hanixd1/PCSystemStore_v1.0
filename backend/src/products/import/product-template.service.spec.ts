@@ -1,19 +1,34 @@
-import { BadRequestException } from '@nestjs/common';
-import * as XLSX from 'xlsx';
+﻿import { BadRequestException } from '@nestjs/common';
+import { Workbook } from 'exceljs';
 import { ProductTemplateService } from './product-template.service';
 
-function readProductsHeaders(buffer: Buffer) {
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
-  const sheet = workbook.Sheets.Productos;
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    header: 1,
-  })[0] as string[];
+async function readProductsHeaders(buffer: Buffer) {
+  const workbook = new Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.getWorksheet('Productos');
+  if (!sheet) {
+    return [];
+  }
+  return sheet.getRow(1).values.slice(1).map(String);
 }
 
-function readProductsRows(buffer: Buffer) {
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
-  const sheet = workbook.Sheets.Productos;
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+async function readProductsRows(buffer: Buffer) {
+  const workbook = new Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.getWorksheet('Productos');
+  if (!sheet) {
+    return [];
+  }
+  const headers = sheet.getRow(1).values.slice(1).map(String);
+  return [2, 3]
+    .map((rowNumber) => {
+      const row = Object.create(null) as Record<string, unknown>;
+      headers.forEach((header, index) => {
+        row[header] = sheet.getRow(rowNumber).getCell(index + 1).value ?? '';
+      });
+      return row;
+    })
+    .filter((row) => Object.values(row).some((value) => value !== ''));
 }
 
 function expectUsesSkuOnly(headers: string[]) {
@@ -24,22 +39,22 @@ function expectUsesSkuOnly(headers: string[]) {
 describe('ProductTemplateService', () => {
   const service = new ProductTemplateService();
 
-  it('rechaza query sin categoria o tipo de producto', () => {
-    expect(() => service.generateTemplate({})).toThrow(BadRequestException);
+  it('rechaza query sin categoria o tipo de producto', async () => {
+    await expect(service.generateTemplate({})).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('rechaza productType invalido', () => {
-    expect(() =>
+  it('rechaza productType invalido', async () => {
+    await expect(
       service.generateTemplate({ category: 'COMPONENTES', productType: 'Tipo inexistente' }),
-    ).toThrow(BadRequestException);
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('genera plantilla CPU sin marca generica y con marcaProcesador', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla CPU sin marca generica y con marcaProcesador', async () => {
+    const template = await service.generateTemplate({
       category: 'COMPONENTES',
       productType: 'Procesador (CPU)',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.contentType).toBe(
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -53,12 +68,12 @@ describe('ProductTemplateService', () => {
     expect(headers).not.toContain('marca');
   });
 
-  it('genera plantilla placa madre sin frecuenciaRam', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla placa madre sin frecuenciaRam', async () => {
+    const template = await service.generateTemplate({
       category: 'COMPONENTES',
       productType: 'Placa Madre',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-placa-madre.xlsx');
     expectUsesSkuOnly(headers);
@@ -66,12 +81,12 @@ describe('ProductTemplateService', () => {
     expect(headers).not.toContain('frecuenciaRam');
   });
 
-  it('genera plantilla RAM con marca, capacidadPorModulo, frecuencia y latencia', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla RAM con marca, capacidadPorModulo, frecuencia y latencia', async () => {
+    const template = await service.generateTemplate({
       category: 'COMPONENTES',
       productType: 'Memoria RAM',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expectUsesSkuOnly(headers);
     expect(headers).toEqual(
@@ -80,12 +95,12 @@ describe('ProductTemplateService', () => {
     expect(headers).not.toContain('cantidad');
   });
 
-  it('genera plantilla GPU con chipset, tipoVram, largoMm y ventiladores', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla GPU con chipset, tipoVram, largoMm y ventiladores', async () => {
+    const template = await service.generateTemplate({
       category: 'COMPONENTES',
       productType: 'Tarjeta de Video',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expectUsesSkuOnly(headers);
     expect(headers).toEqual(
@@ -95,24 +110,24 @@ describe('ProductTemplateService', () => {
     expect(headers).not.toContain('longitud');
   });
 
-  it('genera plantilla fuente con potenciaWatts y sin watts', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla fuente con potenciaWatts y sin watts', async () => {
+    const template = await service.generateTemplate({
       category: 'COMPONENTES',
       productType: 'Fuente de Poder',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expectUsesSkuOnly(headers);
     expect(headers).toContain('potenciaWatts');
     expect(headers).not.toContain('watts');
   });
 
-  it('genera plantilla case con soportePlaca, soporte de torre y soporteRadiadorLiquido', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla case con soportePlaca, soporte de torre y soporteRadiadorLiquido', async () => {
+    const template = await service.generateTemplate({
       category: 'COMPONENTES',
       productType: 'Gabinete / Case',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expectUsesSkuOnly(headers);
     expect(headers).toEqual(
@@ -129,13 +144,13 @@ describe('ProductTemplateService', () => {
     expect(headers).not.toContain('alturaCoolerMax');
   });
 
-  it('genera plantilla refrigeracion con pantallaLcd, rgb y tipo Torre/Líquida', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla refrigeracion con pantallaLcd, rgb y tipo Torre/Líquida', async () => {
+    const template = await service.generateTemplate({
       category: 'COMPONENTES',
       productType: 'Refrigeracion',
     });
-    const headers = readProductsHeaders(template.buffer);
-    const [example] = readProductsRows(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
+    const [example] = await readProductsRows(template.buffer);
 
     expectUsesSkuOnly(headers);
     expect(headers).toEqual(expect.arrayContaining(['pantallaLcd', 'rgb']));
@@ -144,13 +159,13 @@ describe('ProductTemplateService', () => {
     expect(['Torre', 'Líquida']).toContain(String(example.tipo));
   });
 
-  it('genera plantilla almacenamiento con generacion, capacidadGB y velocidades', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla almacenamiento con generacion, capacidadGB y velocidades', async () => {
+    const template = await service.generateTemplate({
       category: 'COMPONENTES',
       productType: 'Almacenamiento',
     });
-    const headers = readProductsHeaders(template.buffer);
-    const [example] = readProductsRows(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
+    const [example] = await readProductsRows(template.buffer);
 
     expectUsesSkuOnly(headers);
     expect(headers).toEqual(
@@ -169,12 +184,12 @@ describe('ProductTemplateService', () => {
     expect(String(example.tipoAlmacenamiento)).not.toBe('M.2 SATA');
   });
 
-  it('genera plantilla Laptop con specs completas de ordenador portatil', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Laptop con specs completas de ordenador portatil', async () => {
+    const template = await service.generateTemplate({
       category: 'ORDENADORES',
       productType: 'Laptop / Portatil',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-laptop.xlsx');
     expectUsesSkuOnly(headers);
@@ -194,12 +209,12 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantilla PC Desktop con specs de equipo pre-ensamblado', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla PC Desktop con specs de equipo pre-ensamblado', async () => {
+    const template = await service.generateTemplate({
       category: 'ORDENADORES',
       productType: 'PC de Escritorio',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-pc-desktop.xlsx');
     expectUsesSkuOnly(headers);
@@ -218,24 +233,24 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantilla Software con tipoLicencia y plataforma', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Software con tipoLicencia y plataforma', async () => {
+    const template = await service.generateTemplate({
       category: 'ORDENADORES',
       productType: 'Software / Licencia',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-software-licencia.xlsx');
     expectUsesSkuOnly(headers);
     expect(headers).toEqual(expect.arrayContaining(['tipoLicencia', 'plataforma']));
   });
 
-  it('genera plantilla Base Refrigeradora con tamano, ventiladores, rgb y color', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Base Refrigeradora con tamano, ventiladores, rgb y color', async () => {
+    const template = await service.generateTemplate({
       category: 'ORDENADORES',
       productType: 'Base refrigeradora',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-base-refrigeradora.xlsx');
     expectUsesSkuOnly(headers);
@@ -244,24 +259,24 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantilla Mochila con marca, color y tamano soportado', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Mochila con marca, color y tamano soportado', async () => {
+    const template = await service.generateTemplate({
       category: 'ORDENADORES',
       productType: 'Mochila',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-mochila.xlsx');
     expectUsesSkuOnly(headers);
     expect(headers).toEqual(expect.arrayContaining(['marca', 'color', 'tamanoLaptopSoportado']));
   });
 
-  it('genera plantilla Monitor con pantalla, puertos y parlantes', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Monitor con pantalla, puertos y parlantes', async () => {
+    const template = await service.generateTemplate({
       category: 'PERIFERICOS',
       productType: 'Monitor',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-monitor.xlsx');
     expectUsesSkuOnly(headers);
@@ -279,12 +294,12 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantilla Teclado con tipo, conectividad, layout, formato y switch', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Teclado con tipo, conectividad, layout, formato y switch', async () => {
+    const template = await service.generateTemplate({
       category: 'PERIFERICOS',
       productType: 'Teclado',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-teclado.xlsx');
     expectUsesSkuOnly(headers);
@@ -299,12 +314,12 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantilla Mouse con dpi, sensor, botones, rgb y peso', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Mouse con dpi, sensor, botones, rgb y peso', async () => {
+    const template = await service.generateTemplate({
       category: 'PERIFERICOS',
       productType: 'Mouse',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-mouse.xlsx');
     expectUsesSkuOnly(headers);
@@ -313,12 +328,12 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantilla Mousepad con tamano, material, rgb, base y color', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Mousepad con tamano, material, rgb, base y color', async () => {
+    const template = await service.generateTemplate({
       category: 'PERIFERICOS',
       productType: 'Mousepad',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-mousepad.xlsx');
     expectUsesSkuOnly(headers);
@@ -327,12 +342,12 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantilla Sillas Gamer y acepta alias antiguo Sillas Gaming', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Sillas Gamer y acepta alias antiguo Sillas Gaming', async () => {
+    const template = await service.generateTemplate({
       category: 'PERIFERICOS',
       productType: 'Sillas Gaming',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-sillas-gamer.xlsx');
     expectUsesSkuOnly(headers);
@@ -341,19 +356,21 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantillas Mesas Gamer, Webcam, Capturadoras y Cables y Hub con specs propias', () => {
-    const deskHeaders = readProductsHeaders(
-      service.generateTemplate({ category: 'PERIFERICOS', productType: 'Mesa Gamer' }).buffer,
-    );
-    const webcamHeaders = readProductsHeaders(
-      service.generateTemplate({ category: 'PERIFERICOS', productType: 'Webcam' }).buffer,
-    );
-    const captureHeaders = readProductsHeaders(
-      service.generateTemplate({ category: 'PERIFERICOS', productType: 'Capturadora' }).buffer,
-    );
-    const cableHubHeaders = readProductsHeaders(
-      service.generateTemplate({ category: 'PERIFERICOS', productType: 'Cables y Hub' }).buffer,
-    );
+  it('genera plantillas Mesas Gamer, Webcam, Capturadoras y Cables y Hub con specs propias', async () => {
+    const [deskHeaders, webcamHeaders, captureHeaders, cableHubHeaders] = await Promise.all([
+      service
+        .generateTemplate({ category: 'PERIFERICOS', productType: 'Mesa Gamer' })
+        .then((template) => readProductsHeaders(template.buffer)),
+      service
+        .generateTemplate({ category: 'PERIFERICOS', productType: 'Webcam' })
+        .then((template) => readProductsHeaders(template.buffer)),
+      service
+        .generateTemplate({ category: 'PERIFERICOS', productType: 'Capturadora' })
+        .then((template) => readProductsHeaders(template.buffer)),
+      service
+        .generateTemplate({ category: 'PERIFERICOS', productType: 'Cables y Hub' })
+        .then((template) => readProductsHeaders(template.buffer)),
+    ]);
 
     expectUsesSkuOnly(deskHeaders);
     expectUsesSkuOnly(webcamHeaders);
@@ -367,12 +384,12 @@ describe('ProductTemplateService', () => {
     expect(cableHubHeaders).toEqual(expect.arrayContaining(['tipoAccesorio', 'conectores']));
   });
 
-  it('genera plantilla Headset con specs tecnicas de audio y XLSX valido', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Headset con specs tecnicas de audio y XLSX valido', async () => {
+    const template = await service.generateTemplate({
       category: 'AUDIO',
       productType: 'Audifonos / Headset',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-audifono-headset.xlsx');
     expect(template.buffer[0]).toBe(0x50);
@@ -394,12 +411,12 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantilla Microfono con specs tecnicas de audio', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Microfono con specs tecnicas de audio', async () => {
+    const template = await service.generateTemplate({
       category: 'AUDIO',
       productType: 'MIC',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-microfono.xlsx');
     expectUsesSkuOnly(headers);
@@ -418,12 +435,12 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('genera plantilla Parlantes con specs tecnicas de audio', () => {
-    const template = service.generateTemplate({
+  it('genera plantilla Parlantes con specs tecnicas de audio', async () => {
+    const template = await service.generateTemplate({
       category: 'AUDIO',
       productType: 'SPEAKERS',
     });
-    const headers = readProductsHeaders(template.buffer);
+    const headers = await readProductsHeaders(template.buffer);
 
     expect(template.filename).toBe('plantilla-parlantes.xlsx');
     expectUsesSkuOnly(headers);
@@ -442,9 +459,9 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('rechaza tipos AUDIO no soportados y no genera plantilla generica', () => {
-    expect(() =>
+  it('rechaza tipos AUDIO no soportados y no genera plantilla generica', async () => {
+    await expect(
       service.generateTemplate({ category: 'AUDIO', productType: 'Tipo Audio Inexistente' }),
-    ).toThrow(BadRequestException);
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

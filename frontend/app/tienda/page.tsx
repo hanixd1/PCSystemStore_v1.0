@@ -1,5 +1,12 @@
 import { FiClock, FiMapPin, FiShield } from 'react-icons/fi';
 import StoreLocationMap from '@/components/StoreLocationMap';
+import { publicPageMetadata } from '@/lib/seo';
+
+export const metadata = publicPageMetadata(
+  'Tienda de hardware en Huancayo | PCSystemStore',
+  'Conoce la ubicación, horario y canales de atención de la tienda PCSystemStore en Huancayo.',
+  '/tienda',
+);
 
 const FALLBACK_WHATSAPP_NUMBER = '51959139676';
 const STORE_WHATSAPP_QR_URL = '/qr-tienda.png';

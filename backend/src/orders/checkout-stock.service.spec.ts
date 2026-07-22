@@ -6,6 +6,14 @@ import { ProductPricingService } from '../products/services/product-pricing.serv
 describe('OrdersService checkout/stock', () => {
   const createService = (products: any[]) => {
     const prisma = {
+      user: {
+        findUnique: jest.fn(async () => ({
+          emailVerified: true,
+          documentType: 'DNI',
+          documentNumber: '12345678',
+          mobilePhone: '999999999',
+        })),
+      },
       product: {
         findMany: jest.fn(async () => products),
       },

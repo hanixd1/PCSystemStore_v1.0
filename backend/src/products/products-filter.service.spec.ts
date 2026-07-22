@@ -3,12 +3,12 @@ import { ProductPricingService } from './services/product-pricing.service';
 
 describe('ProductsService filtros de catalogo', () => {
   const createService = () => {
+    const product = {
+      findMany: jest.fn(async () => []),
+      count: jest.fn(async () => 0),
+    };
     const prisma = {
-      product: {
-        findMany: jest.fn(async () => []),
-        count: jest.fn(async () => 0),
-      },
-      $transaction: jest.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
+      product,
     };
     const audit = { log: jest.fn() };
 
@@ -163,7 +163,7 @@ describe('ProductsService filtros de catalogo', () => {
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { category: 'MICROPHONE' },
+        where: expect.objectContaining({ category: 'MICROPHONE' }),
       }),
     );
   });
@@ -175,7 +175,7 @@ describe('ProductsService filtros de catalogo', () => {
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { category: 'SPEAKER' },
+        where: expect.objectContaining({ category: 'SPEAKER' }),
       }),
     );
   });
@@ -191,7 +191,7 @@ describe('ProductsService filtros de catalogo', () => {
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { category: 'UNKNOWN_TYPE' },
+        where: expect.objectContaining({ category: 'UNKNOWN_TYPE' }),
       }),
     );
   });
@@ -304,6 +304,8 @@ describe('ProductsService filtros de catalogo', () => {
         slug: 'amd-ryzen-5-9600x',
         name: 'AMD Ryzen 5 9600X',
         description: '6 nucleos para gaming',
+        price: 1200,
+        stock: 5,
         category: 'CPU',
         cpuSpecs: { brand: 'AMD', socket: 'AM5', frequency: '5.4 GHz' },
       },
@@ -313,6 +315,8 @@ describe('ProductsService filtros de catalogo', () => {
         slug: 'rtx-4060',
         name: 'GeForce RTX 4060',
         description: 'Tarjeta de video',
+        price: 1500,
+        stock: 4,
         category: 'GPU',
         gpuSpecs: { brand: 'MSI', chipset: 'NVIDIA RTX 4060' },
       },
@@ -327,7 +331,7 @@ describe('ProductsService filtros de catalogo', () => {
 
     expect(prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {},
+        where: expect.objectContaining({ AND: expect.any(Array) }),
         take: 1000,
       }),
     );
@@ -342,6 +346,8 @@ describe('ProductsService filtros de catalogo', () => {
         slug: 'amd-ryzen-5-7600x',
         name: 'AMD Ryzen 5 7600X',
         description: 'Procesador gaming',
+        price: 1100,
+        stock: 5,
         category: 'CPU',
         cpuSpecs: { brand: 'AMD', socket: 'AM5', frequency: '5.3 GHz' },
       },
@@ -351,6 +357,8 @@ describe('ProductsService filtros de catalogo', () => {
         slug: 'amd-ryzen-5-9600x',
         name: 'AMD Ryzen 5 9600X',
         description: 'Procesador gaming',
+        price: 1400,
+        stock: 5,
         category: 'CPU',
         cpuSpecs: { brand: 'AMD', socket: 'AM5', frequency: '5.4 GHz' },
       },

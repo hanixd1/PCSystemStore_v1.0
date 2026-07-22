@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import * as XLSX from 'xlsx';
+import { Workbook, type Worksheet } from 'exceljs';
 import { resolveImportProductType, TEMPLATE_GENERAL_COLUMNS } from './product-import-catalog';
 import type { ProductImportBody } from './product-import.types';
 
@@ -945,7 +945,7 @@ const TEMPLATE_DEFINITIONS: Record<string, TemplateDefinition> = {
 
 @Injectable()
 export class ProductTemplateService {
-  generateTemplate(query: ProductImportBody): GeneratedTemplate {
+  async generateTemplate(query: ProductImportBody): Promise<GeneratedTemplate> {
     const resolved = resolveImportProductType(query.category, query.productType);
     const definition =
       TEMPLATE_DEFINITIONS[resolved.category] ?? this.buildGenericDefinition(resolved);
@@ -954,24 +954,20 @@ export class ProductTemplateService {
     );
     const columns = [...generalColumns, ...definition.specificColumns];
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(
-      workbook,
-      this.buildProductsSheet(columns, definition.example),
-      'Productos',
+    const workbook = new Workbook();
+    this.buildProductsSheet(workbook.addWorksheet('Productos'), columns, definition.example);
+    this.buildInstructionsSheet(
+      workbook.addWorksheet('Instrucciones'),
+      resolved.group,
+      resolved.label,
+      columns,
     );
-    XLSX.utils.book_append_sheet(
-      workbook,
-      this.buildInstructionsSheet(resolved.group, resolved.label, columns),
-      'Instrucciones',
-    );
-    XLSX.utils.book_append_sheet(
-      workbook,
-      this.buildAllowedValuesSheet(definition.allowedValues),
-      'Valores permitidos',
+    this.buildAllowedValuesSheet(
+      workbook.addWorksheet('Valores permitidos'),
+      definition.allowedValues,
     );
 
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
     return {
       buffer,
       filename: definition.filename,
@@ -979,22 +975,24 @@ export class ProductTemplateService {
     };
   }
 
-  private buildProductsSheet(columns: string[], example: Record<string, string | number>) {
-    const sheet = XLSX.utils.aoa_to_sheet([
-      columns,
-      columns.map((column) => example[column] ?? ''),
-      columns.map(() => ''),
-    ]);
-    sheet['!cols'] = columns.map((column) => ({
-      wch: Math.max(14, Math.min(42, column.length + 8)),
+  private buildProductsSheet(
+    sheet: Worksheet,
+    columns: string[],
+    example: Record<string, string | number>,
+  ) {
+    sheet.addRows([columns, columns.map((column) => example[column] ?? ''), columns.map(() => '')]);
+    sheet.columns = columns.map((column) => ({
+      width: Math.max(14, Math.min(42, column.length + 8)),
     }));
-    sheet['!autofilter'] = {
-      ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: columns.length - 1 } }),
-    };
-    return sheet;
+    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } };
   }
 
-  private buildInstructionsSheet(group: string, productType: string, columns: string[]) {
+  private buildInstructionsSheet(
+    sheet: Worksheet,
+    group: string,
+    productType: string,
+    columns: string[],
+  ) {
     const rows = [
       ['PCSystemStore - Plantilla de importacion masiva'],
       ['Categoria seleccionada', group],
@@ -1012,19 +1010,16 @@ export class ProductTemplateService {
       ['Columnas incluidas'],
       ...columns.map((column) => [column]),
     ];
-    const sheet = XLSX.utils.aoa_to_sheet(rows);
-    sheet['!cols'] = [{ wch: 52 }, { wch: 42 }];
-    return sheet;
+    sheet.addRows(rows);
+    sheet.getColumn(1).width = 52;
+    sheet.getColumn(2).width = 42;
   }
 
-  private buildAllowedValuesSheet(allowedValues: Array<[string, string]>) {
-    const sheet = XLSX.utils.aoa_to_sheet([
-      ['Campo', 'Valores permitidos o sugeridos'],
-      ...allowedValues,
-    ]);
-    sheet['!cols'] = [{ wch: 24 }, { wch: 92 }];
-    sheet['!autofilter'] = { ref: 'A1:B1' };
-    return sheet;
+  private buildAllowedValuesSheet(sheet: Worksheet, allowedValues: Array<[string, string]>) {
+    sheet.addRows([['Campo', 'Valores permitidos o sugeridos'], ...allowedValues]);
+    sheet.getColumn(1).width = 24;
+    sheet.getColumn(2).width = 92;
+    sheet.autoFilter = 'A1:B1';
   }
 
   private buildGenericDefinition(resolved: {

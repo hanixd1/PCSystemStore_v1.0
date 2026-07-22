@@ -8,6 +8,7 @@ import MegaMenu from './MegaMenu';
 import { useCartStore } from '../store/useCartStore';
 import { clearCustomerSession, useCustomerSession } from '@/lib/customerSession';
 import { api } from '@/lib/api';
+import { resolveImageUrl } from '@/lib/product-images';
 
 const Header = () => {
   const router = useRouter();
@@ -23,6 +24,7 @@ const Header = () => {
   const { customer } = useCustomerSession();
   const { openCart, items } = useCartStore();
   const accountRef = useRef<HTMLDivElement | null>(null);
+  const logoUrl = resolveImageUrl(branding.logoUrl, { fallback: null });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -88,9 +90,9 @@ const Header = () => {
           <div className="flex items-center gap-4 md:gap-8">
             <Link href="/" className="shrink-0">
               <div className="relative flex h-16 w-[150px] items-center justify-start overflow-hidden md:w-[190px]">
-                {branding.logoUrl && !logoFailed ? (
+                {logoUrl && !logoFailed ? (
                   <img
-                    src={branding.logoUrl}
+                    src={logoUrl}
                     alt={branding.logoAlt}
                     onError={() => setLogoFailed(true)}
                     className="max-h-[64px] max-w-full object-contain"

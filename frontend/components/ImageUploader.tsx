@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { FiImage, FiTrash2, FiUploadCloud } from 'react-icons/fi';
+import { resolveImageUrl } from '@/lib/product-images';
 
 type UploaderMode = 'logo' | 'banner' | 'product';
 
@@ -273,15 +274,16 @@ function ImagePreview({
   onRemove?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
+  const imageSource = resolveImageUrl(src, { fallback: null });
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-2">
       <div className="flex h-28 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
-        {failed ? (
+        {failed || !imageSource ? (
           <FiImage className="text-4xl text-gray-300" />
         ) : (
           <img
-            src={src}
+            src={imageSource}
             alt={label}
             onError={() => setFailed(true)}
             className="h-full w-full object-contain"

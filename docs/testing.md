@@ -45,3 +45,17 @@ producción en `DATABASE_URL_TEST`.
 PostgreSQL 16 con healthcheck, ejecuta migraciones/seed QA y corre
 `npm run test:e2e:qa`. Todas las URLs y secretos de ese job son valores de
 prueba locales al contenedor.
+# Pruebas de endurecimiento de seguridad
+
+Las suites unitarias cubren Argon2id/bcrypt heredado, bloqueo administrativo, CSRF, almacenamiento de rate limit, XLSX validos y maliciosos y ZIP bombs. `backend/test/security-http.e2e-spec.ts` valida Helmet, HSTS, CORS, 413, 429, `Retry-After`, health sin throttle y CSRF sin base de datos.
+
+Las suites de `backend/test/e2e/` que ejercitan Prisma requieren `DATABASE_URL_TEST` y deben ejecutarse solo contra una base aislada:
+
+```bash
+cd backend
+npm run prisma:test:deploy
+npm run seed:qa
+npm run test:e2e
+```
+
+Consulte [security-hardening.md](security-hardening.md) para la matriz de comandos completa.

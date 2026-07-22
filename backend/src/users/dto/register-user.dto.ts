@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsString, Length, MinLength } from 'class-validator';
+import { IsEmail, IsString, Length, MaxLength, MinLength } from 'class-validator';
 import { toTrimmedString } from '../../common/dto/transformers';
 
 export class RegisterUserDto {
@@ -12,13 +12,13 @@ export class RegisterUserDto {
   @IsEmail({}, { message: 'Ingresa un correo valido con dominio completo.' })
   email!: string;
 
-  @Transform(toTrimmedString)
   @IsString({ message: 'La contrasena es obligatoria.' })
-  @MinLength(6, { message: 'La contrasena debe tener al menos 6 caracteres.' })
+  @MinLength(8, { message: 'La contrasena debe tener al menos 8 caracteres.' })
+  @MaxLength(128)
   password!: string;
 
-  @Transform(toTrimmedString)
   @IsString({ message: 'La confirmacion de contrasena es obligatoria.' })
-  @MinLength(6, { message: 'La confirmacion debe tener al menos 6 caracteres.' })
+  @MinLength(8, { message: 'La confirmacion debe tener al menos 8 caracteres.' })
+  @MaxLength(128)
   confirmPassword!: string;
 }

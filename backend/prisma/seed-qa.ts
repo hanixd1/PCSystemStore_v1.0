@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { resetQaDatabase, seedQaDatabase } from './fixtures/seed-qa';
+import { normalizePostgresConnectionString } from '../src/prisma/database-url';
 
 function loadEnvTest() {
   for (const fileName of ['.env.test', '.env.test.local']) {
@@ -41,7 +42,10 @@ async function main() {
   process.env.DATABASE_URL = process.env.DATABASE_URL_TEST;
   const prisma = new PrismaClient({
     adapter: new PrismaPg({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: normalizePostgresConnectionString(
+        process.env.DATABASE_URL,
+        'DATABASE_URL_TEST',
+      ),
     }),
   });
 

@@ -1,5 +1,6 @@
 import { FiShoppingCart } from 'react-icons/fi';
 import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/pricing';
+import { PRODUCT_IMAGE_FALLBACK, resolveImageUrl } from '@/lib/product-images';
 
 // Definimos las props para que el componente sea reutilizable
 interface ProductCardProps {
@@ -23,6 +24,7 @@ export default function ProductCard({
   const hasSale = isSaleActive(pricing);
   const effectivePrice = getEffectivePrice(pricing);
   const discountPercent = getDiscountPercent(pricing);
+  const imageSource = resolveImageUrl(image);
 
   return (
     <div className="group flex h-full flex-col border border-gray-300 bg-gray-50 p-4 transition-colors duration-200 hover:border-gray-500">
@@ -38,8 +40,16 @@ export default function ProductCard({
 
       {/* Imagen (Placeholder elegante si no hay foto) */}
       <div className="relative mb-4 flex h-48 w-full items-center justify-center overflow-hidden bg-transparent">
-        {image ? (
-          <img src={image} alt={name} className="object-contain h-full w-full" />
+        {imageSource ? (
+          <img
+            src={imageSource}
+            alt={name}
+            className="object-contain h-full w-full"
+            onError={(event) => {
+              if (event.currentTarget.src.endsWith(PRODUCT_IMAGE_FALLBACK)) return;
+              event.currentTarget.src = PRODUCT_IMAGE_FALLBACK;
+            }}
+          />
         ) : (
           <div className="text-xs font-black tracking-[0.3em] text-gray-300">IMG</div>
         )}

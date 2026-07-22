@@ -1,24 +1,43 @@
-import AdmZip from 'adm-zip';
-import * as XLSX from 'xlsx';
+﻿import AdmZip from 'adm-zip';
+import { Workbook } from 'exceljs';
 import { ProductImportService } from './product-import.service';
 import { normalizeSocket } from './product-import-normalizers';
 
-function excelFile(rows: Record<string, unknown>[]) {
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), 'Productos');
+async function excelFile(rows: Record<string, unknown>[]) {
+  const workbook = new Workbook();
+  const sheet = workbook.addWorksheet('Productos');
+  const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+  sheet.addRow(headers);
+  for (const row of rows) {
+    sheet.addRow(headers.map((header) => row[header] ?? ''));
+  }
   return {
     originalname: 'productos.xlsx',
-    buffer: XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }),
+    mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
   } as Express.Multer.File;
+}
+
+async function workbookFile(workbook: Workbook) {
+  return {
+    originalname: 'productos.xlsx',
+    mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
+  } as Express.Multer.File;
+}
+
+function invalidFile(originalname: string, buffer: Buffer, mimetype = 'application/octet-stream') {
+  return { originalname, mimetype, buffer } as Express.Multer.File;
 }
 
 function zipFile(files: string[]) {
   const zip = new AdmZip();
   for (const file of files) {
-    zip.addFile(file, Buffer.from('fake-image'));
+    zip.addFile(file, Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
   }
   return {
     originalname: 'imagenes.zip',
+    mimetype: 'application/zip',
     buffer: zip.toBuffer(),
   } as Express.Multer.File;
 }
@@ -216,13 +235,22 @@ function createService(existingProduct: any = null) {
 }
 
 describe('ProductImportService', () => {
+  afterEach(() => {
+    delete process.env.EXCEL_MAX_FILE_SIZE;
+    delete process.env.IMPORT_MAX_ROWS;
+    delete process.env.IMPORT_MAX_COLUMNS;
+    delete process.env.IMPORT_MAX_ZIP_ENTRIES;
+    delete process.env.IMPORT_MAX_UNCOMPRESSED_SIZE;
+    delete process.env.IMPORT_MAX_COMPRESSION_RATIO;
+  });
+
   it('preview rechaza Excel sin columna nombre', async () => {
     const { service } = createService();
     const result = await service.preview(
       { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
       {
         excel: [
-          excelFile([
+          await excelFile([
             {
               numeroParte: 'CPU-QA-1',
               precio: '1000',
@@ -245,7 +273,7 @@ describe('ProductImportService', () => {
     const { service } = createService();
     const result = await service.preview(
       { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
-      { excel: [excelFile([cpuRow()])], imagesZip: [zipFile(['otra.jpg'])] },
+      { excel: [await excelFile([cpuRow()])], imagesZip: [zipFile(['otra.jpg'])] },
     );
 
     expect(result.errors).toEqual(
@@ -257,7 +285,7 @@ describe('ProductImportService', () => {
     const { service } = createService({ id: 'product-1', sku: 'CPU-QA-1' });
     const result = await service.preview(
       { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
-      { excel: [excelFile([cpuRow()])], imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])] },
+      { excel: [await excelFile([cpuRow()])], imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])] },
     );
 
     expect(result.productsToUpdate).toBe(1);
@@ -271,7 +299,7 @@ describe('ProductImportService', () => {
     const result = await service.preview(
       { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
       {
-        excel: [excelFile([cpuRow({ sku: undefined, numeroParte: 'CPU-ALIAS-1' })])],
+        excel: [await excelFile([cpuRow({ sku: undefined, numeroParte: 'CPU-ALIAS-1' })])],
         imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])],
       },
     );
@@ -287,11 +315,165 @@ describe('ProductImportService', () => {
     );
   });
 
+  it('lee un XLSX valido con multiples productos', async () => {
+    const { service } = createService();
+    const result = await service.preview(
+      { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+      {
+        excel: [await excelFile([cpuRow(), cpuRow({ sku: 'CPU-QA-2', nombre: 'CPU QA 2' })])],
+        imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])],
+      },
+    );
+
+    expect(result.totalRows).toBe(2);
+    expect(result.validRows).toBe(2);
+  });
+
+  it('rechaza un archivo renombrado y un libro corrupto', async () => {
+    const { service } = createService();
+    const images = zipFile(['cpu.jpg']);
+
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        { excel: [invalidFile('productos.xlsx', Buffer.from('no es xlsx'))], imagesZip: [images] },
+      ),
+    ).rejects.toThrow('no contiene un XLSX valido');
+
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        {
+          excel: [invalidFile('productos.xlsx', Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2]))],
+          imagesZip: [images],
+        },
+      ),
+    ).rejects.toThrow('No se pudo leer el archivo XLSX');
+  });
+
+  it('rechaza libros sin productos y hojas vacias', async () => {
+    const { service } = createService();
+    const withoutSheets = new Workbook();
+    const emptySheet = new Workbook();
+    emptySheet.addWorksheet('Productos');
+    const images = zipFile(['cpu.jpg']);
+
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        { excel: [await workbookFile(withoutSheets)], imagesZip: [images] },
+      ),
+    ).rejects.toThrow(/no contiene (hojas|productos)/i);
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        { excel: [await workbookFile(emptySheet)], imagesZip: [images] },
+      ),
+    ).rejects.toThrow(/no contiene productos|esta vacia/i);
+  });
+
+  it('aplica limites configurables de filas, columnas y tamano', async () => {
+    const { service } = createService();
+    const excel = await excelFile([cpuRow(), cpuRow({ sku: 'CPU-QA-2' })]);
+    const images = zipFile(['cpu.jpg', 'cpu-2.jpg']);
+
+    process.env.IMPORT_MAX_ROWS = '1';
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        { excel: [excel], imagesZip: [images] },
+      ),
+    ).rejects.toThrow('mas filas de las permitidas');
+
+    delete process.env.IMPORT_MAX_ROWS;
+    process.env.IMPORT_MAX_COLUMNS = '2';
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        { excel: [excel], imagesZip: [images] },
+      ),
+    ).rejects.toThrow('mas columnas de las permitidas');
+
+    delete process.env.IMPORT_MAX_COLUMNS;
+    process.env.EXCEL_MAX_FILE_SIZE = '10';
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        { excel: [excel], imagesZip: [images] },
+      ),
+    ).rejects.toThrow('supera el limite permitido');
+  });
+
+  it('rechaza formulas y encabezados que permiten prototype pollution', async () => {
+    const { service } = createService();
+    const formulaRow = cpuRow({ precio: { formula: '1+1', result: 2 } });
+    const images = zipFile(['cpu.jpg', 'cpu-2.jpg']);
+
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        { excel: [await excelFile([formulaRow])], imagesZip: [images] },
+      ),
+    ).rejects.toThrow('Las formulas no estan permitidas');
+
+    for (const dangerousHeader of ['__proto__', 'constructor', 'prototype']) {
+      const workbook = new Workbook();
+      const sheet = workbook.addWorksheet('Productos');
+      sheet.addRow([dangerousHeader, 'nombre']);
+      sheet.addRow(['valor', 'CPU QA']);
+      await expect(
+        service.preview(
+          { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+          { excel: [await workbookFile(workbook)], imagesZip: [images] },
+        ),
+      ).rejects.toThrow('encabezado inseguro');
+    }
+  });
+
+  it('rechaza ZIP bombs, exceso de entradas y tamano descomprimido acumulado', async () => {
+    const { service } = createService();
+    const excel = await excelFile([cpuRow()]);
+    const bomb = new AdmZip();
+    bomb.addFile(
+      'bomb.jpg',
+      Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(50_000)]),
+    );
+
+    process.env.IMPORT_MAX_COMPRESSION_RATIO = '2';
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        {
+          excel: [excel],
+          imagesZip: [invalidFile('imagenes.zip', bomb.toBuffer(), 'application/zip')],
+        },
+      ),
+    ).rejects.toThrow('proporcion de compresion');
+
+    delete process.env.IMPORT_MAX_COMPRESSION_RATIO;
+    process.env.IMPORT_MAX_ZIP_ENTRIES = '1';
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        { excel: [excel], imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])] },
+      ),
+    ).rejects.toThrow('demasiados archivos internos');
+
+    delete process.env.IMPORT_MAX_ZIP_ENTRIES;
+    process.env.IMPORT_MAX_UNCOMPRESSED_SIZE = '3';
+    await expect(
+      service.preview(
+        { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+        { excel: [excel], imagesZip: [zipFile(['cpu.jpg'])] },
+      ),
+    ).rejects.toThrow('tamano descomprimido');
+  });
+
   it('confirm no importa si hay errores criticos', async () => {
     const { service, productsService } = createService();
     const result = await service.confirm(
       { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
-      { excel: [excelFile([cpuRow()])], imagesZip: [zipFile(['otra.jpg'])] },
+      { excel: [await excelFile([cpuRow()])], imagesZip: [zipFile(['otra.jpg'])] },
       'admin-1',
     );
 
@@ -310,7 +492,7 @@ describe('ProductImportService', () => {
 
     const result = await service.confirm(
       { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
-      { excel: [excelFile([cpuRow()])], imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])] },
+      { excel: [await excelFile([cpuRow()])], imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])] },
       'admin-1',
     );
 
@@ -329,7 +511,7 @@ describe('ProductImportService', () => {
 
     const result = await service.confirm(
       { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
-      { excel: [excelFile([cpuRow()])], imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])] },
+      { excel: [await excelFile([cpuRow()])], imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])] },
       'admin-1',
     );
 
@@ -348,7 +530,7 @@ describe('ProductImportService', () => {
     const result = await service.preview(
       { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
       {
-        excel: [excelFile([cpuRow({ tdpMaximo: 'abc' })])],
+        excel: [await excelFile([cpuRow({ tdpMaximo: 'abc' })])],
         imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])],
       },
     );
@@ -363,7 +545,7 @@ describe('ProductImportService', () => {
     const result = await service.preview(
       { category: 'COMPONENTES', productType: 'Placa Madre' },
       {
-        excel: [excelFile([motherboardRow({ tipoRam: 'DDR9' })])],
+        excel: [await excelFile([motherboardRow({ tipoRam: 'DDR9' })])],
         imagesZip: [zipFile(['mb.jpg'])],
       },
     );
@@ -378,7 +560,7 @@ describe('ProductImportService', () => {
     const result = await service.preview(
       { category: 'COMPONENTES', productType: 'Placa Madre' },
       {
-        excel: [excelFile([motherboardRow({ frecuenciaRam: '6000' })])],
+        excel: [await excelFile([motherboardRow({ frecuenciaRam: '6000' })])],
         imagesZip: [zipFile(['mb.jpg'])],
       },
     );
@@ -399,7 +581,7 @@ describe('ProductImportService', () => {
 
     await service.confirm(
       { category: 'COMPONENTES', productType: 'Memoria RAM' },
-      { excel: [excelFile([ramRow()])], imagesZip: [zipFile(['ram.jpg'])] },
+      { excel: [await excelFile([ramRow()])], imagesZip: [zipFile(['ram.jpg'])] },
       'admin-1',
     );
 
@@ -420,7 +602,7 @@ describe('ProductImportService', () => {
     const result = await service.preview(
       { category: 'COMPONENTES', productType: 'Memoria RAM' },
       {
-        excel: [excelFile([ramRow({ capacidadPorModulo: undefined, cantidad: '16GB' })])],
+        excel: [await excelFile([ramRow({ capacidadPorModulo: undefined, cantidad: '16GB' })])],
         imagesZip: [zipFile(['ram.jpg'])],
       },
     );
@@ -441,7 +623,7 @@ describe('ProductImportService', () => {
 
     await service.confirm(
       { category: 'COMPONENTES', productType: 'Tarjeta de Video' },
-      { excel: [excelFile([gpuRow()])], imagesZip: [zipFile(['gpu.jpg'])] },
+      { excel: [await excelFile([gpuRow()])], imagesZip: [zipFile(['gpu.jpg'])] },
       'admin-1',
     );
 
@@ -461,7 +643,7 @@ describe('ProductImportService', () => {
     const result = await service.preview(
       { category: 'COMPONENTES', productType: 'Tarjeta de Video' },
       {
-        excel: [excelFile([gpuRow({ largoMm: undefined, longitudMm: '305' })])],
+        excel: [await excelFile([gpuRow({ largoMm: undefined, longitudMm: '305' })])],
         imagesZip: [zipFile(['gpu.jpg'])],
       },
     );
@@ -478,7 +660,7 @@ describe('ProductImportService', () => {
 
     await service.confirm(
       { category: 'COMPONENTES', productType: 'Fuente de Poder' },
-      { excel: [excelFile([psuRow()])], imagesZip: [zipFile(['psu.jpg'])] },
+      { excel: [await excelFile([psuRow()])], imagesZip: [zipFile(['psu.jpg'])] },
       'admin-1',
     );
 
@@ -490,7 +672,7 @@ describe('ProductImportService', () => {
     const preview = await service.preview(
       { category: 'COMPONENTES', productType: 'Fuente de Poder' },
       {
-        excel: [excelFile([psuRow({ potenciaWatts: undefined, watts: '750' })])],
+        excel: [await excelFile([psuRow({ potenciaWatts: undefined, watts: '750' })])],
         imagesZip: [zipFile(['psu.jpg'])],
       },
     );
@@ -507,7 +689,7 @@ describe('ProductImportService', () => {
 
     await service.confirm(
       { category: 'COMPONENTES', productType: 'Gabinete / Case' },
-      { excel: [excelFile([caseRow()])], imagesZip: [zipFile(['case.jpg'])] },
+      { excel: [await excelFile([caseRow()])], imagesZip: [zipFile(['case.jpg'])] },
       'admin-1',
     );
 
@@ -529,7 +711,7 @@ describe('ProductImportService', () => {
       { category: 'COMPONENTES', productType: 'Gabinete / Case' },
       {
         excel: [
-          excelFile([
+          await excelFile([
             caseRow({
               soportePlaca: undefined,
               formatoSoportado: 'ATX; Micro-ATX',
@@ -563,7 +745,7 @@ describe('ProductImportService', () => {
 
     await service.confirm(
       { category: 'COMPONENTES', productType: 'Refrigeracion' },
-      { excel: [excelFile([coolerRow()])], imagesZip: [zipFile(['cooler.jpg'])] },
+      { excel: [await excelFile([coolerRow()])], imagesZip: [zipFile(['cooler.jpg'])] },
       'admin-1',
     );
 
@@ -580,7 +762,7 @@ describe('ProductImportService', () => {
     const preview = await service.preview(
       { category: 'COMPONENTES', productType: 'Refrigeracion' },
       {
-        excel: [excelFile([coolerRow({ tipo: 'Aire', radiadorMm: '' })])],
+        excel: [await excelFile([coolerRow({ tipo: 'Aire', radiadorMm: '' })])],
         imagesZip: [zipFile(['cooler.jpg'])],
       },
     );
@@ -601,7 +783,7 @@ describe('ProductImportService', () => {
 
     await service.confirm(
       { category: 'COMPONENTES', productType: 'Almacenamiento' },
-      { excel: [excelFile([storageRow()])], imagesZip: [zipFile(['storage.jpg'])] },
+      { excel: [await excelFile([storageRow()])], imagesZip: [zipFile(['storage.jpg'])] },
       'admin-1',
     );
 
@@ -624,7 +806,7 @@ describe('ProductImportService', () => {
       { category: 'COMPONENTES', productType: 'Almacenamiento' },
       {
         excel: [
-          excelFile([
+          await excelFile([
             storageRow({
               tipoAlmacenamiento: 'M.2 SATA',
               capacidadGB: undefined,
@@ -659,7 +841,7 @@ describe('ProductImportService', () => {
       { category: 'COMPONENTES', productType: 'Almacenamiento' },
       {
         excel: [
-          excelFile([
+          await excelFile([
             storageRow({
               sku: 'STORAGE-SATA-QA',
               tipoAlmacenamiento: 'SSD 2.5',

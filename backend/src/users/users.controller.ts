@@ -11,8 +11,21 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { CookieOptions } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import type * as express from 'express';
+import { CsrfTokenService } from '../auth/csrf-token.service';
+import {
+  CSRF_COOKIE,
+  GOOGLE_OAUTH_STATE_COOKIE,
+  SessionScope,
+  getClearCsrfCookieOptions,
+  getClearGoogleOAuthStateCookieOptions,
+  getClearSessionCookieOptions,
+  getCookieValue,
+  getGoogleOAuthStateCookieOptions,
+  getSessionCookieName,
+  getSessionCookieOptions,
+} from '../auth/auth-cookies';
 import { JwtUserPayload } from '../auth/auth.constants';
 import { Public } from '../auth/public.decorator';
 import { Roles } from '../auth/roles.decorator';
@@ -32,77 +45,6 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { UsersService } from './users.service';
 
 type AuthenticatedRequest = express.Request & { user: JwtUserPayload };
-type SessionScope = 'customer' | 'admin';
-
-const CUSTOMER_SESSION_COOKIE = 'pcs_customer_session';
-const ADMIN_SESSION_COOKIE = 'pcs_admin_session';
-const GOOGLE_OAUTH_STATE_COOKIE = 'pcs_google_oauth_state';
-const CUSTOMER_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 12;
-const ADMIN_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 3;
-const GOOGLE_OAUTH_STATE_MAX_AGE_MS = 1000 * 60 * 5;
-
-function getSessionCookieName(scope: SessionScope) {
-  return scope === 'admin' ? ADMIN_SESSION_COOKIE : CUSTOMER_SESSION_COOKIE;
-}
-
-function getSessionCookieOptions(scope: SessionScope): CookieOptions {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const maxAgeMs = scope === 'admin' ? ADMIN_SESSION_MAX_AGE_MS : CUSTOMER_SESSION_MAX_AGE_MS;
-
-  return {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    maxAge: maxAgeMs,
-    path: '/',
-  };
-}
-
-function getClearSessionCookieOptions(scope: SessionScope): CookieOptions {
-  const { maxAge, ...options } = getSessionCookieOptions(scope);
-  return options;
-}
-
-function getGoogleOAuthStateCookieOptions(): CookieOptions {
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  return {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    maxAge: GOOGLE_OAUTH_STATE_MAX_AGE_MS,
-    path: '/',
-  };
-}
-
-function getClearGoogleOAuthStateCookieOptions(): CookieOptions {
-  const { maxAge, ...options } = getGoogleOAuthStateCookieOptions();
-  return options;
-}
-
-function getCookieValue(request: express.Request, name: string): string | undefined {
-  const cookieHeader = request.headers.cookie;
-  if (!cookieHeader) {
-    return undefined;
-  }
-
-  const rawValue = cookieHeader
-    .split(';')
-    .map((entry) => entry.trim())
-    .find((entry) => entry.startsWith(`${name}=`))
-    ?.slice(name.length + 1);
-
-  if (!rawValue) {
-    return undefined;
-  }
-
-  try {
-    return decodeURIComponent(rawValue);
-  } catch {
-    return rawValue;
-  }
-}
-
 function setSessionCookie(response: express.Response, scope: SessionScope, token: string) {
   response.cookie(getSessionCookieName(scope), token, getSessionCookieOptions(scope));
 }
@@ -113,9 +55,13 @@ function clearSessionCookie(response: express.Response, scope: SessionScope) {
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly csrf: CsrfTokenService,
+  ) {}
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 15 * 60 * 1000 } })
   @Post('login')
   async login(
     @Body() body: LoginUserDto,
@@ -124,10 +70,12 @@ export class UsersController {
   ) {
     const session = await this.usersService.customerLogin(body.email, body.password, request);
     setSessionCookie(response, 'customer', session.token);
-    return session;
+    const csrfToken = this.csrf.issue(response);
+    return { ...session, csrfToken };
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 15 * 60 * 1000 } })
   @Post('customer-login')
   async customerLogin(
     @Body() body: LoginUserDto,
@@ -136,10 +84,12 @@ export class UsersController {
   ) {
     const session = await this.usersService.customerLogin(body.email, body.password, request);
     setSessionCookie(response, 'customer', session.token);
-    return session;
+    const csrfToken = this.csrf.issue(response);
+    return { ...session, csrfToken };
   }
 
   @Public()
+  @Throttle({ default: { limit: 4, ttl: 15 * 60 * 1000 } })
   @Post('admin-login')
   async adminLogin(
     @Body() body: LoginUserDto,
@@ -148,16 +98,19 @@ export class UsersController {
   ) {
     const session = await this.usersService.adminLogin(body.email, body.password, request);
     setSessionCookie(response, 'admin', session.token);
-    return session;
+    const csrfToken = this.csrf.issue(response);
+    return { ...session, csrfToken };
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60 * 60 * 1000 } })
   @Post('register')
   register(@Body() body: RegisterUserDto) {
     return this.usersService.register(body);
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 10 * 60 * 1000 } })
   @Post('google-auth')
   async googleAuth(
     @Body() body: GoogleAuthDto,
@@ -165,10 +118,12 @@ export class UsersController {
   ) {
     const session = await this.usersService.loginWithGoogle(body.credential || body.idToken || '');
     setSessionCookie(response, 'customer', session.token);
-    return session;
+    const csrfToken = this.csrf.issue(response);
+    return { ...session, csrfToken };
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 10 * 60 * 1000 } })
   @Post('google-login')
   async googleLogin(
     @Body() body: GoogleAuthDto,
@@ -176,10 +131,12 @@ export class UsersController {
   ) {
     const session = await this.usersService.loginWithGoogle(body.credential || body.idToken || '');
     setSessionCookie(response, 'customer', session.token);
-    return session;
+    const csrfToken = this.csrf.issue(response);
+    return { ...session, csrfToken };
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60 * 60 * 1000 } })
   @Post('google-register')
   async googleRegister(
     @Body() body: GoogleAuthDto,
@@ -189,10 +146,12 @@ export class UsersController {
       body.credential || body.idToken || '',
     );
     setSessionCookie(response, 'customer', session.token);
-    return session;
+    const csrfToken = this.csrf.issue(response);
+    return { ...session, csrfToken };
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 10 * 60 * 1000 } })
   @Get('google/oauth-url')
   googleOAuthUrl(
     @Query('mode') mode: string,
@@ -209,6 +168,7 @@ export class UsersController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 10 * 60 * 1000 } })
   @Post('google/callback')
   async googleOAuthCallback(
     @Body() body: GoogleOAuthCallbackDto,
@@ -222,8 +182,9 @@ export class UsersController {
         getCookieValue(request, GOOGLE_OAUTH_STATE_COOKIE),
       );
       setSessionCookie(response, 'customer', session.token);
+      const csrfToken = this.csrf.issue(response);
       response.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, getClearGoogleOAuthStateCookieOptions());
-      return session;
+      return { ...session, csrfToken };
     } catch (error) {
       response.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, getClearGoogleOAuthStateCookieOptions());
       throw error;
@@ -237,6 +198,7 @@ export class UsersController {
     @Res({ passthrough: true }) response: express.Response,
   ) {
     clearSessionCookie(response, 'customer');
+    response.clearCookie(CSRF_COOKIE, getClearCsrfCookieOptions());
     await this.usersService.recordLogout(request.user.sub, 'CUSTOMER_LOGOUT');
     return { message: 'Sesion de cliente cerrada' };
   }
@@ -248,53 +210,62 @@ export class UsersController {
     @Res({ passthrough: true }) response: express.Response,
   ) {
     clearSessionCookie(response, 'admin');
+    response.clearCookie(CSRF_COOKIE, getClearCsrfCookieOptions());
     await this.usersService.recordLogout(request.user.sub, 'ADMIN_LOGOUT');
     return { message: 'Sesion administrativa cerrada' };
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60 * 60 * 1000 } })
   @Post('forgot-password')
   forgotPassword(@Body() body: ForgotPasswordDto) {
     return this.usersService.forgotPassword(body.email, body.flow ?? 'client');
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60 * 60 * 1000 } })
   @Post('customer-forgot-password')
   customerForgotPassword(@Body() body: ForgotPasswordDto) {
     return this.usersService.forgotPassword(body.email, 'client');
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60 * 60 * 1000 } })
   @Post('admin-forgot-password')
   adminForgotPassword(@Body() body: ForgotPasswordDto) {
     return this.usersService.forgotPassword(body.email, 'admin');
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60 * 60 * 1000 } })
   @Post('reset-password')
   resetPassword(@Body() body: ResetPasswordDto) {
     return this.usersService.resetPassword(body.token, body.newPassword);
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60 * 60 * 1000 } })
   @Post('customer-reset-password')
   customerResetPassword(@Body() body: ResetPasswordDto) {
     return this.usersService.resetPassword(body.token, body.newPassword, 'client');
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60 * 60 * 1000 } })
   @Post('admin-reset-password')
   adminResetPassword(@Body() body: ResetPasswordDto) {
     return this.usersService.resetPassword(body.token, body.newPassword, 'admin');
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60 * 60 * 1000 } })
   @Post('customer-set-password')
   customerSetPassword(@Body() body: SetPasswordDto) {
     return this.usersService.setCustomerPassword(body.token, body.password, body.confirmPassword);
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60 * 60 * 1000 } })
   @Post('verify-email')
   verifyEmail(@Body() body: VerifyEmailDto) {
     return this.usersService.verifyEmail(body.token);
