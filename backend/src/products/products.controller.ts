@@ -79,6 +79,16 @@ export class ProductsController {
     return this.productsService.findAdminInventory(query);
   }
 
+  @Roles('ADMIN', 'EDITOR')
+  @Get('admin/:id')
+  async findAdminProduct(@Param('id', ParseUUIDPipe) id: string) {
+    const product = await this.productsService.findAdminById(id);
+    if (!product) {
+      throw new NotFoundException('Producto no encontrado');
+    }
+    return product;
+  }
+
   @Public()
   @Throttle({ default: { limit: 60, ttl: 60 * 1000 } })
   @Get('filter-options')
@@ -103,7 +113,9 @@ export class ProductsController {
   @Get('slug/:slug')
   async findBySlug(@Param('slug') slug: string) {
     const product = await this.productsService.findBySlug(slug);
-    if (!product) throw new NotFoundException('Producto no disponible');
+    if (!product) {
+      throw new NotFoundException('Producto no disponible');
+    }
     return product;
   }
 
@@ -111,7 +123,9 @@ export class ProductsController {
   @Get('resolve/:identifier')
   async findByIdOrSlug(@Param('identifier') identifier: string) {
     const product = await this.productsService.findByIdOrSlug(identifier);
-    if (!product) throw new NotFoundException('Producto no disponible');
+    if (!product) {
+      throw new NotFoundException('Producto no disponible');
+    }
     return product;
   }
 
@@ -119,8 +133,19 @@ export class ProductsController {
   @Get(':id')
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     const product = await this.productsService.findOne(id);
-    if (!product) throw new NotFoundException('Producto no disponible');
+    if (!product) {
+      throw new NotFoundException('Producto no disponible');
+    }
     return product;
+  }
+
+  @Roles('ADMIN', 'EDITOR')
+  @Patch(':id/restore')
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: Request & { user: JwtUserPayload },
+  ) {
+    return this.productsService.restore(id, request.user.sub);
   }
 
   @Roles('ADMIN', 'EDITOR')

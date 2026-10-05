@@ -92,6 +92,7 @@ export class ProductsService {
       'CABLE_HUB',
     ],
     AUDIO: ['HEADSET', 'MICROPHONE', 'SPEAKER'],
+    PROTECCION: ['PROTECTION'],
   };
 
   private readonly nameRegex = /^[\p{L}\p{N}\s.,+\-_%/()[\]:;'"#&°@]{5,200}$/u;
@@ -1300,7 +1301,7 @@ export class ProductsService {
 
     try {
       const products = await this.prisma.product.findMany({
-        where,
+        where: withPublicProductCriteria(where),
         select: {
           id: true,
           slug: true,
@@ -1465,6 +1466,13 @@ export class ProductsService {
     };
   }
 
+  findAdminById(id: string) {
+    return this.prisma.product.findUnique({
+      where: { id },
+      include: this.productInclude,
+    });
+  }
+
   private resolveAdminInventoryCategories(category: string, productType: string) {
     const normalizedType = productType.trim().toUpperCase();
     const normalizedCategory = category.trim().toUpperCase();
@@ -1497,9 +1505,7 @@ export class ProductsService {
   private async findAllWithPublicSearch(query: ProductQuery, page: number, limit: number) {
     const search = this.getPublicSearchQuery(query) || '';
     const expansion = expandProductSearchQuery(search);
-    const where = withPublicProductCriteria(
-      this.buildProductWhere(this.omitSearchQuery(query)),
-    );
+    const where = withPublicProductCriteria(this.buildProductWhere(this.omitSearchQuery(query)));
     const orderBy = this.buildProductOrderBy(query);
     const candidates = await this.prisma.product.findMany({
       where,
@@ -1552,11 +1558,7 @@ export class ProductsService {
     const categories = this.getQueryList(query, 'categories');
     const products = await this.prisma.product.findMany({
       where: withPublicProductCriteria(
-        category
-          ? { category }
-          : categories.length > 0
-            ? { category: { in: categories } }
-            : {},
+        category ? { category } : categories.length > 0 ? { category: { in: categories } } : {},
       ),
       include: this.productInclude,
       orderBy: { createdAt: 'desc' },
@@ -1718,6 +1720,9 @@ export class ProductsService {
     }
 
     const updateData = this.buildProductUpdateData(currentProduct, normalizedData);
+    if (normalizedData.isActive === true && currentProduct.deletedAt) {
+      updateData.deletedAt = null;
+    }
     const specUpdate = this.specs.buildSpecUpdate(currentProduct, normalizedData);
 
     if (Object.keys(updateData).length === 0 && Object.keys(specUpdate).length === 0) {
@@ -1808,21 +1813,62 @@ export class ProductsService {
       throw new BadRequestException('Producto no encontrado');
     }
 
-    const deleted = await this.prisma.product.delete({ where: { id } });
+    const deleted = await this.prisma.product.update({
+      where: { id },
+      data: {
+        isActive: false,
+        deletedAt: product.deletedAt ?? new Date(),
+      },
+    });
 
     if (actorId) {
       await this.audit.log({
         actorId,
-        action: 'DELETE_PRODUCT',
+        action: 'SOFT_DELETE_PRODUCT',
         module: 'PRODUCTS',
         entityType: 'PRODUCT',
         entityId: product.id,
         entityName: product.name,
-        description: `Se elimino el producto ${product.name}.`,
+        fieldName: 'deletedAt',
+        oldValue: product.deletedAt?.toISOString() ?? null,
+        newValue: deleted.deletedAt?.toISOString() ?? null,
+        description: `Se retiro el producto ${product.name} del catalogo publico sin borrar su historial.`,
       });
     }
 
     return deleted;
+  }
+
+  async restore(id: string, actorId?: string) {
+    const product = await this.prisma.product.findUnique({ where: { id } });
+    if (!product) {
+      throw new BadRequestException('Producto no encontrado');
+    }
+
+    const restored = await this.prisma.product.update({
+      where: { id },
+      data: {
+        isActive: true,
+        deletedAt: null,
+      },
+    });
+
+    if (actorId) {
+      await this.audit.log({
+        actorId,
+        action: 'RESTORE_PRODUCT',
+        module: 'PRODUCTS',
+        entityType: 'PRODUCT',
+        entityId: product.id,
+        entityName: product.name,
+        fieldName: 'deletedAt',
+        oldValue: product.deletedAt?.toISOString() ?? null,
+        newValue: null,
+        description: `Se restauro el producto ${product.name} en el catalogo publico.`,
+      });
+    }
+
+    return restored;
   }
 
   private async logProductChanges(actorId: string, before: any, after: any, updateData: any) {
@@ -1890,6 +1936,15 @@ export class ProductsService {
       before.category,
       after.category,
       `Cambio la categoria de ${after.name} de ${before.category} a ${after.category}.`,
+    );
+    this.addChangeIfDifferent(
+      logs,
+      updateData,
+      'isActive',
+      after.isActive ? 'ACTIVATE_PRODUCT' : 'DEACTIVATE_PRODUCT',
+      before.isActive,
+      after.isActive,
+      `${after.isActive ? 'Activo' : 'Desactivo'} ${after.name} en el catalogo publico.`,
     );
     return logs;
   }

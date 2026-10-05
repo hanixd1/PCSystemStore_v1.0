@@ -39,7 +39,7 @@ function registerFatalErrorHandlers(app: NestExpressApplication, logger: Logger)
 }
 
 function getPort(): number {
-  const rawPort = process.env.PORT ?? '3001';
+  const rawPort = process.env.PORT ?? '3000';
   const normalizedPort = rawPort.trim();
   const port = Number.parseInt(normalizedPort, 10);
 

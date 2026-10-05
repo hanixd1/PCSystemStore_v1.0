@@ -28,6 +28,7 @@ const PUBLIC_PRODUCT_CATEGORIES = new Set([
   'CABLE_HUB',
   'LAPTOP_COOLING_BASE',
   'BACKPACK',
+  'PROTECTION',
 ]);
 
 export type PublicProduct = Record<string, unknown> & {
@@ -40,7 +41,7 @@ export type PublicProduct = Record<string, unknown> & {
   isOnSale: boolean;
   salePrice?: number;
   stock: number;
-  images?: unknown;
+  images?: string[];
   category: string;
   updatedAt?: string;
 };
@@ -85,6 +86,7 @@ export function normalizePublicProduct(value: unknown): PublicProduct | null {
     !Number.isInteger(stock) ||
     stock < 0 ||
     product.isActive === false ||
+    Boolean(product.deletedAt) ||
     product.published === false ||
     (status && NON_PUBLIC_STATUSES.has(status))
   ) {
@@ -100,6 +102,9 @@ export function normalizePublicProduct(value: unknown): PublicProduct | null {
   const description = optionalText(product.description);
   const sku = optionalText(product.sku);
   const updatedAt = optionalText(product.updatedAt);
+  const images = Array.isArray(product.images)
+    ? product.images.filter((image): image is string => typeof image === 'string' && Boolean(image))
+    : undefined;
 
   return {
     ...product,
@@ -114,6 +119,7 @@ export function normalizePublicProduct(value: unknown): PublicProduct | null {
     ...(description ? { description } : {}),
     ...(sku ? { sku } : {}),
     ...(updatedAt ? { updatedAt } : {}),
+    ...(images ? { images } : {}),
   };
 }
 

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { withPublicProductCriteria } from '../product-publication';
 
 @Injectable()
 export class ProductCompatibilityService {
@@ -623,7 +624,7 @@ export class ProductCompatibilityService {
 
   async findRelated(id: string) {
     const product = await this.prisma.product.findUnique({
-      where: { id },
+      where: { id, isActive: true, deletedAt: null },
       include: this.productInclude,
     });
 
@@ -729,7 +730,7 @@ export class ProductCompatibilityService {
 
   private async fetchRelatedCandidates(product: any, currentCategory: string) {
     const targetCategories = this.relatedCandidateCategories(currentCategory);
-    const baseWhere = { id: { not: product.id } };
+    const baseWhere = withPublicProductCriteria({ id: { not: product.id } });
     const orderBy: any = [{ stock: 'desc' }, { updatedAt: 'desc' }];
     const perCategoryLimit = 30;
 

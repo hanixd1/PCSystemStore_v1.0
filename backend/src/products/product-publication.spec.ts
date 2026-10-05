@@ -11,11 +11,17 @@ const completeProduct = {
   price: '1499.90',
   stock: 3,
   category: 'CPU',
+  isActive: true,
+  deletedAt: null,
 };
 
 describe('public product publication policy', () => {
   it('allows optional description, images, brand and specifications to be absent', () => {
     expect(isPublicProductRecord(completeProduct)).toBe(true);
+  });
+
+  it('keeps the electrical-protection category used by the public navigation', () => {
+    expect(isPublicProductRecord({ ...completeProduct, category: 'PROTECTION' })).toBe(true);
   });
 
   it.each([
@@ -29,6 +35,8 @@ describe('public product publication policy', () => {
     ['NaN price', { price: 'not-a-number' }],
     ['negative stock', { stock: -1 }],
     ['fractional stock', { stock: 1.5 }],
+    ['inactive product', { isActive: false }],
+    ['soft-deleted product', { deletedAt: new Date('2026-01-01T00:00:00.000Z') }],
   ])('rejects %s', (_label, override) => {
     expect(isPublicProductRecord({ ...completeProduct, ...override })).toBe(false);
   });
@@ -39,5 +47,11 @@ describe('public product publication policy', () => {
       category: 'CPU',
       AND: [PUBLIC_PRODUCT_DATABASE_CRITERIA],
     });
+    expect(PUBLIC_PRODUCT_DATABASE_CRITERIA).toEqual(
+      expect.objectContaining({
+        isActive: true,
+        deletedAt: null,
+      }),
+    );
   });
 });

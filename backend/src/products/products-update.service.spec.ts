@@ -12,6 +12,8 @@ function createCpuProduct(overrides: Partial<any> = {}) {
     price: 1000,
     salePrice: null,
     isOnSale: false,
+    isActive: true,
+    deletedAt: null,
     stock: 10,
     category: 'CPU',
     images: ['cpu.png'],
@@ -147,5 +149,72 @@ describe('ProductsService update specs', () => {
         }),
       }),
     );
+  });
+
+  it('soft-delete retira el producto sin borrar el registro', async () => {
+    const { service, prisma } = createService(createCpuProduct());
+
+    await service.remove('cpu-1');
+
+    expect(prisma.product.update).toHaveBeenCalledWith({
+      where: { id: 'cpu-1' },
+      data: {
+        isActive: false,
+        deletedAt: expect.any(Date),
+      },
+    });
+  });
+
+  it('restaura un producto soft-deleted para el catalogo publico', async () => {
+    const { service, prisma } = createService(
+      createCpuProduct({
+        isActive: false,
+        deletedAt: new Date('2026-07-01T00:00:00.000Z'),
+      }),
+    );
+
+    await service.restore('cpu-1');
+
+    expect(prisma.product.update).toHaveBeenCalledWith({
+      where: { id: 'cpu-1' },
+      data: {
+        isActive: true,
+        deletedAt: null,
+      },
+    });
+  });
+
+  it('reactivar desde update tambien limpia deletedAt', async () => {
+    const { service, prisma } = createService(
+      createCpuProduct({
+        isActive: false,
+        deletedAt: new Date('2026-07-01T00:00:00.000Z'),
+      }),
+    );
+
+    await service.update('cpu-1', { isActive: true });
+
+    expect(prisma.product.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isActive: true,
+          deletedAt: null,
+        }),
+      }),
+    );
+  });
+
+  it('detalle admin puede consultar un producto retirado sin filtros publicos', async () => {
+    const retired = createCpuProduct({
+      isActive: false,
+      deletedAt: new Date('2026-07-01T00:00:00.000Z'),
+    });
+    const { service, prisma } = createService(retired);
+
+    await expect(service.findAdminById('cpu-1')).resolves.toBe(retired);
+    expect(prisma.product.findUnique).toHaveBeenCalledWith({
+      where: { id: 'cpu-1' },
+      include: expect.any(Object),
+    });
   });
 });

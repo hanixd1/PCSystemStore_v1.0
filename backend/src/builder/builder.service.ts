@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CategoryType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { withPublicProductCriteria } from '../products/product-publication';
 import { BuildItemDto } from './dto/validate-build.dto';
 
 type BuildValidationIssue = {
@@ -70,14 +71,14 @@ export class BuilderService {
   constructor(private prisma: PrismaService) {}
 
   async getCompatibleMotherboards(cpuId?: string) {
-    const whereClause: any = {
+    const whereClause: any = withPublicProductCriteria({
       category: CategoryType.MOTHERBOARD,
       stock: { gt: 0 },
-    };
+    });
 
     if (cpuId) {
       const selectedCpu = await this.prisma.product.findUnique({
-        where: { id: cpuId },
+        where: { id: cpuId, isActive: true, deletedAt: null },
         include: { cpuSpecs: true },
       });
 
@@ -99,14 +100,14 @@ export class BuilderService {
   }
 
   async getCompatibleRam(motherboardId?: string) {
-    const whereClause: any = {
+    const whereClause: any = withPublicProductCriteria({
       category: CategoryType.RAM,
       stock: { gt: 0 },
-    };
+    });
 
     if (motherboardId) {
       const selectedMobo = await this.prisma.product.findUnique({
-        where: { id: motherboardId },
+        where: { id: motherboardId, isActive: true, deletedAt: null },
         include: { motherboardSpecs: true },
       });
 
@@ -127,10 +128,10 @@ export class BuilderService {
 
   async getCpus() {
     return this.prisma.product.findMany({
-      where: {
+      where: withPublicProductCriteria({
         category: CategoryType.CPU,
         stock: { gt: 0 },
-      },
+      }),
       include: { cpuSpecs: true },
     });
   }
@@ -209,7 +210,7 @@ export class BuilderService {
 
   private async findBuildProducts(productIds: string[]) {
     return this.prisma.product.findMany({
-      where: { id: { in: productIds } },
+      where: withPublicProductCriteria({ id: { in: productIds } }),
       include: BUILD_PRODUCT_INCLUDE,
     }) as Promise<BuilderProduct[]>;
   }

@@ -6,6 +6,8 @@ export const API_URL = configuredApiUrl || '';
 const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 let csrfToken: string | null = null;
 let csrfRequest: Promise<string> | null = null;
+const CSRF_REJECTION_MESSAGE = 'Solicitud de seguridad invalida.';
+const csrfRetriedRequests = new WeakSet<object>();
 
 function readCsrfCookie(): string | null {
   if (typeof document === 'undefined') return null;
@@ -110,6 +112,19 @@ api.interceptors.response.use(
   },
   (error) => {
     if (axios.isAxiosError(error)) {
+      // Another tab or a login may have replaced the CSRF cookie: refresh the token and retry once.
+      const config = error.config;
+      if (
+        config &&
+        error.response?.status === 403 &&
+        error.response.data?.message === CSRF_REJECTION_MESSAGE &&
+        !csrfRetriedRequests.has(config)
+      ) {
+        csrfRetriedRequests.add(config);
+        csrfToken = null;
+        return api.request(config);
+      }
+
       if (error.response?.status === 401) {
         clearStoredAuthSession();
       }

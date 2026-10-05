@@ -35,6 +35,10 @@ describe('product API resolution', () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
       '/products?category=CPU&page=1&limit=60',
     );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ next: { revalidate: 15 } }),
+    );
   });
 
   it('returns a normalized public product', async () => {
@@ -47,6 +51,10 @@ describe('product API resolution', () => {
       price: 1499.9,
       stock: 3,
     });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ cache: 'no-store' }),
+    );
   });
 
   it('returns null for a missing or non-public product', async () => {

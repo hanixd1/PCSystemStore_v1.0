@@ -5,6 +5,8 @@ const PRODUCT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PUBLIC_PRODUCT_CATEGORIES = new Set<string>(PRODUCT_CATEGORIES);
 
 export const PUBLIC_PRODUCT_DATABASE_CRITERIA: Prisma.ProductWhereInput = {
+  isActive: true,
+  deletedAt: null,
   name: { not: '' },
   slug: { not: '' },
   category: { not: '' },
@@ -23,7 +25,9 @@ export function withPublicProductCriteria(
 }
 
 export function isPublicProductRecord(product: unknown): boolean {
-  if (!product || typeof product !== 'object' || Array.isArray(product)) return false;
+  if (!product || typeof product !== 'object' || Array.isArray(product)) {
+    return false;
+  }
 
   const candidate = product as Record<string, unknown>;
   const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
@@ -32,8 +36,12 @@ export function isPublicProductRecord(product: unknown): boolean {
   const category = typeof candidate.category === 'string' ? candidate.category.trim() : '';
   const price = Number(candidate.price);
   const stock = Number(candidate.stock);
+  const isActive = candidate.isActive;
+  const deletedAt = candidate.deletedAt;
 
   return (
+    isActive !== false &&
+    (deletedAt === null || deletedAt === undefined) &&
     id.length > 0 &&
     name.length > 0 &&
     PRODUCT_SLUG_PATTERN.test(slug) &&

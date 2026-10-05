@@ -33,6 +33,7 @@ const DEPARTMENTS = {
     { label: 'Micrófono', value: 'MICROPHONE' },
     { label: 'Parlantes', value: 'SPEAKER' },
   ],
+  PROTECCION: [{ label: 'UPS / Protección eléctrica', value: 'PROTECTION' }],
 };
 
 // Listas de Opciones Tecnicas

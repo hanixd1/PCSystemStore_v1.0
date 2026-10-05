@@ -7,8 +7,8 @@ import { FiMapPin, FiMenu, FiPackage, FiSearch, FiShoppingCart, FiUser } from 'r
 import MegaMenu from './MegaMenu';
 import { useCartStore } from '../store/useCartStore';
 import { clearCustomerSession, useCustomerSession } from '@/lib/customerSession';
-import { api } from '@/lib/api';
 import { resolveImageUrl } from '@/lib/product-images';
+import { fetchFreshPublicJson } from '@/lib/public-api';
 
 const Header = () => {
   const router = useRouter();
@@ -45,12 +45,16 @@ const Header = () => {
 
     const loadBranding = async () => {
       try {
-        const res = await api.get('/public/branding');
+        const data = await fetchFreshPublicJson<{
+          storeName?: string;
+          logoUrl?: string;
+          logoAlt?: string;
+        }>('/public/branding');
         if (mounted) {
           setBranding({
-            storeName: res.data.storeName || 'PCSystemStore',
-            logoUrl: res.data.logoUrl || '',
-            logoAlt: res.data.logoAlt || res.data.storeName || 'PCSystemStore',
+            storeName: data.storeName || 'PCSystemStore',
+            logoUrl: data.logoUrl || '',
+            logoAlt: data.logoAlt || data.storeName || 'PCSystemStore',
           });
           setLogoFailed(false);
         }

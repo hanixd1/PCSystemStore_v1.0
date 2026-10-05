@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { withPublicProductCriteria } from '../products/product-publication';
 
 type ChatRole = 'user' | 'assistant';
 type ChatIntent = 'build_pc' | 'product_search' | 'compatibility' | 'unknown';
@@ -383,11 +384,11 @@ export class AiService {
 
     if (buildIntent) {
       const products = await this.prisma.product.findMany({
-        where: {
+        where: withPublicProductCriteria({
           category: {
             in: ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'STORAGE', 'PSU', 'CASE'],
           },
-        },
+        }),
         take: 50,
         orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
       });
@@ -398,7 +399,7 @@ export class AiService {
     const terms = this.extractSearchTerms(message);
     if (terms.length === 0) {
       const products = await this.prisma.product.findMany({
-        where: { stock: { gt: 0 } },
+        where: withPublicProductCriteria({ stock: { gt: 0 } }),
         take: 20,
         orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
       });
@@ -406,7 +407,7 @@ export class AiService {
     }
 
     const products = await this.prisma.product.findMany({
-      where: {
+      where: withPublicProductCriteria({
         OR: [
           ...terms.map((term) => ({
             name: { contains: term, mode: 'insensitive' as const },
@@ -418,7 +419,7 @@ export class AiService {
             category: { contains: term, mode: 'insensitive' as const },
           })),
         ],
-      },
+      }),
       take: 20,
       orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
     });
@@ -1102,10 +1103,10 @@ export class AiService {
 
   private async getStockedProducts(categories: string[]) {
     return this.prisma.product.findMany({
-      where: {
+      where: withPublicProductCriteria({
         category: { in: categories },
         stock: { gt: 0 },
-      },
+      }),
       include: PRODUCT_INCLUDE,
       orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
     });
@@ -1598,7 +1599,7 @@ export class AiService {
 
     if (terms.length > 0) {
       const products = await this.prisma.product.findMany({
-        where: {
+        where: withPublicProductCriteria({
           OR: [
             ...terms.map((term) => ({
               name: { contains: term, mode: 'insensitive' as const },
@@ -1610,7 +1611,7 @@ export class AiService {
               category: { contains: term, mode: 'insensitive' as const },
             })),
           ],
-        },
+        }),
         take: 5,
         orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
       });
@@ -1630,7 +1631,7 @@ export class AiService {
     }
 
     return this.prisma.product.findMany({
-      where: { category: inferredCategory.category },
+      where: withPublicProductCriteria({ category: inferredCategory.category }),
       take: 3,
       orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
     });
@@ -1689,6 +1690,7 @@ export class AiService {
         productsContext && productsContext.length > 0
           ? productsContext
           : await this.prisma.product.findMany({
+              where: withPublicProductCriteria(),
               select: {
                 id: true,
                 sku: true,

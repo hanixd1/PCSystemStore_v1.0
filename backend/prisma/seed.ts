@@ -8,6 +8,14 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error('DATABASE_URL must be configured to run seed.');
 }
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.ALLOW_PRODUCTION_SEED !== 'I_UNDERSTAND_THIS_REPLACES_CATALOG_AND_ORDERS'
+) {
+  throw new Error(
+    'Seed bloqueado en produccion: este comando reemplaza catalogo y pedidos. Usa migraciones; no ejecutes el seed en Railway.',
+  );
+}
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({

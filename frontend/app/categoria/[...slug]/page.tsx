@@ -10,6 +10,9 @@ type CategoryProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function normalizeSlug(parts: string[]) {
   return parts.map((part) => decodeURIComponent(part).trim().toLowerCase()).filter(Boolean).join('/');
 }

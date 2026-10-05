@@ -27,8 +27,14 @@ export function parseOriginList(value?: string): string[] {
 
 function normalizeOrigin(origin: string): string {
   try {
-    const parsed = new URL(origin.trim());
-    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+    const normalized = origin.trim();
+    const parsed = new URL(normalized);
+    if (
+      normalized.includes('*') ||
+      !['http:', 'https:'].includes(parsed.protocol) ||
+      parsed.username ||
+      parsed.password
+    ) {
       return '';
     }
     return parsed.origin;
@@ -110,6 +116,12 @@ export function validateSecurityEnvironment(): void {
   }
   if (production && csrfOrigins.length === 0) {
     throw new Error('CSRF_ALLOWED_ORIGINS debe contener al menos un origen en produccion.');
+  }
+  if (
+    production &&
+    [...origins, ...csrfOrigins].some((origin) => new URL(origin).protocol !== 'https:')
+  ) {
+    throw new Error('Los origenes CORS y CSRF deben usar HTTPS en produccion.');
   }
   if (production && !process.env.JWT_SECRET?.trim()) {
     throw new Error('JWT_SECRET debe estar configurado en produccion.');

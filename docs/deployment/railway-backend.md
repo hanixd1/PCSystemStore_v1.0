@@ -20,7 +20,8 @@ Start Command:
 npm run prisma:migrate:deploy && npm run start:prod
 ```
 
-Si el proyecto aun no usa migraciones formales, ejecutar `npm run prisma:push` manualmente una vez para staging inicial y luego adoptar migraciones antes de produccion estable.
+Production usa migraciones versionadas. No ejecutar `prisma db push` ni seeds
+para desplegar el schema de producción.
 
 ## Variables requeridas
 
@@ -28,21 +29,31 @@ Si el proyecto aun no usa migraciones formales, ejecutar `npm run prisma:push` m
 DATABASE_URL=
 DIRECT_URL=
 NODE_ENV=production
-PORT=3000
 JWT_SECRET=
-FRONTEND_URL=
-CORS_ORIGINS=
+FRONTEND_URL=https://www.pcsystemstore.com
+CORS_ORIGIN=
+CORS_ORIGINS=https://www.pcsystemstore.com,https://pcsystemstore.com
+CSRF_ALLOWED_ORIGINS=https://www.pcsystemstore.com,https://pcsystemstore.com
+RATE_LIMIT_KEY_SECRET=
+TRUST_PROXY=1
+COOKIE_SAME_SITE=none
+APP_VERSION=
+COMMIT_SHA=
 AI_SERVICE_URL=
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 ```
 
+No definas un `PORT` fijo: Railway inyecta un puerto dinámico y el backend lo
+lee desde `process.env.PORT`. Configura el Healthcheck Path como `/health`; esta
+ruta comprueba que la API esté escuchando y no depende de la base de datos.
+
 Neon:
 
 - `DATABASE_URL`: URL pooled con `-pooler`. La usa NestJS runtime mediante `@prisma/adapter-pg`.
 - `DIRECT_URL`: URL directa sin `-pooler`. La usa Prisma CLI desde `prisma.config.ts`.
-- Ambas deben usar `sslmode=require`.
+- Ambas deben usar `sslmode=verify-full&channel_binding=require`.
 
 ## Prisma 7
 

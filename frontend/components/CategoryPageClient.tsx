@@ -13,7 +13,8 @@ import {
   FiX,
 } from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
-import { api } from '@/lib/api';
+import { fetchFreshPublicJson } from '@/lib/public-api';
+import { normalizePublicProductList } from '@/lib/public-product';
 import { getDiscountPercent, getEffectivePrice, isSaleActive } from '@/lib/pricing';
 import { getProductPrimaryImage } from '@/lib/product-images';
 import { getCanonicalProductPath } from '@/lib/product-url';
@@ -332,12 +333,12 @@ export default function CategoryPage() {
     setLoading(true);
     const fetchProducts = async () => {
       try {
-        const res = await api.get(`/products?${productsQueryString}`, {
-          signal: controller.signal,
-        });
+        const data = await fetchFreshPublicJson<ProductsResponse | any[]>(
+          `/products?${productsQueryString}`,
+          { signal: controller.signal },
+        );
         if (controller.signal.aborted) return;
-        const data: ProductsResponse | any[] = res.data;
-        const items = Array.isArray(data) ? data : data.items || [];
+        const items = normalizePublicProductList(Array.isArray(data) ? data : data.items);
         const resolvedTotal = Array.isArray(data) ? items.length : data.total || items.length;
 
         if (!shouldInterleaveCpuProducts) {
@@ -358,16 +359,20 @@ export default function CategoryPage() {
             const nextQuery = new URLSearchParams(productsQueryString);
             nextQuery.set('page', String(index + 2));
             nextQuery.set('limit', String(CPU_RECOMMENDED_FETCH_LIMIT));
-            return api.get(`/products?${nextQuery.toString()}`, { signal: controller.signal });
+            return fetchFreshPublicJson<ProductsResponse | any[]>(
+              `/products?${nextQuery.toString()}`,
+              { signal: controller.signal },
+            );
           }),
         );
 
         if (controller.signal.aborted) return;
 
-        const remainingItems = remainingResponses.flatMap((response) => {
-          const responseData: ProductsResponse | any[] = response.data;
-          return Array.isArray(responseData) ? responseData : responseData.items || [];
-        });
+        const remainingItems = remainingResponses.flatMap((responseData) =>
+          normalizePublicProductList(
+            Array.isArray(responseData) ? responseData : responseData.items,
+          ),
+        );
 
         setProducts([...items, ...remainingItems]);
         setTotal(resolvedTotal);
@@ -405,10 +410,12 @@ export default function CategoryPage() {
 
     const controller = new AbortController();
 
-    api
-      .get(`/products/filter-options?${filterOptionsQueryString}`, { signal: controller.signal })
-      .then((res) => {
-        if (!controller.signal.aborted) setFilterOptions(res.data || {});
+    fetchFreshPublicJson<FilterOptions>(
+      `/products/filter-options?${filterOptionsQueryString}`,
+      { signal: controller.signal },
+    )
+      .then((data) => {
+        if (!controller.signal.aborted) setFilterOptions(data || {});
       })
       .catch(() => {
         if (!controller.signal.aborted) setFilterOptions({});

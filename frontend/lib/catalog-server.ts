@@ -15,11 +15,16 @@ type ProductPageResponse = {
   totalPages?: number;
 };
 
+type PublicServerFetchOptions = {
+  throwOnUnavailable?: boolean;
+  revalidate?: number;
+};
+
 async function fetchPublicJson<T>(
   path: string,
-  revalidate = 60,
-  throwOnUnavailable = false,
+  options: PublicServerFetchOptions = {},
 ): Promise<T | null> {
+  const { throwOnUnavailable = false, revalidate } = options;
   if (!API_URL) {
     const message = `API unavailable: NEXT_PUBLIC_API_URL is not configured for ${path}`;
     if (throwOnUnavailable) throw new Error(message);
@@ -28,7 +33,14 @@ async function fetchPublicJson<T>(
   }
 
   try {
-    const response = await fetch(`${API_URL}${path}`, { next: { revalidate } });
+    const response = await fetch(`${API_URL}${path}`, {
+      headers: { Accept: 'application/json' },
+      ...(revalidate
+        ? { next: { revalidate } }
+        : {
+            cache: 'no-store' as const,
+          }),
+    });
     if (!response.ok) {
       if (response.status === 404) return null;
       const message = `API request failed for ${path} with status ${response.status}`;
@@ -52,8 +64,7 @@ export const getProductBySlug = cache(async (slug: string) => {
   if (!isValidProductSlug(normalizedSlug)) return null;
   const result = await fetchPublicJson<unknown>(
     `/products/slug/${encodeURIComponent(normalizedSlug)}`,
-    60,
-    true,
+    { throwOnUnavailable: true },
   );
   if (result === null) return null;
   if (typeof result !== 'object' || Array.isArray(result)) {
@@ -64,7 +75,9 @@ export const getProductBySlug = cache(async (slug: string) => {
 
 export const getProductById = cache(async (id: string) => {
   if (!id.trim()) return null;
-  const result = await fetchPublicJson<unknown>(`/products/${encodeURIComponent(id)}`, 60, true);
+  const result = await fetchPublicJson<unknown>(`/products/${encodeURIComponent(id)}`, {
+    throwOnUnavailable: true,
+  });
   if (result === null) return null;
   if (typeof result !== 'object' || Array.isArray(result)) {
     throw new Error('Malformed product response received from the public API');
@@ -73,14 +86,16 @@ export const getProductById = cache(async (id: string) => {
 });
 
 export async function getRelatedProducts(id: string): Promise<PublicProduct[]> {
-  const result = await fetchPublicJson<unknown>(`/products/related/${encodeURIComponent(id)}`, 60);
+  const result = await fetchPublicJson<unknown>(`/products/related/${encodeURIComponent(id)}`, {
+    revalidate: 15,
+  });
   return normalizePublicProductList(result);
 }
 
 export async function getInitialProducts(limit = 60): Promise<PublicProduct[]> {
   const result = await fetchPublicJson<ProductPageResponse | PublicProduct[]>(
     `/products?page=1&limit=${Math.min(Math.max(limit, 1), 60)}`,
-    60,
+    { revalidate: 15 },
   );
   return normalizePublicProductList(Array.isArray(result) ? result : result?.items);
 }
@@ -89,20 +104,24 @@ export async function getHomeProcessors(limit = 60): Promise<PublicProduct[]> {
   const safeLimit = Math.min(Math.max(limit, 1), 60);
   const result = await fetchPublicJson<ProductPageResponse>(
     `/products?category=CPU&page=1&limit=${safeLimit}`,
-    60,
+    { revalidate: 15 },
   );
   return normalizePublicProductList(result?.items);
 }
 
 export async function getAllPublicProducts(): Promise<PublicProduct[]> {
-  const first = await fetchPublicJson<ProductPageResponse>('/products?page=1&limit=60', 300);
+  const first = await fetchPublicJson<ProductPageResponse>('/products?page=1&limit=60', {
+    revalidate: 15,
+  });
   if (!first || !Array.isArray(first.items)) return [];
   const totalPages = Math.max(1, Number(first.totalPages) || Math.ceil((first.total || 0) / 60));
   if (totalPages === 1) return normalizePublicProductList(first.items);
 
   const remaining = await Promise.all(
     Array.from({ length: totalPages - 1 }, (_, index) =>
-      fetchPublicJson<ProductPageResponse>(`/products?page=${index + 2}&limit=60`, 300),
+      fetchPublicJson<ProductPageResponse>(`/products?page=${index + 2}&limit=60`, {
+        revalidate: 15,
+      }),
     ),
   );
   return normalizePublicProductList([
@@ -123,11 +142,11 @@ export type PublicBanner = {
 };
 
 export async function getPublicBranding(): Promise<PublicBranding | null> {
-  return fetchPublicJson<PublicBranding>('/public/branding', 300);
+  return fetchPublicJson<PublicBranding>('/public/branding', { revalidate: 30 });
 }
 
 export async function getPublicBanners(): Promise<PublicBanner[]> {
-  const result = await fetchPublicJson<PublicBanner[]>('/public/banners', 60);
+  const result = await fetchPublicJson<PublicBanner[]>('/public/banners', { revalidate: 15 });
   return Array.isArray(result)
     ? result.filter((banner) => Boolean(banner.id && banner.title && banner.imageUrl))
     : [];

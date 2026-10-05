@@ -22,11 +22,12 @@ describe('BuilderService', () => {
     await service.getCompatibleMotherboards('cpu-1');
 
     expect(prisma.product.findMany).toHaveBeenCalledWith({
-      where: {
+      where: expect.objectContaining({
         category: CategoryType.MOTHERBOARD,
         stock: { gt: 0 },
         motherboardSpecs: { socket: 'AM5' },
-      },
+        AND: expect.arrayContaining([expect.objectContaining({ isActive: true, deletedAt: null })]),
+      }),
       include: { motherboardSpecs: true },
     });
   });
@@ -53,11 +54,12 @@ describe('BuilderService', () => {
     await service.getCompatibleRam('board-1');
 
     expect(prisma.product.findMany).toHaveBeenCalledWith({
-      where: {
+      where: expect.objectContaining({
         category: CategoryType.RAM,
         stock: { gt: 0 },
         ramSpecs: { memoryType: 'DDR5' },
-      },
+        AND: expect.arrayContaining([expect.objectContaining({ isActive: true, deletedAt: null })]),
+      }),
       include: { ramSpecs: true },
     });
   });

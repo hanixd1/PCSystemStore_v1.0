@@ -66,6 +66,8 @@ export class ProductSpecsService {
         return this.buildCreateLaptopCoolingBaseSpecs(data);
       case 'BACKPACK':
         return this.buildCreateBackpackSpecs(data);
+      case 'PROTECTION':
+        return {};
       default:
         throw new BadRequestException(`Categoria no soportada: ${data.category}`);
     }

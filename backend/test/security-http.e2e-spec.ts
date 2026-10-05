@@ -28,6 +28,19 @@ class SecurityTestController {
   }
 }
 
+@Controller()
+class StorefrontCacheTestController {
+  @Get('products')
+  products() {
+    return [];
+  }
+
+  @Get('public/banners')
+  banners() {
+    return [];
+  }
+}
+
 describe('HTTP security hardening (e2e)', () => {
   let app: INestApplication;
   // Isolated test double: production always uses SecurityRateLimitStorage + PostgreSQL.
@@ -69,10 +82,10 @@ describe('HTTP security hardening (e2e)', () => {
       imports: [
         ThrottlerModule.forRoot({
           throttlers: [{ name: 'default', limit: 100, ttl: 60_000 }],
-          storage: storage as any,
+          storage,
         }),
       ],
-      controllers: [SecurityTestController],
+      controllers: [SecurityTestController, StorefrontCacheTestController],
       providers: [
         { provide: APP_GUARD, useClass: SecurityThrottlerGuard },
         { provide: APP_GUARD, useClass: CsrfGuard },
@@ -125,6 +138,20 @@ describe('HTTP security hardening (e2e)', () => {
     expect(JSON.stringify(rejected.body)).not.toContain('store.example.com');
     expect(rejected.headers['access-control-allow-origin']).toBeUndefined();
   });
+
+  it.each(['/products', '/public/banners'])(
+    'impide cache compartida y cache local obsoleta en %s',
+    async (path) => {
+      const response = await request(app.getHttpServer()).get(path).expect(200);
+      expect(response.headers['cache-control']).toContain('no-store');
+      expect(response.headers['cache-control']).toContain('must-revalidate');
+      expect(response.headers['cdn-cache-control']).toBe('no-store');
+      expect(response.headers['cloudflare-cdn-cache-control']).toBe('no-store');
+      expect(response.headers['surrogate-control']).toBe('no-store');
+      expect(response.headers.pragma).toBe('no-cache');
+      expect(response.headers.expires).toBe('0');
+    },
+  );
 
   it('devuelve 413 al exceder el limite JSON global', async () => {
     await request(app.getHttpServer())

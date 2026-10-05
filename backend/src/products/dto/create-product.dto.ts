@@ -82,6 +82,7 @@ export const PRODUCT_CATEGORIES = [
   'CABLE_HUB',
   'LAPTOP_COOLING_BASE',
   'BACKPACK',
+  'PROTECTION',
 ] as const;
 
 export class CreateProductDto {
@@ -116,6 +117,11 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   isOnSale?: boolean;
+
+  @Transform(toOptionalBoolean)
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 
   @IsOptional()
   salePrice?: number | null;

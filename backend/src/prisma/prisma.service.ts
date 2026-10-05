@@ -8,10 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import {
-  inspectPostgresConnectionString,
-  normalizePostgresConnectionString,
-} from './database-url';
+import { inspectPostgresConnectionString, normalizePostgresConnectionString } from './database-url';
 
 @Injectable()
 export class PrismaService

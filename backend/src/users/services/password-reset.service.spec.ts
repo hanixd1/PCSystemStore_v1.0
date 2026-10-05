@@ -31,7 +31,11 @@ describe('PasswordResetService', () => {
     };
     const email = { sendPasswordResetEmail: jest.fn(async () => undefined) };
     const rateLimit = { consume: jest.fn(async () => undefined) };
-    return { service: new PasswordResetService(prisma as any, email as any, undefined as never, rateLimit as any), email, rateLimit };
+    return {
+      service: new PasswordResetService(prisma as any, email as any, undefined, rateLimit as any),
+      email,
+      rateLimit,
+    };
   };
 
   it('usa FRONTEND_URL para el reset de cliente', async () => {

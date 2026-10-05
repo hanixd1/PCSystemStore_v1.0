@@ -1,8 +1,4 @@
-const SSL_MODES_WITH_LEGACY_NODE_PG_SEMANTICS = new Set([
-  'prefer',
-  'require',
-  'verify-ca',
-]);
+const SSL_MODES_WITH_LEGACY_NODE_PG_SEMANTICS = new Set(['prefer', 'require', 'verify-ca']);
 
 export type DatabaseUrlDiagnostics = {
   configured: boolean;
@@ -56,8 +52,7 @@ export function inspectPostgresConnectionString(value?: string): DatabaseUrlDiag
   try {
     const url = new URL(value);
     const hostParts = url.hostname.split('.');
-    const safeHost =
-      hostParts.length > 3 ? `***.${hostParts.slice(-3).join('.')}` : url.hostname;
+    const safeHost = hostParts.length > 3 ? `***.${hostParts.slice(-3).join('.')}` : url.hostname;
 
     return {
       configured: true,

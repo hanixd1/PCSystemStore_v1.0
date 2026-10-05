@@ -23,6 +23,13 @@ export class AppController {
 
   @Public()
   @SkipThrottle()
+  @Get('version')
+  getVersion() {
+    return this.appService.getVersion();
+  }
+
+  @Public()
+  @SkipThrottle()
   @Get('health/db')
   getDatabaseHealth() {
     return this.appService.getDatabaseHealth();

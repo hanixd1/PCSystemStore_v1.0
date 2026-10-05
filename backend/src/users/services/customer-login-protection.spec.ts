@@ -48,10 +48,10 @@ describe('UserAuthService customer login protection', () => {
     const service = new UserAuthService(
       prisma as never,
       session as never,
-      undefined as never,
-      undefined as never,
+      undefined,
+      undefined,
       passwordHashing as never,
-      undefined as never,
+      undefined,
       storage as never,
     );
     return { service, prisma, passwordHashing, storage, session };

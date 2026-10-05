@@ -4,7 +4,7 @@ import { getCanonicalProductPath } from '@/lib/product-url';
 import { CATEGORY_SEO, PUBLIC_STATIC_ROUTES } from '@/lib/seo';
 import { absoluteUrl } from '@/lib/site-url';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 15;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = PUBLIC_STATIC_ROUTES.map((path) => ({

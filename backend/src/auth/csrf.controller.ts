@@ -1,5 +1,5 @@
-import { Controller, Get, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Controller, Get, Header, Req, Res } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { Public } from './public.decorator';
 import { CsrfTokenService } from './csrf-token.service';
 
@@ -9,7 +9,8 @@ export class CsrfController {
 
   @Public()
   @Get('csrf-token')
-  getToken(@Res({ passthrough: true }) response: Response) {
-    return { csrfToken: this.csrf.issue(response) };
+  @Header('Cache-Control', 'no-store')
+  getToken(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    return { csrfToken: this.csrf.ensure(request, response) };
   }
 }

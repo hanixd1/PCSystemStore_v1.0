@@ -58,6 +58,11 @@ export default function CartSidebar() {
           ) : (
             items.map((item) => {
               const imageUrl = getProductPrimaryImage(item);
+              const currentStock = Number(item.stock);
+              const quantityLimit =
+                Number.isInteger(currentStock) && currentStock > 0
+                  ? Math.min(currentStock, MAX_CART_ITEM_QUANTITY)
+                  : MAX_CART_ITEM_QUANTITY;
 
               return (
                 <div key={item.id} className="flex gap-4 border-b border-gray-100 pb-6">
@@ -110,10 +115,12 @@ export default function CartSidebar() {
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.id, 1)}
-                          disabled={item.qty >= MAX_CART_ITEM_QUANTITY}
+                          disabled={item.qty >= quantityLimit}
                           title={
-                            item.qty >= MAX_CART_ITEM_QUANTITY
-                              ? 'Límite máximo de 10 unidades por producto'
+                            item.qty >= quantityLimit
+                              ? quantityLimit < MAX_CART_ITEM_QUANTITY
+                                ? `Solo quedan ${quantityLimit} unidades disponibles`
+                                : 'Límite máximo de 10 unidades por producto'
                               : 'Aumentar cantidad'
                           }
                           className="rounded-r-lg px-2 py-1 text-gray-600 transition hover:bg-gray-50 hover:text-brand-cyan disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-white"

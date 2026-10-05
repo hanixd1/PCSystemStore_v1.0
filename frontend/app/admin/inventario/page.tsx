@@ -8,6 +8,7 @@ import {
   FiChevronRight,
   FiEdit,
   FiPlus,
+  FiRefreshCw,
   FiSearch,
   FiTrash2,
   FiX,
@@ -29,6 +30,8 @@ type Product = {
   salePrice?: string | number | null;
   stock: number;
   images?: string[];
+  isActive?: boolean;
+  deletedAt?: string | null;
 };
 
 type Pagination = {
@@ -85,6 +88,7 @@ const PRODUCT_GROUPS: Record<string, Array<{ label: string; value: string }>> = 
     { label: 'Micrófono', value: 'MICROPHONE' },
     { label: 'Parlantes', value: 'SPEAKER' },
   ],
+  PROTECCION: [{ label: 'UPS / Protección eléctrica', value: 'PROTECTION' }],
 };
 
 const CATEGORY_OPTIONS = [
@@ -93,6 +97,7 @@ const CATEGORY_OPTIONS = [
   { label: 'ORDENADORES', value: 'ORDENADORES' },
   { label: 'PERIFERICOS', value: 'PERIFERICOS' },
   { label: 'AUDIO', value: 'AUDIO' },
+  { label: 'PROTECCIÓN', value: 'PROTECCION' },
 ];
 
 const PRODUCT_TYPE_LABELS = Object.values(PRODUCT_GROUPS)
@@ -194,24 +199,38 @@ export default function AdminDashboard() {
     setPage(1);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeactivate = async (id: string) => {
     const confirmed = await confirmAction({
-      title: 'Eliminar producto',
-      message: '¿Estás seguro de eliminar este producto?',
-      confirmText: 'Eliminar',
+      title: 'Retirar producto',
+      message:
+        'El producto dejará de aparecer en el catálogo, builder, chatbot y checkout. Podrás restaurarlo después.',
+      confirmText: 'Retirar',
     });
     if (!confirmed) return;
 
     try {
       await api.delete(`/products/${id}`);
-      notify.success('Producto eliminado');
-      if (products.length === 1 && page > 1) {
-        setPage((current) => Math.max(current - 1, 1));
-      } else {
-        await fetchProducts(page, appliedFilters);
-      }
+      notify.success('Producto retirado del catálogo');
+      await fetchProducts(page, appliedFilters);
     } catch (error: unknown) {
-      notify.error(getApiErrorMessage(error, 'Error al eliminar'));
+      notify.error(getApiErrorMessage(error, 'Error al retirar el producto'));
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    const confirmed = await confirmAction({
+      title: 'Restaurar producto',
+      message: 'El producto volverá a estar disponible en el catálogo público.',
+      confirmText: 'Restaurar',
+    });
+    if (!confirmed) return;
+
+    try {
+      await api.patch(`/products/${id}/restore`);
+      notify.success('Producto restaurado');
+      await fetchProducts(page, appliedFilters);
+    } catch (error: unknown) {
+      notify.error(getApiErrorMessage(error, 'Error al restaurar el producto'));
     }
   };
 
@@ -352,19 +371,20 @@ export default function AdminDashboard() {
                 <th className="p-4">Categoría</th>
                 <th className="p-4">Precio</th>
                 <th className="p-4">Stock</th>
+                <th className="p-4">Estado</th>
                 <th className="p-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center font-semibold text-slate-500">
+                  <td colSpan={6} className="p-8 text-center font-semibold text-slate-500">
                     Cargando inventario...
                   </td>
                 </tr>
               ) : loadError ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center">
+                  <td colSpan={6} className="p-8 text-center">
                     <p className="font-bold text-red-600">{loadError}</p>
                     <button
                       type="button"
@@ -377,7 +397,7 @@ export default function AdminDashboard() {
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center font-semibold text-gray-400">
+                  <td colSpan={6} className="p-8 text-center font-semibold text-gray-400">
                     No se encontraron productos con los filtros seleccionados.
                   </td>
                 </tr>
@@ -386,6 +406,7 @@ export default function AdminDashboard() {
                   const sku = product.sku || product.numeroParte || 'Sin SKU';
                   const image = getProductPrimaryImage(product);
                   const productType = product.productType || product.category || '';
+                  const isPublished = product.isActive !== false && !product.deletedAt;
 
                   return (
                     <tr key={product.id} className="group transition hover:bg-slate-100/70">
@@ -444,6 +465,17 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className="p-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ${
+                            isPublished
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {isPublished ? 'Publicado' : 'Retirado'}
+                        </span>
+                      </td>
+                      <td className="p-4">
                         <div className="flex justify-center gap-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                           <Link
                             href={`/admin/edit-product/${product.id}`}
@@ -452,14 +484,25 @@ export default function AdminDashboard() {
                           >
                             <FiEdit />
                           </Link>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(product.id)}
-                            className="rounded-lg bg-red-100 p-2 text-red-700 transition hover:bg-red-200"
-                            title="Eliminar"
-                          >
-                            <FiTrash2 />
-                          </button>
+                          {isPublished ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleDeactivate(product.id)}
+                              className="rounded-lg bg-red-100 p-2 text-red-700 transition hover:bg-red-200"
+                              title="Retirar del catálogo"
+                            >
+                              <FiTrash2 />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => void handleRestore(product.id)}
+                              className="rounded-lg bg-emerald-100 p-2 text-emerald-700 transition hover:bg-emerald-200"
+                              title="Restaurar en el catálogo"
+                            >
+                              <FiRefreshCw />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

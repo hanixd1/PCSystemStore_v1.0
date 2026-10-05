@@ -109,6 +109,7 @@ export class ProductPayloadService {
       price: this.toFloat(data.price),
       isOnSale: false,
       salePrice: null,
+      isActive: data.isActive ?? true,
       stock: this.toInt(data.stock),
       category: data.category,
       images: finalImages,
@@ -137,6 +138,9 @@ export class ProductPayloadService {
     }
     if (data.price !== undefined) {
       updateData.price = this.toFloat(data.price);
+    }
+    if (data.isActive !== undefined) {
+      updateData.isActive = this.toBool(data.isActive);
     }
 
     this.applyPricingUpdate(updateData, currentProduct, data);

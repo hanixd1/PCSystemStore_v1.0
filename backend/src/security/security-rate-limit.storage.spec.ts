@@ -29,7 +29,9 @@ describe('SecurityRateLimitStorage', () => {
     };
     const storage = new SecurityRateLimitStorage(prisma as any);
 
-    await expect(storage.consume('password-recovery:user@example.com', 1, 60_000)).rejects.toBeInstanceOf(HttpException);
+    await expect(
+      storage.consume('password-recovery:user@example.com', 1, 60_000),
+    ).rejects.toBeInstanceOf(HttpException);
   });
 
   it('consulta el estado por claves HMAC compartidas y no devuelve identificadores crudos', async () => {

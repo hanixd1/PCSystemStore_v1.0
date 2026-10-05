@@ -19,6 +19,8 @@ model Product {
   stock                  Int
   images                 String[]
   category               String
+  isActive               Boolean                 @default(true)
+  deletedAt              DateTime?
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   caseSpecs              CaseSpecs?
@@ -48,6 +50,8 @@ model Product {
   storageSpecs           StorageSpecs?
   stockAlertStates       StockAlertState[]
   orderItems             OrderItem[]
+
+  @@index([isActive, deletedAt])
 }
 
 model CpuSpecs {

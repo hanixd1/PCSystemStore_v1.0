@@ -64,4 +64,42 @@ describe('AppController', () => {
       expect(prismaMock.ping).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('version', () => {
+    it('returns only public build metadata without touching Prisma', () => {
+      const previousVersion = process.env.APP_VERSION;
+      const previousCommit = process.env.COMMIT_SHA;
+      const previousEnvironment = process.env.NODE_ENV;
+      process.env.APP_VERSION = '2026.07.30';
+      process.env.COMMIT_SHA = 'abc123def456';
+      process.env.NODE_ENV = 'production';
+
+      try {
+        expect(appController.getVersion()).toMatchObject({
+          service: 'pcsystemstore-backend',
+          version: '2026.07.30',
+          commit: 'abc123def456',
+          environment: 'production',
+          timestamp: expect.any(String),
+        });
+        expect(prismaMock.ping).not.toHaveBeenCalled();
+      } finally {
+        if (previousVersion === undefined) {
+          delete process.env.APP_VERSION;
+        } else {
+          process.env.APP_VERSION = previousVersion;
+        }
+        if (previousCommit === undefined) {
+          delete process.env.COMMIT_SHA;
+        } else {
+          process.env.COMMIT_SHA = previousCommit;
+        }
+        if (previousEnvironment === undefined) {
+          delete process.env.NODE_ENV;
+        } else {
+          process.env.NODE_ENV = previousEnvironment;
+        }
+      }
+    });
+  });
 });

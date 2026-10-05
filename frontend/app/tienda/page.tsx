@@ -2,6 +2,9 @@ import { FiClock, FiMapPin, FiShield } from 'react-icons/fi';
 import StoreLocationMap from '@/components/StoreLocationMap';
 import { publicPageMetadata } from '@/lib/seo';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata = publicPageMetadata(
   'Tienda de hardware en Huancayo | PCSystemStore',
   'Conoce la ubicación, horario y canales de atención de la tienda PCSystemStore en Huancayo.',

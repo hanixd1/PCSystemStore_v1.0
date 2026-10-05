@@ -1,8 +1,8 @@
 # Desarrollo local en macOS
 
-PCSystemStore usa dos procesos independientes. El puerto `3000` corresponde al frontend Next.js y el puerto `3001` al backend NestJS.
+PCSystemStore usa dos procesos independientes. El puerto `3000` corresponde al backend NestJS y el puerto `3001` al frontend Next.js.
 
-Antes de iniciar, copia los archivos de ejemplo si todavía no tienes configuración local y completa únicamente las variables necesarias. Para el frontend, `NEXT_PUBLIC_API_URL` debe ser `http://localhost:3001`. Para el backend, los orígenes locales de CORS deben incluir `http://localhost:3000`.
+Antes de iniciar, copia los archivos de ejemplo si todavía no tienes configuración local y completa únicamente las variables necesarias. Para el frontend, `NEXT_PUBLIC_API_URL` debe ser `http://localhost:3000`. Para el backend, los orígenes locales de CORS deben incluir `http://localhost:3001`.
 
 ## Terminal 1: frontend
 
@@ -11,9 +11,9 @@ cd /Users/taki/Documents/proyectos/pagina/pc-system-store/frontend
 pnpm dev
 ```
 
-Resultado esperado: <http://localhost:3000>
+Resultado esperado: <http://localhost:3001>
 
-El script ejecuta Next.js. No pases `--port 3001`: `pnpm dev --port 3001` desde `frontend/` intenta iniciar otro servidor Next.js y no inicia NestJS.
+El script ejecuta Next.js en el puerto configurado para el frontend. Ejecutarlo desde `frontend/` nunca inicia NestJS.
 
 ## Terminal 2: backend
 
@@ -22,9 +22,9 @@ cd /Users/taki/Documents/proyectos/pagina/pc-system-store/backend
 npm run start:dev
 ```
 
-Resultado esperado: <http://localhost:3001>
+Resultado esperado: <http://localhost:3000>
 
-NestJS obtiene el puerto de `PORT`. Si la variable no existe usa `3001`; un valor válido lo reemplaza y un valor inválido detiene el arranque con un error claro. Railway puede inyectar su propio `PORT` y el backend lo respeta.
+NestJS obtiene el puerto de `PORT`. Si la variable no existe usa `3000`; un valor válido lo reemplaza y un valor inválido detiene el arranque con un error claro. Railway inyecta su propio `PORT` y el backend lo respeta.
 
 ## Desde la raíz
 
@@ -40,8 +40,8 @@ Ejecuta cada comando en una terminal distinta. `dev:frontend` usa pnpm y `dev:ba
 ## Comandos de comprobación
 
 ```bash
-curl -I http://localhost:3000
-curl http://localhost:3001/health
+curl -I http://localhost:3001
+curl http://localhost:3000/health
 ```
 
 ## Solución de conflictos

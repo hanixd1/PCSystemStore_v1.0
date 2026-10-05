@@ -19,6 +19,8 @@ import {
 } from 'react-icons/fi';
 import { useCartStore } from '@/store/useCartStore';
 import { api } from '@/lib/api';
+import { fetchAllFreshPublicProducts } from '@/lib/public-api';
+import { normalizePublicProductList } from '@/lib/public-product';
 import { getEffectivePrice } from '@/lib/pricing';
 import { getProductPrimaryImage } from '@/lib/product-images';
 import { calculateRecommendedPsuWatts } from '@/lib/products/psuRecommendation';
@@ -26,7 +28,17 @@ import { getCanonicalProductPath } from '@/lib/product-url';
 import { confirmAction, notify } from '@/lib/notify';
 
 const PRODUCTS_PER_PAGE = 9;
-const BUILDER_STORAGE_KEY = 'pcsystemstore_pc_builder_state';
+const BUILDER_STORAGE_KEY = 'pcsystemstore_pc_builder_state:v2';
+const LEGACY_BUILDER_STORAGE_KEYS = ['pcsystemstore_pc_builder_state'] as const;
+const BUILDER_STORAGE_VERSION = 2;
+
+function removeStoredBuilderKeys(keys: readonly string[]) {
+  try {
+    keys.forEach((key) => window.sessionStorage.removeItem(key));
+  } catch (error) {
+    console.warn('No se pudo limpiar el estado legado de Arma tu PC.', error);
+  }
+}
 
 const STEPS = [
   { id: 'cpu', title: 'Procesador', shortTitle: 'CPU', category: 'CPU', icon: FiCpu },
@@ -78,12 +90,34 @@ type BuildValidationResponse = {
 };
 
 type PersistedBuilderState = {
+  version?: number;
   selectedPlatform: Platform | null;
   currentStep: number;
-  selectedProducts: Record<string, any>;
+  selectedProductIds?: Record<string, string>;
+  selectedProducts?: Record<string, any>;
   skippedSteps: Record<string, SkippedStep>;
   currentPage: number;
 };
+
+function getPersistedProductIds(state: Partial<PersistedBuilderState>): Record<string, string> {
+  if (state.selectedProductIds && typeof state.selectedProductIds === 'object') {
+    return Object.fromEntries(
+      Object.entries(state.selectedProductIds)
+        .map(([stepId, productId]) => [stepId, String(productId || '').trim()])
+        .filter((entry) => Boolean(entry[1])),
+    );
+  }
+
+  if (!state.selectedProducts || typeof state.selectedProducts !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(state.selectedProducts)
+      .map(([stepId, product]) => [
+        stepId,
+        String((product as { id?: unknown } | null)?.id || '').trim(),
+      ])
+      .filter((entry) => Boolean(entry[1])),
+  );
+}
 
 function getProductPath(product: { id: string; slug?: string | null }) {
   return getCanonicalProductPath(product);
@@ -516,6 +550,8 @@ export default function PCBuilderPage() {
   const { addItem } = useCartStore();
   const productsSectionRef = useRef<HTMLDivElement | null>(null);
   const hasRestoredStateRef = useRef(false);
+  const hasLoadedCatalogRef = useRef(false);
+  const restoredProductIdsRef = useRef<Record<string, string>>({});
 
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -529,7 +565,9 @@ export default function PCBuilderPage() {
 
   useEffect(() => {
     try {
-      const rawState = window.sessionStorage.getItem(BUILDER_STORAGE_KEY);
+      const rawState = [BUILDER_STORAGE_KEY, ...LEGACY_BUILDER_STORAGE_KEYS]
+        .map((key) => window.sessionStorage.getItem(key))
+        .find(Boolean);
       if (!rawState) {
         hasRestoredStateRef.current = true;
         return;
@@ -550,13 +588,7 @@ export default function PCBuilderPage() {
           : 0,
       );
       setPage(Number.isInteger(restoredPage) && restoredPage > 0 ? restoredPage : 1);
-      setBuild(
-        parsedState.selectedProducts &&
-          typeof parsedState.selectedProducts === 'object' &&
-          !Array.isArray(parsedState.selectedProducts)
-          ? parsedState.selectedProducts
-          : {},
-      );
+      restoredProductIdsRef.current = getPersistedProductIds(parsedState);
       setSkipped(
         parsedState.skippedSteps &&
           typeof parsedState.skippedSteps === 'object' &&
@@ -566,32 +598,79 @@ export default function PCBuilderPage() {
       );
     } catch (error) {
       console.warn('No se pudo restaurar el estado de Arma tu PC.', error);
-      window.sessionStorage.removeItem(BUILDER_STORAGE_KEY);
+      removeStoredBuilderKeys([BUILDER_STORAGE_KEY, ...LEGACY_BUILDER_STORAGE_KEYS]);
     } finally {
       hasRestoredStateRef.current = true;
     }
   }, []);
 
   useEffect(() => {
-    if (!hasRestoredStateRef.current) return;
+    if (!hasRestoredStateRef.current || !hasLoadedCatalogRef.current) return;
 
     const stateToPersist: PersistedBuilderState = {
+      version: BUILDER_STORAGE_VERSION,
       selectedPlatform: platform,
       currentStep,
-      selectedProducts: build,
+      selectedProductIds: Object.fromEntries(
+        Object.entries(build)
+          .map(([stepId, product]) => [stepId, String(product?.id || '').trim()])
+          .filter((entry) => Boolean(entry[1])),
+      ),
       skippedSteps: skipped,
       currentPage: page,
     };
 
-    window.sessionStorage.setItem(BUILDER_STORAGE_KEY, JSON.stringify(stateToPersist));
+    try {
+      window.sessionStorage.setItem(BUILDER_STORAGE_KEY, JSON.stringify(stateToPersist));
+    } catch (error) {
+      console.warn('No se pudo guardar el estado de Arma tu PC.', error);
+    }
   }, [platform, currentStep, build, skipped, page]);
 
   useEffect(() => {
-    api
-      .get('/products')
-      .then((res) => setProducts(res.data))
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
+    const controller = new AbortController();
+
+    fetchAllFreshPublicProducts<any>({ signal: controller.signal })
+      .then((responseProducts) => {
+        if (controller.signal.aborted) return;
+
+        const freshProducts = normalizePublicProductList(responseProducts);
+        const productsById = new Map(
+          freshProducts.map((product) => [String(product?.id || ''), product]),
+        );
+        setProducts(freshProducts);
+        setBuild((currentBuild) => {
+          const productIds =
+            Object.keys(currentBuild).length > 0
+              ? Object.fromEntries(
+                  Object.entries(currentBuild).map(([stepId, product]) => [
+                    stepId,
+                    String(product?.id || ''),
+                  ]),
+                )
+              : restoredProductIdsRef.current;
+
+          return Object.fromEntries(
+            Object.entries(productIds)
+              .map(([stepId, productId]) => [stepId, productsById.get(productId)])
+              .filter((entry) => Boolean(entry[1])),
+          );
+        });
+        removeStoredBuilderKeys(LEGACY_BUILDER_STORAGE_KEYS);
+        hasLoadedCatalogRef.current = true;
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          console.error('No se pudo cargar el catálogo actual para Arma tu PC.', error);
+          setProducts([]);
+          setBuild({});
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -780,7 +859,7 @@ export default function PCBuilderPage() {
   };
 
   const clearPersistedBuilderState = () => {
-    window.sessionStorage.removeItem(BUILDER_STORAGE_KEY);
+    removeStoredBuilderKeys([BUILDER_STORAGE_KEY, ...LEGACY_BUILDER_STORAGE_KEYS]);
   };
 
   const handleSelectPlatform = (selectedPlatform: Platform) => {

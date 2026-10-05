@@ -1,5 +1,5 @@
-const LOCAL_SITE_URL = 'http://localhost:3000';
-const PRODUCTION_SITE_URL = 'https://www.pcsystemstore.com';
+const LOCAL_SITE_URL = 'http://localhost:3001';
+export const PRODUCTION_SITE_URL = 'https://www.pcsystemstore.com';
 
 export function normalizeAbsoluteUrl(value: string): string {
   const normalized = value.trim().replace(/\/+$/, '');
@@ -19,7 +19,16 @@ export function normalizeAbsoluteUrl(value: string): string {
     throw new Error('NEXT_PUBLIC_SITE_URL cannot use localhost in production');
   }
 
-  return url.toString().replace(/\/$/, '');
+  if (url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('NEXT_PUBLIC_SITE_URL must contain only the site origin');
+  }
+
+  const result = url.origin;
+  if (process.env.NODE_ENV === 'production' && result !== PRODUCTION_SITE_URL) {
+    throw new Error(`NEXT_PUBLIC_SITE_URL must be ${PRODUCTION_SITE_URL} in production`);
+  }
+
+  return result;
 }
 
 export function getSiteUrl(): string {

@@ -18,15 +18,16 @@ describe('SEO URL helpers', () => {
   it('normalizes the configured public URL and builds absolute canonicals', () => {
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://www.pcsystemstore.com///');
     expect(getSiteUrl()).toBe('https://www.pcsystemstore.com');
-    expect(absoluteUrl('/producto/ryzen-7')).toBe(
-      'https://www.pcsystemstore.com/producto/ryzen-7',
-    );
+    expect(absoluteUrl('/producto/ryzen-7')).toBe('https://www.pcsystemstore.com/producto/ryzen-7');
   });
 
   it('rejects invalid protocols and localhost in production', () => {
     expect(() => normalizeAbsoluteUrl('javascript:alert(1)')).toThrow(/http or https/);
     vi.stubEnv('NODE_ENV', 'production');
     expect(() => normalizeAbsoluteUrl('http://localhost:3000')).toThrow(/localhost/);
+    expect(() => normalizeAbsoluteUrl('https://pcsystemstore.com.pe')).toThrow(
+      /must be https:\/\/www\.pcsystemstore\.com/,
+    );
   });
 
   it('never creates an ID or undefined product URL', () => {
@@ -45,6 +46,7 @@ describe('SEO metadata and robots policy', () => {
     const disallow = rules.flatMap((rule) => rule.disallow ?? []);
 
     expect(value.sitemap).toBe('https://www.pcsystemstore.com/sitemap.xml');
+    expect(value.host).toBe('https://www.pcsystemstore.com');
     expect(rules[0]?.allow).toBe('/');
     expect(disallow).toEqual(
       expect.arrayContaining(['/admin', '/auth', '/checkout', '/mi-cuenta', '/api/']),

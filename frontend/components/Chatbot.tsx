@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { FiMessageSquare, FiX, FiSend, FiCpu } from 'react-icons/fi';
 import { api } from '@/lib/api';
+import { fetchFreshPublicJson } from '@/lib/public-api';
+import { normalizePublicProductList } from '@/lib/public-product';
 import { parseBooleanLike } from '@/lib/productPayload';
 import { resolveImageUrl } from '@/lib/product-images';
 import { getCanonicalProductPath } from '@/lib/product-url';
@@ -413,19 +415,18 @@ export default function Chatbot() {
     category: CatalogCategory | null,
     search = '',
   ): Promise<CatalogSearchResponse> => {
-    const res = await api.get('/products/chat-search', {
-      params: {
-        ...(category ? { category } : {}),
-        search,
-        inStock: true,
-        limit: 20,
-      },
+    const query = new URLSearchParams({
+      search,
+      inStock: 'true',
+      limit: '20',
     });
-    const rawProducts = Array.isArray(res.data) ? res.data : res.data?.items;
+    if (category) query.set('category', category);
+    const data = await fetchFreshPublicJson<any>(`/products/chat-search?${query.toString()}`);
+    const rawProducts = normalizePublicProductList(Array.isArray(data) ? data : data?.items);
     return {
-      success: res.data?.success !== false,
-      searchAvailable: res.data?.searchAvailable,
-      message: res.data?.message,
+      success: data?.success !== false,
+      searchAvailable: data?.searchAvailable,
+      message: data?.message,
       items: Array.isArray(rawProducts) ? rawProducts : [],
     };
   };

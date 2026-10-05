@@ -800,7 +800,7 @@ export default function EditProductPage() {
     if (!id) return;
 
     api
-      .get(`/products/${id}`)
+      .get(`/products/admin/${id}`)
       .then((res) => {
         const product = res.data;
         setFormData(mapProductToFormData(product));

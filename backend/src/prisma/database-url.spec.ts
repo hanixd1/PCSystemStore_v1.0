@@ -1,7 +1,4 @@
-import {
-  inspectPostgresConnectionString,
-  normalizePostgresConnectionString,
-} from './database-url';
+import { inspectPostgresConnectionString, normalizePostgresConnectionString } from './database-url';
 
 describe('PostgreSQL connection URL', () => {
   it.each(['prefer', 'require', 'verify-ca'])(

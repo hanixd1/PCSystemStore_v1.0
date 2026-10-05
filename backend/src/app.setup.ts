@@ -9,6 +9,37 @@ import {
   validateSecurityEnvironment,
 } from './security/security.config';
 
+const NO_STORE_PATHS = [
+  '/products',
+  '/builder',
+  '/ai',
+  '/public/branding',
+  '/public/banners',
+  '/version',
+] as const;
+
+export function shouldDisableStorefrontCaching(method: string, path: string): boolean {
+  if (!['GET', 'HEAD'].includes(method.toUpperCase())) {
+    return false;
+  }
+
+  return NO_STORE_PATHS.some(
+    (route) => path === route || (route !== '/version' && path.startsWith(`${route}/`)),
+  );
+}
+
+function applyNoStoreHeaders(response: Response): void {
+  response.setHeader(
+    'Cache-Control',
+    'no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate',
+  );
+  response.setHeader('CDN-Cache-Control', 'no-store');
+  response.setHeader('Cloudflare-CDN-Cache-Control', 'no-store');
+  response.setHeader('Surrogate-Control', 'no-store');
+  response.setHeader('Pragma', 'no-cache');
+  response.setHeader('Expires', '0');
+}
+
 function getTrustProxy(): string | number | boolean {
   const raw = process.env.TRUST_PROXY?.trim();
   if (!raw) {
@@ -58,6 +89,9 @@ export function configureHttpApplication(app: INestApplication): void {
   app.use((request: Request, response: Response, next: NextFunction) => {
     if (production && request.secure) {
       response.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    if (shouldDisableStorefrontCaching(request.method, request.path)) {
+      applyNoStoreHeaders(response);
     }
     next();
   });

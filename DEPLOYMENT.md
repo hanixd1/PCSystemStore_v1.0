@@ -30,20 +30,27 @@ Variables requeridas:
 
 ```env
 NODE_ENV=production
-PORT=3000
 DATABASE_URL=
 DIRECT_URL=
 JWT_SECRET=
 JWT_EXPIRES_IN=1d
-FRONTEND_URL=https://tu-frontend.vercel.app
-CORS_ORIGIN=https://tu-frontend.vercel.app
-CORS_ORIGINS=https://tu-frontend.vercel.app
+FRONTEND_URL=https://www.pcsystemstore.com
+CORS_ORIGIN=
+CORS_ORIGINS=https://www.pcsystemstore.com,https://pcsystemstore.com
+CSRF_ALLOWED_ORIGINS=https://www.pcsystemstore.com,https://pcsystemstore.com
+RATE_LIMIT_KEY_SECRET=
+TRUST_PROXY=1
+COOKIE_SAME_SITE=none
 AI_SERVICE_URL=https://tu-ai-service.up.railway.app
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 PAYMENT_COMMISSION_RATE=0.04
 ```
+
+No fijar `PORT` en Railway: la plataforma lo inyecta para cada deployment y el
+backend escucha ese valor en `0.0.0.0`. Configurar el Healthcheck Path como
+`/health`.
 
 Build y start esperados:
 
@@ -99,7 +106,10 @@ Configurar un proyecto Vercel apuntando a la carpeta `frontend`.
 Variables:
 
 ```env
-NEXT_PUBLIC_API_URL=https://tu-backend.up.railway.app
+NEXT_PUBLIC_API_URL=https://pcsystemstorebackend-production.up.railway.app
+NEXT_PUBLIC_SITE_URL=https://www.pcsystemstore.com
+NEXT_PUBLIC_APP_VERSION=0.1.0
+# NEXT_PUBLIC_COMMIT_SHA se completa desde VERCEL_GIT_COMMIT_SHA durante el build.
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
 NEXT_PUBLIC_STORE_MAP_QUERY=PCSystemStore Huancayo Peru
@@ -109,8 +119,8 @@ NEXT_PUBLIC_WHATSAPP_NUMBER=51959139676
 
 Para el mapa de `/tienda`, restringir la API key en Google Cloud:
 
-- HTTP referrers: `https://pc-system-store-frontend.vercel.app/*`
-- Futuro dominio: `https://tudominio.com/*` y `https://www.tudominio.com/*`
+- HTTP referrers: `https://www.pcsystemstore.com/*`
+- Si se mantiene el apex como redirect: `https://pcsystemstore.com/*`
 - API restrictions: solo `Maps Embed API`
 
 Despues de cambiar variables `NEXT_PUBLIC_*` en Vercel, ejecutar un redeploy porque se inyectan durante build.
@@ -169,9 +179,9 @@ Backend:
 
 ```env
 AI_SERVICE_URL=http://localhost:8000
-FRONTEND_URL=http://localhost:3000
-CORS_ORIGIN=http://localhost:3000
-CORS_ORIGINS=http://localhost:3000
+FRONTEND_URL=http://localhost:3001
+CORS_ORIGIN=http://localhost:3001
+CORS_ORIGINS=http://localhost:3001
 ```
 
 En produccion Railway:
@@ -183,10 +193,10 @@ AI_SERVICE_URL=https://pcsystemstore-ai-production.up.railway.app
 Frontend:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
-En desarrollo local, `NEXT_PUBLIC_API_URL` apunta al backend NestJS en `3001`.
+En desarrollo local, `NEXT_PUBLIC_API_URL` apunta al backend NestJS en `3000`.
 
 ## 7. Validacion funcional post-deploy
 

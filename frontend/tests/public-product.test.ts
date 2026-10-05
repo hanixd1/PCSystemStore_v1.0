@@ -44,6 +44,24 @@ describe('public product normalization', () => {
       ]),
     ).toHaveLength(1);
   });
+
+  it('rejects soft-deleted products even if every other field is public', () => {
+    expect(normalizePublicProduct({ ...completeProduct, deletedAt: '2026-07-30T12:00:00Z' })).toBe(
+      null,
+    );
+  });
+
+  it('keeps electrical-protection products used by the public navigation', () => {
+    expect(
+      normalizePublicProduct({
+        ...completeProduct,
+        id: '323e4567-e89b-42d3-a456-426614174000',
+        name: 'UPS 1500 VA',
+        slug: 'ups-1500-va',
+        category: 'PROTECTION',
+      }),
+    ).toMatchObject({ category: 'PROTECTION' });
+  });
 });
 
 describe('product JSON-LD', () => {

@@ -15,6 +15,7 @@ import {
 } from '../payments/payment.constants';
 import { assertPaymentsEnabled } from '../payments/payment.config';
 import { BuilderService } from '../builder/builder.service';
+import { withPublicProductCriteria } from '../products/product-publication';
 
 const IGV_RATE_INCLUDED = 18 / 118;
 
@@ -48,7 +49,7 @@ export class OrdersService {
     }
 
     const products = await this.prisma.product.findMany({
-      where: { id: { in: ids } },
+      where: withPublicProductCriteria({ id: { in: ids } }),
     });
 
     if (products.length !== ids.length) {

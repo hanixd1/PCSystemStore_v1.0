@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import OffersPageClient from '@/components/OffersPageClient';
+import { getAllPublicProducts } from '@/lib/catalog-server';
+import { isSaleActive } from '@/lib/pricing';
 import { publicPageMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = publicPageMetadata(
@@ -8,6 +10,7 @@ export const metadata: Metadata = publicPageMetadata(
   '/ofertas',
 );
 
-export default function OffersPage() {
-  return <OffersPageClient />;
+export default async function OffersPage() {
+  const products = (await getAllPublicProducts()).filter(isSaleActive);
+  return <OffersPageClient initialProducts={products} />;
 }
