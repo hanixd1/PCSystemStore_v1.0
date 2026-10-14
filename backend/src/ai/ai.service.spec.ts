@@ -1,27 +1,136 @@
 import { AiService } from './ai.service';
+import { parseChatSearchQuery } from './chat-query';
 
-describe('AiService budget extraction', () => {
-  const createService = () => new AiService({} as any) as any;
-
+describe('parseChatSearchQuery', () => {
   it.each([
-    ['busco una rtx 5060', null],
-    ['quiero una rtx 5060 y tengo 4000 soles', 4000],
-    ['tengo 3000 soles para una pc gamer', 3000],
-    ['presupuesto de 4k', 4000],
-    ['hasta 3.5k', 3500],
-    ['cuento con S/ 2500', 2500],
-    ['ryzen 5 5600', null],
-    ['i5 12400', null],
-  ])('extrae presupuesto seguro para "%s"', (message, expected) => {
-    const service = createService();
-
-    expect(service.extractBudgetFromText(message)).toBe(expected);
+    ['tienen tarjeta de video hasta 1500 soles?', 'tarjeta video', 1500, null],
+    ['busco una rtx 4060', 'rtx 4060', null, null],
+    ['fuente 650w', 'fuente 650w', null, null],
+    ['monitor desde S/ 800', 'monitor', null, 800],
+    ['mouse logitech menos de 1.5k', 'mouse logitech', 1500, null],
+    ['procesador ryzen 5 5600 maximo 600', 'procesador ryzen 5 5600', 600, null],
+  ])('interpreta "%s"', (message, text, maxPrice, minPrice) => {
+    expect(parseChatSearchQuery(message)).toMatchObject({ text, maxPrice, minPrice });
   });
 
-  it('procesa textos largos sin backtracking ni bloqueo', () => {
-    const service = createService();
-    const longMessage = `${' '.repeat(5000)} rtx 5060 ${'#'.repeat(5000)}`;
+  it('detecta preferencia por precio sin confundir palabras como laptop', () => {
+    expect(parseChatSearchQuery('quiero un teclado barato').sort).toBe('cheapest');
+    expect(parseChatSearchQuery('la mejor laptop').sort).toBe('premium');
+    expect(parseChatSearchQuery('laptop asus').sort).toBeNull();
+  });
 
-    expect(service.extractBudgetFromText(longMessage)).toBeNull();
+  it('procesa textos largos sin bloquearse', () => {
+    const longMessage = `${' '.repeat(5000)} rtx 5060 ${'#'.repeat(5000)}`;
+    expect(parseChatSearchQuery(longMessage).text).toBe('');
+  });
+});
+
+describe('AiService chat catalog', () => {
+  const product = (overrides: Record<string, unknown>) => ({
+    id: String(overrides.name),
+    slug: null,
+    images: [],
+    stock: 3,
+    description: '',
+    ...overrides,
+  });
+
+  const catalog = [
+    product({
+      name: 'MOUSE LOGITECH G203',
+      category: 'MOUSE',
+      price: 89,
+      mouseSpecs: { brand: 'Logitech' },
+    }),
+    product({
+      name: 'MOUSE REDRAGON COBRA',
+      category: 'MOUSE',
+      price: 59,
+      mouseSpecs: { brand: 'Redragon' },
+    }),
+    product({
+      name: 'TECLADO LOGITECH K120',
+      category: 'KEYBOARD',
+      price: 45,
+      keyboardSpecs: { brand: 'Logitech' },
+    }),
+    product({
+      name: 'UPS CDP R-UPR 1008',
+      category: 'UPS',
+      price: 320,
+      powerProtectionSpecs: { brand: 'CDP', wattage: 500 },
+    }),
+  ];
+
+  const setup = () => {
+    const prisma = {
+      product: {
+        findMany: jest.fn(async ({ where }: any) => {
+          const allowed: string[] | undefined =
+            where?.AND?.find?.((c: any) => c.category)?.category?.in ?? where?.category?.in;
+          return allowed ? catalog.filter((item) => allowed.includes(item.category)) : catalog;
+        }),
+      },
+    };
+    const fetchMock = jest.fn(async (_url: string, init: { body: string }) => ({
+      ok: true,
+      json: async () => ({ status: 'ok', sent: JSON.parse(init.body) }),
+    }));
+    global.fetch = fetchMock as any;
+    process.env.AI_SERVICE_URL = 'http://ai.test';
+    return { service: new AiService(prisma as any), prisma };
+  };
+
+  const sentPayload = async (message: string, state?: Record<string, unknown>) => {
+    const { service } = setup();
+    const response = (await service.processCustomerChat(message, [], state)) as any;
+    return response.sent;
+  };
+
+  it('envia al ai-service productos rankeados por marca y categoria', async () => {
+    const payload = await sentPayload('tienen mouse logitech?');
+    expect(payload.catalog[0]).toMatchObject({ name: 'MOUSE LOGITECH G203', brand: 'Logitech' });
+    expect(payload.search).toMatchObject({ text: 'mouse logitech', categories: ['MOUSE'] });
+  });
+
+  it('aplica el precio maximo pedido por el cliente', async () => {
+    const payload = await sentPayload('mouse hasta 70 soles');
+    expect(payload.catalog.map((item: any) => item.name)).toEqual(['MOUSE REDRAGON COBRA']);
+  });
+
+  it('reconoce categorias nuevas como UPS', async () => {
+    const payload = await sentPayload('tienen ups?');
+    expect(payload.catalog[0]).toMatchObject({ category: 'UPS', brand: 'CDP' });
+  });
+
+  it('refina la busqueda anterior con mensajes cortos de precio', async () => {
+    const payload = await sentPayload('y mas barato?', { lastSearchQuery: 'mouse' });
+    expect(payload.search).toMatchObject({ text: 'mouse', sort: 'cheapest' });
+    expect(payload.catalog[0].name).toBe('MOUSE REDRAGON COBRA');
+  });
+
+  it('trata "solo la torre" como respuesta del armado y no como busqueda de cases', async () => {
+    const payload = await sentPayload('solo la torre', {
+      intent: 'budget_pc_build',
+      awaiting: 'peripherals',
+    });
+    expect(payload.search).toBeNull();
+  });
+
+  it('responde busquedas con el catalogo cuando el ai-service no esta disponible', async () => {
+    const { service } = setup();
+    global.fetch = jest.fn(async () => {
+      throw new Error('ECONNREFUSED');
+    }) as any;
+
+    const response = (await service.processCustomerChat('mouse logitech')) as any;
+
+    expect(response.status).toBe('ok');
+    expect(response.reply).toContain('MOUSE LOGITECH G203');
+    expect(response.conversationState.lastSearchQuery).toBe('mouse logitech');
+  });
+
+  afterAll(() => {
+    delete process.env.AI_SERVICE_URL;
   });
 });

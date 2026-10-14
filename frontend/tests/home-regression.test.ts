@@ -18,8 +18,10 @@ describe('home SSR regression protection', () => {
     expect(page).toContain('Componentes, laptops y hardware para armar tu PC');
     expect(page).not.toContain('<section className="bg-gray-950');
     expect(page).not.toContain('Explora equipos y componentes para trabajo');
-    expect(page).toContain('initialProducts={products}');
-    expect(page).toContain('initialProcessors={buildHomeProcessorList(processors, 15)}');
+    expect(page).toContain('initialProducts={products.map(toProductCard)}');
+    expect(page).toContain(
+      'initialProcessors={buildHomeProcessorList(processors, 15).map(toProductCard)}',
+    );
     expect(page).toContain('initialBanners={banners}');
     expect(page).toContain('getHomeProcessors(60)');
   });

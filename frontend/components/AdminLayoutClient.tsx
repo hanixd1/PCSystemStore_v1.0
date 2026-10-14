@@ -228,6 +228,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
           </p>
 
           <Link
+            prefetch={false}
             href="/admin"
             onClick={() => setIsSidebarOpen(false)}
             className={[
@@ -241,6 +242,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
           </Link>
 
           <Link
+            prefetch={false}
             href="/admin/inventario"
             onClick={() => setIsSidebarOpen(false)}
             className={[
@@ -254,6 +256,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
           </Link>
 
           <Link
+            prefetch={false}
             href="/admin/add-product"
             onClick={() => setIsSidebarOpen(false)}
             className={[
@@ -268,6 +271,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
 
           {currentUser.role === 'ADMIN' ? (
             <Link
+              prefetch={false}
               href="/admin/import-products"
               onClick={() => setIsSidebarOpen(false)}
               className={[
@@ -288,6 +292,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
               </p>
 
               <Link
+                prefetch={false}
                 href="/admin/empleados"
                 onClick={() => setIsSidebarOpen(false)}
                 className={[
@@ -301,6 +306,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
               </Link>
 
               <Link
+                prefetch={false}
                 href="/admin/historial"
                 onClick={() => setIsSidebarOpen(false)}
                 className={[
@@ -314,6 +320,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
               </Link>
 
               <Link
+                prefetch={false}
                 href="/admin/pagos"
                 onClick={() => setIsSidebarOpen(false)}
                 className={[
@@ -327,6 +334,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
               </Link>
 
               <Link
+                prefetch={false}
                 href="/admin/banners"
                 onClick={() => setIsSidebarOpen(false)}
                 className={[
@@ -340,6 +348,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
               </Link>
 
               <Link
+                prefetch={false}
                 href="/admin/estadistica"
                 onClick={() => setIsSidebarOpen(false)}
                 className={[
@@ -393,6 +402,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
                 No tienes permisos para acceder a este módulo administrativo.
               </p>
               <Link
+                prefetch={false}
                 href="/admin"
                 className="mt-5 inline-flex rounded-xl bg-gray-900 px-5 py-3 text-sm font-black text-white transition hover:bg-gray-800"
               >

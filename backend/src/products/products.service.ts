@@ -75,6 +75,7 @@ export class ProductsService {
     cableHubSpecs: true,
     laptopCoolingBaseSpecs: true,
     backpackSpecs: true,
+    powerProtectionSpecs: true,
   } satisfies Prisma.ProductInclude;
 
   private readonly adminProductGroups: Record<string, string[]> = {
@@ -92,7 +93,7 @@ export class ProductsService {
       'CABLE_HUB',
     ],
     AUDIO: ['HEADSET', 'MICROPHONE', 'SPEAKER'],
-    PROTECCION: ['PROTECTION'],
+    PROTECCION: ['UPS', 'STABILIZER', 'PROTECTION'],
   };
 
   private readonly nameRegex = /^[\p{L}\p{N}\s.,+\-_%/()[\]:;'"#&°@]{5,200}$/u;
@@ -364,6 +365,8 @@ export class ProductsService {
       { laptopCoolingBaseSpecs: { is: { connectivity: contains } } },
       { backpackSpecs: { is: { brand: contains } } },
       { backpackSpecs: { is: { color: contains } } },
+      { powerProtectionSpecs: { is: { brand: contains } } },
+      { powerProtectionSpecs: { is: { outletType: contains } } },
       { mousepadSpecs: { is: { brand: contains } } },
       { chairSpecs: { is: { brand: contains } } },
       { chairSpecs: { is: { color: contains } } },
@@ -611,6 +614,18 @@ export class ProductsService {
         includeNullForOther: true,
         otherLabels: ['Otros'],
       },
+      UPS: {
+        relation: 'powerProtectionSpecs',
+        knownBrands: ['CDP', 'Forza'],
+        includeNullForOther: true,
+        otherLabels: ['Otro'],
+      },
+      STABILIZER: {
+        relation: 'powerProtectionSpecs',
+        knownBrands: ['CDP', 'Forza'],
+        includeNullForOther: true,
+        otherLabels: ['Otro'],
+      },
       HEADSET: {
         relation: 'headsetSpecs',
         knownBrands: ['Logitech', 'Redragon', 'HyperX', 'Razer', 'Teros'],
@@ -708,6 +723,7 @@ export class ProductsService {
         { cableHubSpecs: { is: { brand: this.textContains(brand) } } },
         { laptopCoolingBaseSpecs: { is: { brand: this.textContains(brand) } } },
         { backpackSpecs: { is: { brand: this.textContains(brand) } } },
+        { powerProtectionSpecs: { is: { brand: this.textContains(brand) } } },
         { mousepadSpecs: { is: { brand: this.textContains(brand) } } },
         { chairSpecs: { is: { brand: this.textContains(brand) } } },
         { gamingDeskSpecs: { is: { brand: this.textContains(brand) } } },
@@ -1163,225 +1179,8 @@ export class ProductsService {
     }
   }
 
-  private buildChatProductWhere(query: ProductQuery): Prisma.ProductWhereInput {
-    const where: Prisma.ProductWhereInput = {};
-    const category =
-      this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
-    const search = this.getQueryString(query, 'search');
-
-    if (category) {
-      where.category = category;
-    }
-
-    if (this.getQueryBoolean(query, 'inStock') !== false) {
-      where.stock = { gt: 0 };
-    }
-
-    if (search) {
-      where.OR = [
-        { name: this.textContains(search) },
-        { description: this.textContains(search) },
-        { sku: this.textContains(search) },
-        { category: this.textContains(search) },
-      ];
-    }
-
-    return where;
-  }
-
-  private normalizeChatSearchText(value: unknown): string {
-    return String(value ?? '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9.]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  private getChatProductSearchText(product: any): string {
-    return this.normalizeChatSearchText(
-      [
-        product.name,
-        product.description,
-        product.sku,
-        product.slug,
-        product.category,
-        JSON.stringify(product.cpuSpecs ?? {}),
-        JSON.stringify(product.gpuSpecs ?? {}),
-        JSON.stringify(product.ramSpecs ?? {}),
-        JSON.stringify(product.motherboardSpecs ?? {}),
-        JSON.stringify(product.storageSpecs ?? {}),
-        JSON.stringify(product.psuSpecs ?? {}),
-        JSON.stringify(product.caseSpecs ?? {}),
-        JSON.stringify(product.coolerSpecs ?? {}),
-      ].join(' '),
-    );
-  }
-
-  private rankChatProduct(product: any, rawSearch: string): number {
-    const query = this.normalizeChatSearchText(rawSearch);
-    const terms = query
-      .split(' ')
-      .flatMap((term) => {
-        const unitMatch = term.match(/^(\d+)(w|gb|tb|hz)$/);
-        return unitMatch ? [term, unitMatch[1]] : [term];
-      })
-      .filter((term) => term.length > 1);
-    const compactQuery = query.replace(/\s+/g, '');
-    const searchText = this.getChatProductSearchText(product);
-    const compactText = searchText.replace(/\s+/g, '');
-    let score = 0;
-
-    if (query && searchText.includes(query)) {
-      score += 80;
-    }
-
-    if (compactQuery && compactText.includes(compactQuery)) {
-      score += 60;
-    }
-
-    for (const term of terms) {
-      if (searchText.includes(term)) {
-        score += 15;
-      }
-      if (compactText.includes(term)) {
-        score += 10;
-      }
-    }
-
-    score += Math.min(Number(product.stock ?? 0), 5);
-    return score;
-  }
-
-  private mapChatProduct(product: any) {
-    return {
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      price: product.price,
-      stock: product.stock,
-      imageUrl: Array.isArray(product.images) ? (product.images[0] ?? null) : null,
-      images: product.images,
-      category: product.category,
-      cpuSpecs: product.cpuSpecs,
-      gpuSpecs: product.gpuSpecs,
-      ramSpecs: product.ramSpecs,
-      motherboardSpecs: product.motherboardSpecs,
-      storageSpecs: product.storageSpecs,
-      psuSpecs: product.psuSpecs,
-      caseSpecs: product.caseSpecs,
-      coolerSpecs: product.coolerSpecs,
-    };
-  }
-
-  async chatSearch(query: ProductQuery = {}) {
-    const limit = Math.min(
-      Math.max(this.payload.toInt(this.firstQueryValue(query.limit)) || 5, 1),
-      20,
-    );
-    const search = this.getQueryString(query, 'search');
-    const where = search
-      ? (() => {
-          const baseWhere: Prisma.ProductWhereInput = {};
-          const category =
-            this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
-
-          if (category) {
-            baseWhere.category = category;
-          }
-
-          if (this.getQueryBoolean(query, 'inStock') !== false) {
-            baseWhere.stock = { gt: 0 };
-          }
-
-          return baseWhere;
-        })()
-      : this.buildChatProductWhere(query);
-
-    try {
-      const products = await this.prisma.product.findMany({
-        where: withPublicProductCriteria(where),
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          description: true,
-          price: true,
-          stock: true,
-          images: true,
-          category: true,
-          updatedAt: true,
-          cpuSpecs: { select: { brand: true, socket: true, tdp: true } },
-          gpuSpecs: { select: { brand: true, chipset: true, vram: true } },
-          ramSpecs: { select: { memoryType: true, capacity: true, modules: true, speed: true } },
-          motherboardSpecs: {
-            select: { brand: true, socket: true, formFactor: true, memoryType: true },
-          },
-          storageSpecs: {
-            select: { type: true, capacity: true, interface: true, m2FormFactor: true },
-          },
-          psuSpecs: { select: { brand: true, wattage: true, certification: true } },
-          caseSpecs: { select: { brand: true, formFactor: true, includesPsu: true } },
-          coolerSpecs: {
-            select: {
-              brand: true,
-              type: true,
-              radiatorSize: true,
-              compatibleSockets: true,
-              tdpCapacity: true,
-            },
-          },
-        },
-        orderBy: [{ stock: 'desc' }, { updatedAt: 'desc' }],
-        take: search ? 300 : limit,
-      });
-      const rankedProducts = search
-        ? products
-            .map((product) => ({
-              product,
-              score: this.rankChatProduct(product, search),
-            }))
-            .filter((item) => item.score > 0)
-            .sort(
-              (left, right) => right.score - left.score || right.product.stock - left.product.stock,
-            )
-            .slice(0, limit)
-            .map((item) => item.product)
-        : products;
-
-      return {
-        success: true,
-        items: rankedProducts.map((product) => this.mapChatProduct(product)),
-        message:
-          rankedProducts.length === 0
-            ? 'Por ahora no encontre productos disponibles con ese filtro. Puedes revisar el catalogo o cambiar el criterio.'
-            : undefined,
-      };
-    } catch (error) {
-      const errorInfo =
-        error instanceof Error ? `${error.name}: ${error.message}` : 'unknown search error';
-      console.warn(`[Products] Chat search unavailable: ${errorInfo}`);
-      return {
-        success: false,
-        searchAvailable: false,
-        items: [],
-        message: 'Por ahora no pude consultar el catalogo. Intenta nuevamente en unos segundos.',
-      };
-    }
-  }
-
   async findAll(query: ProductQuery = {}) {
-    const hasFilters = Object.keys(query).length > 0;
-
-    if (!hasFilters) {
-      const products = await this.prisma.product.findMany({
-        where: withPublicProductCriteria(),
-        include: this.productInclude,
-      });
-      return products.filter(isPublicProductRecord);
-    }
-
+    // Always paginated: an unfiltered request must never load the whole catalog with every spec.
     const page = Math.max(this.payload.toInt(this.firstQueryValue(query.page)) || 1, 1);
     const limit = Math.min(
       Math.max(this.payload.toInt(this.firstQueryValue(query.limit)) || 24, 1),
@@ -1597,6 +1396,7 @@ export class ProductsService {
         ...products.map((product: any) => product.cableHubSpecs?.brand),
         ...products.map((product: any) => product.laptopCoolingBaseSpecs?.brand),
         ...products.map((product: any) => product.backpackSpecs?.brand),
+        ...products.map((product: any) => product.powerProtectionSpecs?.brand),
         ...products.map((product: any) => product.headsetSpecs?.brand),
         ...products.map((product: any) => product.mousepadSpecs?.brand),
         ...products.map((product: any) => product.chairSpecs?.brand),
@@ -1761,6 +1561,7 @@ export class ProductsService {
         cableHubSpecs: true,
         laptopCoolingBaseSpecs: true,
         backpackSpecs: true,
+        powerProtectionSpecs: true,
       },
     });
     if (!currentProduct) {
@@ -2124,6 +1925,8 @@ export class ProductsService {
       CABLE_HUB: 'cableHubSpecs',
       LAPTOP_COOLING_BASE: 'laptopCoolingBaseSpecs',
       BACKPACK: 'backpackSpecs',
+      UPS: 'powerProtectionSpecs',
+      STABILIZER: 'powerProtectionSpecs',
       MOUSEPAD: 'mousepadSpecs',
       CHAIR: 'chairSpecs',
       GAMING_DESK: 'gamingDeskSpecs',

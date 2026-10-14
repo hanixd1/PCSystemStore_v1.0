@@ -121,6 +121,8 @@ export class ProductValidationService {
       CABLE_HUB: [],
       LAPTOP_COOLING_BASE: ['fanCount'],
       BACKPACK: [],
+      UPS: ['wattage'],
+      STABILIZER: ['wattage'],
     };
 
     for (const field of fieldsByCategory[category] || []) {
@@ -300,6 +302,7 @@ export class ProductValidationService {
     this.validateCableHubCategory(category, data);
     this.validateLaptopCoolingBaseCategory(category, data);
     this.validateBackpackCategory(category, data);
+    this.validatePowerProtectionCategory(category, data);
     this.validateHeadsetCategory(category, data);
     this.validateBrandOnlyCategories(category, data);
   }
@@ -459,6 +462,22 @@ export class ProductValidationService {
       if (!String(data.color || '').trim()) {
         throw new BadRequestException('Selecciona el color de la mochila.');
       }
+    }
+  }
+
+  private validatePowerProtectionCategory(category: string, data: any) {
+    if (category !== 'UPS' && category !== 'STABILIZER') {
+      return;
+    }
+    const label = category === 'UPS' ? 'del UPS' : 'del estabilizador';
+    if (!String(data.brand || '').trim()) {
+      throw new BadRequestException(`Selecciona la marca ${label}.`);
+    }
+    if (!String(data.outletType || '').trim()) {
+      throw new BadRequestException(`Selecciona el tipo de entradas ${label}.`);
+    }
+    if (this.payload.toInt(data.wattage) <= 0) {
+      throw new BadRequestException(`Ingresa los watts que soporta el equipo ${label}.`);
     }
   }
 

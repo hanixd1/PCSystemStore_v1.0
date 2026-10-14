@@ -11,6 +11,7 @@ from schemas.chatbot_schema import (
     ChatResponse,
     ChatTotals,
     ConversationState,
+    SearchContext,
     StoredProduct,
 )
 
@@ -366,6 +367,7 @@ def classify_intent(
     budget: int | None,
     usage: str | None,
     component_query: ComponentQuery,
+    search: SearchContext | None = None,
 ) -> ChatIntent:
     normalized = normalize_text(message)
     if any(marker in normalized for marker in CHECKOUT_MARKERS):
@@ -374,7 +376,8 @@ def classify_intent(
         return "cart_action"
     if any(marker in normalized for marker in TOTAL_MARKERS):
         return "total_query"
-    if mentions or component_query.category is not None:
+    names_category = search is not None and (search.matched or bool(search.categories))
+    if mentions or component_query.category is not None or names_category:
         return "product_search"
     if budget is not None and ("pc" in normalized or usage is not None):
         return "budget_pc_build"
@@ -403,7 +406,12 @@ def merge_state(
     budget = detect_budget(request.message, bool(mentions))
     usage = detect_usage(request.message)
     includes_peripherals = detect_peripherals(request.message)
-    intent = classify_intent(request.message, state, mentions, budget, usage, component_query)
+    intent = classify_intent(
+        request.message, state, mentions, budget, usage, component_query, request.search
+    )
+    # A price in a product search ("rtx hasta 1500") is a filter, not a PC budget.
+    if intent == "product_search" and request.search is not None:
+        budget = None
 
     if budget is not None:
         state.budget = budget
@@ -517,33 +525,152 @@ def search_catalog(
     ]
 
 
+BUILD_ORDER = ["CPU", "MOTHERBOARD", "RAM", "GPU", "STORAGE", "PSU", "CASE"]
+PERIPHERAL_ORDER = ["MONITOR", "KEYBOARD", "MOUSE"]
+# Share of the tower budget per component, by use case.
+BUILD_WEIGHTS = {
+    "gaming": {"CPU": 0.20, "MOTHERBOARD": 0.13, "RAM": 0.09, "GPU": 0.33, "STORAGE": 0.08, "PSU": 0.08, "CASE": 0.09},
+    "streaming": {"CPU": 0.22, "MOTHERBOARD": 0.13, "RAM": 0.10, "GPU": 0.30, "STORAGE": 0.08, "PSU": 0.08, "CASE": 0.09},
+    "creative": {"CPU": 0.26, "MOTHERBOARD": 0.14, "RAM": 0.14, "GPU": 0.22, "STORAGE": 0.10, "PSU": 0.07, "CASE": 0.07},
+    "office": {"CPU": 0.30, "MOTHERBOARD": 0.20, "RAM": 0.15, "GPU": 0.0, "STORAGE": 0.15, "PSU": 0.08, "CASE": 0.12},
+}
+PERIPHERAL_SHARE = 0.25
+PERIPHERAL_WEIGHTS = {"MONITOR": 0.65, "KEYBOARD": 0.15, "MOUSE": 0.12}
+
+
+def attribute(product: CatalogProduct | None, key: str):
+    return None if product is None else product.attributes.get(key)
+
+
+def is_compatible(product: CatalogProduct, selected: dict[str, CatalogProduct]) -> bool:
+    """Missing spec data is treated as compatible so incomplete catalogs still produce builds."""
+    cpu, board, ram = selected.get("CPU"), selected.get("MOTHERBOARD"), selected.get("RAM")
+    if product.category == "CPU":
+        return same_or_unknown(attribute(product, "socket"), attribute(board, "socket"))
+    if product.category == "MOTHERBOARD":
+        return same_or_unknown(attribute(cpu, "socket"), attribute(product, "socket")) and same_or_unknown(
+            attribute(ram, "memoryType"), attribute(product, "memoryType")
+        )
+    if product.category == "RAM":
+        return same_or_unknown(attribute(board, "memoryType"), attribute(product, "memoryType"))
+    if product.category == "PSU":
+        wattage = attribute(product, "wattage")
+        return not wattage or float(wattage) >= required_psu_watts(selected)
+    return True
+
+
+def same_or_unknown(left, right) -> bool:
+    return not left or not right or left == right
+
+
+def required_psu_watts(selected: dict[str, CatalogProduct]) -> float:
+    cpu_tdp = float(attribute(selected.get("CPU"), "tdp") or 65)
+    gpu_power = float(attribute(selected.get("GPU"), "powerWatts") or 0)
+    return (cpu_tdp + gpu_power + 100) * 1.25
+
+
+def needs_dedicated_gpu(state: ConversationState, selected: dict[str, CatalogProduct]) -> bool:
+    if state.usage != "office":
+        return True
+    return not attribute(selected.get("CPU"), "integratedGraphics")
+
+
+def pick_component(
+    candidates: list[CatalogProduct], target: float, selected: dict[str, CatalogProduct]
+) -> CatalogProduct | None:
+    """Most capable (priciest) compatible option within its share, else the cheapest compatible."""
+    compatible = [product for product in candidates if is_compatible(product, selected)]
+    if not compatible:
+        return None
+    within = [product for product in compatible if product.price <= target]
+    return max(within, key=lambda product: product.price) if within else min(compatible, key=lambda product: product.price)
+
+
+def cpus_with_available_board(
+    cpus: list[CatalogProduct], boards: list[CatalogProduct]
+) -> list[CatalogProduct]:
+    """Prefer CPUs whose socket has a motherboard in stock, so the build can be completed."""
+    if not boards:
+        return cpus
+    supported = [cpu for cpu in cpus if any(is_compatible(board, {"CPU": cpu}) for board in boards)]
+    return supported or cpus
+
+
+USAGE_LABELS = {
+    "gaming": "gamer",
+    "office": "de oficina",
+    "creative": "de diseno y edicion",
+    "streaming": "para streaming",
+}
+
+
 def recommend_pc_from_catalog(
     catalog: list[CatalogProduct], state: ConversationState
 ) -> list[CatalogProduct]:
-    categories = ["CPU", "MOTHERBOARD", "RAM", "GPU", "STORAGE", "PSU", "CASE"]
-    selected: list[CatalogProduct] = []
-    remaining_budget = state.budget or 0
+    in_stock = [product for product in catalog if product.stock > 0]
+    by_category: dict[str, list[CatalogProduct]] = {}
+    for product in in_stock:
+        by_category.setdefault(product.category.upper(), []).append(product)
 
-    for category in categories:
-        candidates = [
-            product
-            for product in catalog
-            if normalize_text(product.category) == normalize_text(category)
-            and product.stock > 0
-        ]
-        if not candidates:
+    budget = float(state.budget or 0)
+    tower_budget = budget * (1 - PERIPHERAL_SHARE) if budget and state.includesPeripherals else budget
+    weights = BUILD_WEIGHTS.get(state.usage or "", BUILD_WEIGHTS["gaming"])
+    selected: dict[str, CatalogProduct] = {}
+
+    for category in BUILD_ORDER:
+        if category == "GPU" and not needs_dedicated_gpu(state, selected):
             continue
-        affordable = [
-            product
-            for product in candidates
-            if not remaining_budget or product.price <= max(remaining_budget, product.price)
-        ]
-        choice = sorted(affordable or candidates, key=lambda product: product.price)[0]
-        selected.append(choice)
-        if remaining_budget:
-            remaining_budget -= choice.price
+        share = weights.get(category, 0.08)
+        target = tower_budget * share if tower_budget else float("inf")
+        candidates = by_category.get(category, [])
+        if category == "CPU":
+            candidates = cpus_with_available_board(candidates, by_category.get("MOTHERBOARD", []))
+        choice = pick_component(candidates, target, selected)
+        if choice is not None:
+            selected[category] = choice
 
-    return selected
+    if state.includesPeripherals:
+        peripheral_budget = budget * PERIPHERAL_SHARE if budget else float("inf")
+        for category, share in PERIPHERAL_WEIGHTS.items():
+            choice = pick_component(by_category.get(category, []), peripheral_budget * share, selected)
+            if choice is not None:
+                selected[category] = choice
+
+    # Over budget: step down the most expensive parts while keeping the build compatible.
+    if budget:
+        for category in ["GPU", "CPU", "CASE", "STORAGE", "PSU", "MONITOR", "MOTHERBOARD", "RAM"]:
+            while sum(product.price for product in selected.values()) > budget and category in selected:
+                current = selected[category]
+                others = {key: value for key, value in selected.items() if key != category}
+                cheaper = [
+                    product
+                    for product in by_category.get(category, [])
+                    if product.price < current.price and is_compatible(product, others)
+                ]
+                if not cheaper:
+                    break
+                selected[category] = max(cheaper, key=lambda product: product.price)
+
+    order = BUILD_ORDER + PERIPHERAL_ORDER
+    return [selected[category] for category in order if category in selected]
+
+
+CATEGORY_NAMES = {
+    "CPU": "procesadores", "MOTHERBOARD": "placas madre", "RAM": "memorias RAM",
+    "GPU": "tarjetas de video", "STORAGE": "unidades de almacenamiento", "PSU": "fuentes de poder",
+    "CASE": "cases", "COOLER": "coolers", "MONITOR": "monitores", "KEYBOARD": "teclados",
+    "MOUSE": "mouse", "MOUSEPAD": "mousepads", "HEADSET": "audifonos", "MICROPHONE": "microfonos",
+    "SPEAKER": "parlantes", "WEBCAM": "webcams", "CAPTURE_CARD": "capturadoras",
+    "CABLE_HUB": "cables y hubs", "LAPTOP": "laptops", "PC_DESKTOP": "PCs armadas",
+    "CHAIR": "sillas gamer", "GAMING_DESK": "mesas gamer", "UPS": "UPS",
+    "STABILIZER": "estabilizadores", "BACKPACK": "mochilas", "LAPTOP_COOLING_BASE": "bases refrigerantes",
+    "SOFTWARE": "licencias de software",
+}
+
+
+def format_product_line(product: CatalogProduct | StoredProduct) -> str:
+    stock = "en stock" if product.stock > 0 else "sin stock"
+    return f"- {product.name}: S/. {product.price:.2f} ({stock})"
 
 
 def handle_product_search(
@@ -553,24 +680,75 @@ def handle_product_search(
     intent: ChatIntent,
     vendor: str | None = None,
 ) -> ChatResponse:
-    matches = search_catalog(request.catalog, mentions, request.message, vendor)
+    search = request.search
+    ranked_by_backend = search is not None and any(
+        product.relevance is not None for product in request.catalog
+    )
+    if ranked_by_backend:
+        vendor_terms = {"AMD": ("amd", "ryzen", "threadripper"), "INTEL": ("intel", "core")}.get(vendor or "", ())
+        matches = [
+            product
+            for product in request.catalog
+            if not vendor_terms
+            or any(term in normalize_text(f"{product.name} {product.brand or ''}") for term in vendor_terms)
+        ][:4]
+    else:
+        matches = search_catalog(request.catalog, mentions, request.message, vendor)
+
+    if search is not None and search.text:
+        state.lastSearchQuery = search.text
+    state.awaiting = None
+
     if not matches:
+        categories = list(search.categories) if search else []
+        if len(categories) > 1 and "PC_DESKTOP" in categories:
+            categories.remove("PC_DESKTOP")  # "fuente para pc" asks for a PSU, not a prebuilt PC
+        names = [CATEGORY_NAMES[category] for category in categories if category in CATEGORY_NAMES]
+        reply = (
+            f"Por ahora no tengo {' ni '.join(names[:2])} con esas caracteristicas en la tienda. "
+            "Puedes consultarnos por WhatsApp o pedirme otro producto."
+            if names
+            else "No encontre ese producto en el catalogo actual. Prueba con la marca, el modelo o la categoria (por ejemplo: mouse Logitech, monitor 144hz, UPS 1000VA)."
+        )
         return ChatResponse(
-            reply="No encontre exactamente ese producto en el catalogo actual. Puedes probar con otro modelo o revisar la seccion correspondiente.",
+            reply=reply,
             intent=intent,
             conversationState=state,
             products=[],
         )
 
-    main = matches[0]
     stored_matches = [catalog_to_stored(product) for product in matches]
     state.lastRecommendedProducts = stored_matches
     state.lastRecommendedBuild = []
-    state.lastFocusedProductId = main.id
-    state.awaiting = None
-    stock_text = "en stock" if main.stock > 0 else "sin stock disponible"
+    state.lastFocusedProductId = matches[0].id if len(matches) == 1 else None
+
+    lines = "\n".join(format_product_line(product) for product in matches[:3])
+    max_price = search.maxPrice if search else None
+    min_price = search.minPrice if search else None
+    if max_price is not None and all(product.price > max_price for product in matches):
+        intro = f"No tengo opciones por debajo de S/. {max_price:.0f}. Lo mas cercano que tengo es:"
+    elif min_price is not None and all(product.price < min_price for product in matches):
+        intro = f"No tengo opciones desde S/. {min_price:.0f}. Lo mas cercano que tengo es:"
+    else:
+        price_note = ""
+        if max_price is not None:
+            price_note = f" hasta S/. {max_price:.0f}"
+        elif min_price is not None:
+            price_note = f" desde S/. {min_price:.0f}"
+        count = len(matches)
+        sort_note = ""
+        if search is not None and search.sort == "cheapest":
+            sort_note = ", de menor a mayor precio"
+        elif search is not None and search.sort == "premium":
+            sort_note = ", empezando por las de gama mas alta"
+        intro = (
+            f"Encontre esta opcion{price_note}:"
+            if count == 1
+            else f"Encontre {count} opciones{price_note}{sort_note}:"
+        )
+    tail = "\nPuedes pedirme algo mas barato, otra marca, o decirme 'agregalo al carrito'."
     return ChatResponse(
-        reply=f"Encontre una opcion en la tienda: {main.name} por S/. {main.price:.2f}. Estado: {stock_text}.",
+        reply=f"{intro}\n{lines}{tail}",
         intent="product_search",
         conversationState=state,
         products=[product_to_chat(product) for product in matches],
@@ -598,10 +776,28 @@ def handle_pc_build(
             stored_products = [catalog_to_stored(product) for product in products]
             state.lastRecommendedBuild = stored_products
             state.lastRecommendedProducts = stored_products
-            state.lastFocusedProductId = stored_products[0].id if len(stored_products) == 1 else None
+            state.lastFocusedProductId = None
             state.awaiting = None
-            scope = TOWER_ONLY_PHRASES[0] if state.includesPeripherals is False else "con perifericos"
-            reply = f"Perfecto. Con S/. {state.budget} para una PC {state.usage} {scope}, puedo priorizar estos productos reales del catalogo disponibles."
+            total = sum(product.price for product in products)
+            scope = "solo torre" if state.includesPeripherals is False else "con perifericos"
+            chosen = {product.category.upper() for product in products}
+            missing = [category for category in ["CPU", "MOTHERBOARD", "RAM", "STORAGE", "PSU", "CASE"] if category not in chosen]
+            budget_line = (
+                f"Total: S/. {total:.2f} (dentro de tu presupuesto de S/. {state.budget})."
+                if total <= state.budget
+                else f"Total: S/. {total:.2f}. Supera tu presupuesto de S/. {state.budget}; es lo mas ajustado con el stock actual."
+            )
+            missing_names = [CATEGORY_NAMES.get(category, category.lower()) for category in missing]
+            missing_line = (
+                f"\nPor ahora no tengo stock de {', '.join(missing_names)}; consultanos por WhatsApp para completarla."
+                if missing
+                else ""
+            )
+            lines = "\n".join(format_product_line(product) for product in products)
+            reply = (
+                f"Esta es una PC {USAGE_LABELS.get(state.usage or '', state.usage)} ({scope}) con piezas compatibles del catalogo:\n{lines}\n"
+                f"{budget_line}{missing_line}\nSi te parece, dime 'agrega todo' y la paso al carrito."
+            )
             return ChatResponse(
                 reply=reply,
                 intent=intent,
@@ -713,6 +909,21 @@ def handle_checkout_guidance(state: ConversationState) -> ChatResponse:
     )
 
 
+def should_ask_cpu_vendor(
+    payload: ChatRequest, component_query: ComponentQuery, mentions: list[str]
+) -> bool:
+    """Ask AMD vs Intel only for a bare "procesador" query when both brands are on offer."""
+    if component_query.category != "CPU" or component_query.vendor or mentions:
+        return False
+    search = payload.search
+    if search is not None and (search.maxPrice or search.minPrice or search.sort):
+        return False
+    names = " ".join(normalize_text(product.name) for product in payload.catalog if product.category == "CPU")
+    if not payload.catalog:
+        return True
+    return ("amd" in names or "ryzen" in names) and ("intel" in names or "core" in names)
+
+
 def build_chat_response(payload: ChatRequest) -> ChatResponse:
     state, mentions, intent, component_query = merge_state(payload)
 
@@ -726,7 +937,7 @@ def build_chat_response(payload: ChatRequest) -> ChatResponse:
         return handle_cart_action(payload, state)
 
     if intent == "product_search":
-        if component_query.category == "CPU" and component_query.vendor is None and not mentions:
+        if should_ask_cpu_vendor(payload, component_query, mentions):
             return ChatResponse(
                 reply="Buscas un procesador. Prefieres AMD (Ryzen/Threadripper) o Intel (Core i/Core Ultra)?",
                 intent=intent,

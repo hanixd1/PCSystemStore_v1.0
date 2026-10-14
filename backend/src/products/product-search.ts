@@ -104,11 +104,11 @@ const SEARCH_DICTIONARY: CategorySearchDictionaryEntry[] = [
   },
   {
     category: 'SPEAKER',
-    categoryAliases: ['parlantes'],
+    categoryAliases: ['parlantes', 'parlante', 'bocinas', 'speaker'],
   },
   {
     category: 'MICROPHONE',
-    categoryAliases: ['microfono'],
+    categoryAliases: ['microfono', 'microfonos'],
   },
   {
     category: 'WEBCAM',
@@ -121,6 +121,23 @@ const SEARCH_DICTIONARY: CategorySearchDictionaryEntry[] = [
   {
     category: 'CABLE_HUB',
     categoryAliases: ['cable', 'adaptador', 'hub', 'usb', 'usb-c', 'hdmi', 'displayport', 'dp'],
+  },
+  { category: 'UPS', categoryAliases: ['ups', 'no break', 'nobreak', 'respaldo de energia'] },
+  {
+    category: 'STABILIZER',
+    categoryAliases: ['estabilizador', 'estabilizadores', 'regulador de voltaje'],
+  },
+  { category: 'CHAIR', categoryAliases: ['silla', 'sillas', 'silla gamer'] },
+  { category: 'GAMING_DESK', categoryAliases: ['mesa gamer', 'escritorio gamer', 'mesa'] },
+  { category: 'MOUSEPAD', categoryAliases: ['mousepad'] },
+  {
+    category: 'LAPTOP_COOLING_BASE',
+    categoryAliases: ['base refrigerante', 'base refrigeradora', 'base para laptop'],
+  },
+  { category: 'BACKPACK', categoryAliases: ['mochila', 'mochilas'] },
+  {
+    category: 'SOFTWARE',
+    categoryAliases: ['software', 'licencia', 'windows', 'office', 'antivirus'],
   },
   {
     category: 'PC_DESKTOP',
@@ -155,7 +172,34 @@ const CATEGORY_LABELS: Record<string, string[]> = {
   CAPTURE_CARD: ['capturadora'],
   CABLE_HUB: ['cable', 'adaptador', 'hub'],
   PC_DESKTOP: ['pc', 'computadora', 'ordenador'],
+  UPS: ['ups', 'no break'],
+  STABILIZER: ['estabilizador'],
+  CHAIR: ['silla'],
+  GAMING_DESK: ['mesa gamer'],
+  MOUSEPAD: ['mousepad'],
+  LAPTOP_COOLING_BASE: ['base refrigerante'],
+  BACKPACK: ['mochila'],
+  SOFTWARE: ['software', 'licencia'],
 };
+
+/** Product names are often in English ("WHITE ARGB") while customers search in Spanish. */
+const TOKEN_SYNONYMS: Record<string, string[]> = {
+  blanco: ['white'],
+  blanca: ['white'],
+  negro: ['black'],
+  negra: ['black'],
+  gris: ['gray', 'grey'],
+  azul: ['blue'],
+  rojo: ['red'],
+  rosado: ['pink'],
+  rosa: ['pink'],
+  inalambrico: ['wireless'],
+  inalambrica: ['wireless'],
+};
+
+function withSynonyms(tokens: string[]): string[] {
+  return [...new Set(tokens.flatMap((token) => [token, ...(TOKEN_SYNONYMS[token] ?? [])]))];
+}
 
 export function normalizeSearchText(value: unknown): string {
   return String(value ?? '')
@@ -181,16 +225,27 @@ export function getSearchDictionary() {
 
 export function expandProductSearchQuery(query: unknown): ProductSearchExpansion {
   const normalizedQuery = normalizeSearchText(query);
-  const tokens = tokenizeSearchText(normalizedQuery);
+  const tokens = withSynonyms(tokenizeSearchText(normalizedQuery));
   const candidateCategories = new Set<string>();
   const rankingCategories = new Set<string>();
   const terms = new Set<string>([normalizedQuery, ...tokens].filter(Boolean));
 
-  for (const entry of SEARCH_DICTIONARY) {
+  const aliasMatches = SEARCH_DICTIONARY.map((entry) => {
+    const aliases = entry.categoryAliases.map(normalizeSearchText);
+    return {
+      entry,
+      exact: matchesAliasExactly(normalizedQuery, tokens, aliases),
+      prefix: matchesAnySearchTerm(normalizedQuery, tokens, aliases),
+    };
+  });
+  // "mouse" names MOUSE exactly; it must not also pull MOUSEPAD in just because it is a prefix.
+  const hasExactAlias = aliasMatches.some((match) => match.exact);
+
+  for (const { entry, exact, prefix } of aliasMatches) {
     const categoryAliases = entry.categoryAliases.map(normalizeSearchText);
     const technicalTerms = (entry.technicalTerms ?? []).map(normalizeSearchText);
 
-    if (matchesAnySearchTerm(normalizedQuery, tokens, categoryAliases)) {
+    if (exact || (prefix && !hasExactAlias)) {
       candidateCategories.add(entry.category);
       rankingCategories.add(entry.category);
       categoryAliases.forEach((term) => terms.add(term));
@@ -308,6 +363,13 @@ function tokenizeSearchText(value: string): string[] {
     .filter((token) => token.length >= 2);
 }
 
+function matchesAliasExactly(query: string, tokens: string[], aliases: string[]) {
+  const padded = ` ${query} `;
+  return aliases.some(
+    (alias) => alias && (tokens.includes(alias) || padded.includes(` ${alias} `)),
+  );
+}
+
 function matchesAnySearchTerm(query: string, tokens: string[], terms: string[]) {
   return terms.some((term) => {
     if (!term) {
@@ -349,6 +411,7 @@ function collectBrandValues(product: any): string[] {
     product?.cableHubSpecs?.brand,
     product?.laptopCoolingBaseSpecs?.brand,
     product?.backpackSpecs?.brand,
+    product?.powerProtectionSpecs?.brand,
   ].filter(Boolean);
 }
 

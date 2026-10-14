@@ -24,6 +24,7 @@ export const CATEGORY_SEO: Record<string, { name: string; description: string }>
   ordenadores: { name: 'Computadoras y laptops', description: 'Computadoras de escritorio, laptops y accesorios para trabajo y gaming.' },
   pcs: { name: 'PCs de escritorio', description: 'Computadoras de escritorio para trabajo, estudio y gaming.' },
   'pc-gaming': { name: 'PC gaming', description: 'Computadoras configuradas para gaming.' },
+  software: { name: 'Software y licencias', description: 'Licencias de software, sistemas operativos y antivirus.' },
   laptops: { name: 'Laptops', description: 'Laptops para trabajo, estudio, creación de contenido y gaming.' },
   'laptop-accessorios': { name: 'Accesorios para laptops', description: 'Bases refrigeradoras, mochilas y accesorios para laptops.' },
   'bases-refrigeradoras': { name: 'Bases refrigeradoras', description: 'Bases de refrigeración para laptops.' },
@@ -44,7 +45,6 @@ export const CATEGORY_SEO: Record<string, { name: string; description: string }>
   microphones: { name: 'Micrófonos', description: 'Micrófonos para comunicación, streaming y creación de contenido.' },
   proteccion: { name: 'Protección eléctrica', description: 'Equipos de protección eléctrica para computadoras y accesorios.' },
   ups: { name: 'UPS', description: 'Sistemas de alimentación ininterrumpida para proteger tus equipos.' },
-  supresores: { name: 'Supresores de picos', description: 'Supresores para proteger equipos ante variaciones eléctricas.' },
   estabilizadores: { name: 'Estabilizadores', description: 'Estabilizadores de voltaje para equipos electrónicos.' },
 };
 
@@ -102,7 +102,7 @@ export function organizationJsonLd(storeName: string, logoPath: string) {
   return {
     '@context': 'https://schema.org', '@type': 'Organization', name: storeName,
     url: getSiteUrl(), logo, telephone: '+51 959 139 676',
-    address: { '@type': 'PostalAddress', streetAddress: 'Av. Giráldez 274, Centro, Tienda E-6', addressLocality: 'Huancayo', addressCountry: 'PE' },
+    address: { '@type': 'PostalAddress', streetAddress: 'Av. Giráldez 274, Centro, Tienda C-4', addressLocality: 'Huancayo', addressCountry: 'PE' },
     sameAs: ['https://www.facebook.com/PCSystemStore', 'https://www.tiktok.com/@pcsystemstore', 'https://www.instagram.com/pc.system.store'],
   };
 }

@@ -92,7 +92,7 @@ const Header = () => {
 
         <div className="container mx-auto flex h-20 items-center justify-between gap-4 px-4 md:gap-8">
           <div className="flex items-center gap-4 md:gap-8">
-            <Link href="/" className="shrink-0">
+            <Link href="/" prefetch={false} className="shrink-0">
               <div className="relative flex h-16 w-[150px] items-center justify-start overflow-hidden md:w-[190px]">
                 {logoUrl && !logoFailed ? (
                   <img
@@ -202,6 +202,7 @@ const Header = () => {
               </div>
             ) : (
               <Link
+                prefetch={false}
                 href="/auth/login"
                 className="group flex flex-col items-center justify-center p-2 text-gray-600 transition hover:text-brand-cyan"
               >

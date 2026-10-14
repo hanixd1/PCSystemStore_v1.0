@@ -82,8 +82,17 @@ export const PRODUCT_CATEGORIES = [
   'CABLE_HUB',
   'LAPTOP_COOLING_BASE',
   'BACKPACK',
+  'UPS',
+  'STABILIZER',
+  // Legacy spec-less category kept so older products stay valid.
   'PROTECTION',
 ] as const;
+
+export const POWER_PROTECTION_CATEGORIES: string[] = ['UPS', 'STABILIZER'];
+export const POWER_PROTECTION_OUTLET_TYPES = [
+  'Solo tomas de corriente',
+  'Tomas de corriente + USB',
+];
 
 export class CreateProductDto {
   @Transform(toNormalizedSku)
@@ -462,6 +471,13 @@ export class CreateProductDto {
   @IsString()
   @IsIn(['USB-A', 'USB-C'])
   connectivity?: string;
+
+  @ValidateIf((product) => POWER_PROTECTION_CATEGORIES.includes(product.category))
+  @Transform(toTrimmedString)
+  @IsOptional()
+  @IsString()
+  @IsIn(POWER_PROTECTION_OUTLET_TYPES)
+  outletType?: string;
 
   @ValidateIf(
     (product) => product.category === 'LAPTOP_COOLING_BASE' || product.category === 'BACKPACK',

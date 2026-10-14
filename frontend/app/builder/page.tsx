@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   FiBox,
   FiCheckCircle,
@@ -546,8 +545,7 @@ function getProductSpecsSummary(product: any) {
 }
 
 export default function PCBuilderPage() {
-  const router = useRouter();
-  const { addItem } = useCartStore();
+  const { addItem, openCart } = useCartStore();
   const productsSectionRef = useRef<HTMLDivElement | null>(null);
   const hasRestoredStateRef = useRef(false);
   const hasLoadedCatalogRef = useRef(false);
@@ -998,7 +996,7 @@ export default function PCBuilderPage() {
     Object.values(build).forEach((product) => {
       if (product) addItem({ ...product, source: 'builder' });
     });
-    router.push('/carrito');
+    openCart();
   };
 
   const handleRestart = async () => {

@@ -112,6 +112,9 @@ export function validateProductForm(
     if (Number(formData.tdp) <= 0) {
       return 'El TDP del procesador debe ser mayor a 0.';
     }
+    if (formData.integratedGraphics === 'true' && /\d{3,5}K?F\b/i.test(trimmedName)) {
+      return 'Los procesadores modelo F/KF no tienen gráficos integrados. Marca "Graficos integrados: No".';
+    }
   }
 
   if (formData.category === 'MOTHERBOARD' && !String(formData.brand || '').trim()) {
@@ -297,6 +300,14 @@ export function validateProductForm(
     if (!String(formData.connectivity || '').trim()) {
       return 'Selecciona la conectividad de la base refrigeradora.';
     }
+  }
+
+  if (formData.category === 'UPS' || formData.category === 'STABILIZER') {
+    const label = formData.category === 'UPS' ? 'del UPS' : 'del estabilizador';
+    if (!String(formData.brand || '').trim()) return `Selecciona la marca ${label}.`;
+    if (!String(formData.outletType || '').trim())
+      return `Selecciona el tipo de entradas ${label}.`;
+    if (!(Number(formData.wattage) > 0)) return `Ingresa los watts que soporta el equipo ${label}.`;
   }
 
   if (formData.category === 'BACKPACK') {

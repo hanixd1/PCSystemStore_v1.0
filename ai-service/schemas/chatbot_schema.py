@@ -35,6 +35,7 @@ class ConversationState(BaseModel):
     lastRecommendedBuild: list[StoredProduct] = Field(default_factory=list)
     lastFocusedProductId: str | None = None
     awaiting: str | None = None
+    lastSearchQuery: str | None = None
 
 
 class CatalogProduct(BaseModel):
@@ -46,6 +47,20 @@ class CatalogProduct(BaseModel):
     stock: int = Field(ge=0)
     imageUrl: str | None = None
     productUrl: str
+    brand: str | None = None
+    # Store-search score computed by the backend; None when the catalog was not searched.
+    relevance: float | None = None
+    # Compatibility data for builds: socket, memoryType, tdp, powerWatts, wattage...
+    attributes: dict[str, str | int | float | None] = Field(default_factory=dict)
+
+
+class SearchContext(BaseModel):
+    text: str = ""
+    maxPrice: float | None = None
+    minPrice: float | None = None
+    sort: Literal["cheapest", "premium"] | None = None
+    categories: list[str] = Field(default_factory=list)
+    matched: bool = False
 
 
 class ChatRequest(BaseModel):
@@ -53,6 +68,7 @@ class ChatRequest(BaseModel):
     sessionId: str | None = None
     conversationState: ConversationState | None = None
     catalog: list[CatalogProduct] = Field(default_factory=list)
+    search: SearchContext | None = None
 
 
 class ChatProduct(BaseModel):

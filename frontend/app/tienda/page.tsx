@@ -50,7 +50,7 @@ export default function TiendaPage() {
               <FiMapPin aria-hidden="true" className="mx-auto mb-5 h-12 w-12 text-gray-900" />
               <h3 className="text-xl font-extrabold text-gray-900">Ubicaci&oacute;n</h3>
               <p className="mt-4 text-base leading-relaxed text-gray-700">
-                Av. Gir&aacute;ldez 274, Centro, Tienda E-6
+                Av. Gir&aacute;ldez 274, Centro, Tienda C-4
                 <br />
                 de Huancayo.
                 <br />

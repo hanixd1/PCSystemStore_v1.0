@@ -350,6 +350,10 @@ export function buildProductPayload(
     case 'BACKPACK':
       Object.assign(payload, pick(formData, ['brand', 'color', 'supportedLaptopSize']));
       break;
+    case 'UPS':
+    case 'STABILIZER':
+      Object.assign(payload, pick(formData, ['brand', 'outletType', 'wattage']));
+      break;
   }
 
   return payload;

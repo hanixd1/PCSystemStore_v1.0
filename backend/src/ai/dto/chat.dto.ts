@@ -21,5 +21,6 @@ export class ChatDto {
     lastRecommendedBuild?: unknown[];
     lastFocusedProductId?: string | null;
     awaiting?: string | null;
+    lastSearchQuery?: string | null;
   };
 }

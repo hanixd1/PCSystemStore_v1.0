@@ -66,6 +66,9 @@ export class ProductSpecsService {
         return this.buildCreateLaptopCoolingBaseSpecs(data);
       case 'BACKPACK':
         return this.buildCreateBackpackSpecs(data);
+      case 'UPS':
+      case 'STABILIZER':
+        return this.buildCreatePowerProtectionSpecs(data);
       case 'PROTECTION':
         return {};
       default:
@@ -535,6 +538,18 @@ export class ProductSpecsService {
     };
   }
 
+  private buildCreatePowerProtectionSpecs(data: CreateProductDto) {
+    return {
+      powerProtectionSpecs: {
+        create: {
+          brand: data.brand || 'Otro',
+          outletType: data.outletType || 'Solo tomas de corriente',
+          wattage: this.payload.toInt(data.wattage),
+        },
+      },
+    };
+  }
+
   buildSpecUpdate(currentProduct: any, data: UpdateProductDto) {
     return this.buildCategorySpecUpdate(currentProduct, data);
   }
@@ -577,6 +592,9 @@ export class ProductSpecsService {
         return this.buildLaptopCoolingBaseSpecUpdate(currentProduct, data);
       case 'BACKPACK':
         return this.buildBackpackSpecUpdate(currentProduct, data);
+      case 'UPS':
+      case 'STABILIZER':
+        return this.buildPowerProtectionSpecUpdate(data);
       case 'HEADSET':
         return this.buildHeadsetSpecUpdate(currentProduct, data);
       case 'MICROPHONE':
@@ -1405,6 +1423,25 @@ export class ProductSpecsService {
         },
       },
     };
+  }
+
+  private buildPowerProtectionSpecUpdate(data: UpdateProductDto) {
+    if (data.brand === undefined && data.outletType === undefined && data.wattage === undefined) {
+      return {};
+    }
+    if (data.brand !== undefined && !String(data.brand || '').trim()) {
+      throw new BadRequestException('Selecciona la marca del equipo de proteccion.');
+    }
+    if (data.wattage !== undefined && this.payload.toInt(data.wattage) <= 0) {
+      throw new BadRequestException('Ingresa los watts que soporta el equipo.');
+    }
+    const values = {
+      ...(data.brand !== undefined ? { brand: data.brand } : {}),
+      ...(data.outletType !== undefined ? { outletType: data.outletType } : {}),
+      ...(data.wattage !== undefined ? { wattage: this.payload.toInt(data.wattage) } : {}),
+    };
+    // Upsert: products moved from the legacy PROTECTION category have no spec row yet.
+    return { powerProtectionSpecs: { upsert: { create: values, update: values } } };
   }
 
   private buildBackpackSpecUpdate(currentProduct: any, data: UpdateProductDto) {

@@ -143,7 +143,10 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /* App HTML and route handlers; static immutable assets are deliberately excluded. */
-    '/((?!_next/static|_next/image|favicon.ico|apple-icon.png|apple-touch-icon.png|icon.png).*)',
+    /* App HTML and route handlers only. Static assets and plain files (images, icons, robots.txt,
+       sitemap.xml, manifest) skip the proxy: they need no CSP nonce and get their headers from
+       next.config.ts. Product slugs never contain dots, so no page matches these extensions. SVG
+       keeps going through the proxy so it is always served with the CSP. */
+    '/((?!_next/static|_next/image|.*\\.(?:png|jpe?g|gif|webp|avif|ico|txt|xml|webmanifest)$).*)',
   ],
 };

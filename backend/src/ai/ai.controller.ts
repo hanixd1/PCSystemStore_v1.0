@@ -19,7 +19,7 @@ export class AiController {
     return this.aiService.processCustomerChat(
       body.message,
       body.history ?? [],
-      body.conversationState as any,
+      body.conversationState,
     );
   }
 

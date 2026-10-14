@@ -28,6 +28,8 @@ const PUBLIC_PRODUCT_CATEGORIES = new Set([
   'CABLE_HUB',
   'LAPTOP_COOLING_BASE',
   'BACKPACK',
+  'UPS',
+  'STABILIZER',
   'PROTECTION',
 ]);
 
@@ -128,4 +130,24 @@ export function normalizePublicProductList(value: unknown): PublicProduct[] {
   return value
     .map((product) => normalizePublicProduct(product))
     .filter((product): product is PublicProduct => product !== null);
+}
+
+/** Fields a product card needs (home carousels, cart). Keeps spec relations out of the RSC payload. */
+export type ProductCard = Pick<
+  PublicProduct,
+  'id' | 'slug' | 'name' | 'category' | 'price' | 'isOnSale' | 'salePrice' | 'stock' | 'images'
+>;
+
+export function toProductCard(product: PublicProduct): ProductCard {
+  return {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    category: product.category,
+    price: product.price,
+    isOnSale: product.isOnSale,
+    ...(product.salePrice !== undefined ? { salePrice: product.salePrice } : {}),
+    stock: product.stock,
+    ...(product.images?.length ? { images: product.images.slice(0, 1) } : {}),
+  };
 }

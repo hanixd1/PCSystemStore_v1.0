@@ -83,8 +83,8 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           name: 'Tarjetas graficas',
           href: '/categoria/graficas',
           children: [
-            { name: 'Graficas NVIDIA', href: '/categoria/NVIDIA' },
-            { name: 'Graficas AMD', href: '/categoria/AMD' },
+            { name: 'Graficas NVIDIA', href: '/categoria/nvidia' },
+            { name: 'Graficas AMD', href: '/categoria/amd' },
           ],
         },
         {
@@ -101,31 +101,29 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           children: [
             { name: 'Disco M.2', href: '/categoria/solido' },
             { name: 'Disco Sata', href: '/categoria/sata' },
-            { name: 'Disco Externo', href: '/categoria/externo' },
           ],
         },
         {
           name: 'Torres / Gabinetes',
           href: '/categoria/torres',
           children: [
-            { name: 'Con fuente', href: '/categoria/cfuente' },
-            { name: 'Sin fuente', href: '/categoria/sfuente' },
+            { name: 'Con fuente', href: '/categoria/torres?includesPsu=true' },
+            { name: 'Sin fuente', href: '/categoria/torres?includesPsu=false' },
           ],
         },
         {
           name: 'Fuentes de alimentacion',
           href: '/categoria/fuentes',
-          children: [
-            { name: 'Fuente Certificada', href: '/categoria/certificada' },
-            { name: 'Fuente Real', href: '/categoria/real' },
-          ],
         },
         {
           name: 'Refrigeracion',
           href: '/categoria/refrigeracion',
           children: [
-            { name: 'Refrigeracion Liquida', href: '/categoria/liquida' },
-            { name: 'Refrigeracion de Torre', href: '/categoria/torre' },
+            {
+              name: 'Refrigeracion Liquida',
+              href: '/categoria/refrigeracion?coolerType=L%C3%ADquida',
+            },
+            { name: 'Refrigeracion de Torre', href: '/categoria/refrigeracion?coolerType=Torre' },
           ],
         },
       ],
@@ -140,7 +138,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           name: 'PCs',
           href: '/categoria/pcs',
           children: [
-            { name: 'PC Oficina', href: '/categoria/pc-oficina' },
+            { name: 'PC Oficina', href: '/categoria/pcs?hasDedicatedGpu=false' },
             { name: 'PC Gaming', href: '/categoria/pc-gaming' },
           ],
         },
@@ -148,17 +146,13 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           name: 'Laptops',
           href: '/categoria/laptops',
           children: [
-            { name: 'Laptops Oficina', href: '/categoria/laptop-oficina' },
-            { name: 'Laptops Gaming', href: '/categoria/laptop-gaming' },
+            { name: 'Laptops Oficina', href: '/categoria/laptops?hasDedicatedGpu=false' },
+            { name: 'Laptops Gaming', href: '/categoria/laptops?hasDedicatedGpu=true' },
           ],
         },
         {
           name: 'Software',
           href: '/categoria/software',
-          children: [
-            { name: 'Antivirus', href: '/categoria/antivirus' },
-            { name: 'Licencias', href: '/categoria/licencias' },
-          ],
         },
         {
           name: 'Accesorios para portatiles',
@@ -179,26 +173,14 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
         {
           name: 'Monitores',
           href: '/categoria/monitores',
-          children: [
-            { name: 'Monitores Gamer', href: '/categoria/monitores-gamer' },
-            { name: 'Monitores', href: '/categoria/monitores' },
-          ],
         },
         {
           name: 'Teclados',
           href: '/categoria/teclados',
-          children: [
-            { name: 'Teclados Gamer', href: '/categoria/teclados-gamer' },
-            { name: 'Teclados', href: '/categoria/teclados' },
-          ],
         },
         {
           name: 'Mouse',
           href: '/categoria/mouse',
-          children: [
-            { name: 'Mouse Gamer', href: '/categoria/mouse-gamer' },
-            { name: 'Mouse', href: '/categoria/mouse' },
-          ],
         },
         { name: 'Mousepads', href: '/categoria/mousepad' },
         { name: 'Sillas Gamer', href: '/categoria/chairs' },
@@ -211,7 +193,6 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           href: '/categoria/proteccion',
           children: [
             { name: 'UPS', href: '/categoria/ups' },
-            { name: 'Supresores de picos', href: '/categoria/supresores' },
             { name: 'Estabilizadores', href: '/categoria/estabilizadores' },
           ],
         },
@@ -227,8 +208,8 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
           name: 'Audifonos',
           href: '/categoria/audifonos',
           children: [
-            { name: 'Audifonos Cableados', href: '/categoria/headsets-cableados' },
-            { name: 'Audifonos Inalambricos', href: '/categoria/headsets-inalambricos' },
+            { name: 'Audifonos Cableados', href: '/categoria/audifonos?connection=Cableado' },
+            { name: 'Audifonos Inalambricos', href: '/categoria/audifonos?connection=Inalambrico' },
           ],
         },
         { name: 'Parlantes', href: '/categoria/speakers' },
@@ -298,6 +279,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
 
           <div className="p-6 border-t shrink-0">
             <Link
+              prefetch={false}
               href="/armar-pc"
               onClick={handleClose}
               className="flex items-center gap-3 text-cyan-800 font-semibold hover:underline"
@@ -305,6 +287,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
               <FiTool /> Arma tu PC
             </Link>
             <Link
+              prefetch={false}
               href="/tienda"
               onClick={handleClose}
               className="flex items-center gap-3 mt-4 text-gray-600 hover:text-cyan-800"
@@ -350,6 +333,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                       <>
                         <div className="flex items-center justify-between py-2">
                           <Link
+                            prefetch={false}
                             href={item.href || '#'}
                             onClick={handleClose}
                             className="flex-1 font-semibold hover:text-cyan-800"
@@ -371,6 +355,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                           <div className="mb-2 ml-4 space-y-2">
                             {item.children.map((sub, i) => (
                               <Link
+                                prefetch={false}
                                 key={i}
                                 href={sub.href || '#'}
                                 onClick={handleClose}
@@ -384,6 +369,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                       </>
                     ) : (
                       <Link
+                        prefetch={false}
                         href={item.href || '#'}
                         onClick={handleClose}
                         className="block py-2 font-semibold hover:text-cyan-800"
@@ -420,6 +406,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                           {/* Row: click name -> navigate, click arrow -> toggle */}
                           <div className="flex items-center justify-between py-2">
                             <Link
+                              prefetch={false}
                               href={item.href || '#'}
                               onClick={handleClose}
                               className="font-semibold hover:text-cyan-800 flex-1"
@@ -441,6 +428,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                             <div className="ml-4 mb-2 space-y-2">
                               {item.children.map((sub, i) => (
                                 <Link
+                                  prefetch={false}
                                   key={i}
                                   href={sub.href || '#'}
                                   onClick={handleClose}
@@ -454,6 +442,7 @@ const MegaMenu = ({ isOpen, onClose }: MegaMenuProps) => {
                         </>
                       ) : (
                         <Link
+                          prefetch={false}
                           href={item.href || '#'}
                           onClick={handleClose}
                           className="block font-semibold hover:text-cyan-800 py-2"

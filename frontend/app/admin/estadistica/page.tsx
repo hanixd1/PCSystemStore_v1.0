@@ -272,6 +272,7 @@ export default function EstadisticaPage() {
             No tienes permisos para acceder al módulo de Estadística.
           </p>
           <Link
+            prefetch={false}
             href="/admin"
             className="mt-5 inline-flex rounded-xl bg-gray-900 px-5 py-3 text-sm font-black text-white transition hover:bg-gray-800"
           >

@@ -47,6 +47,7 @@ model Product {
   cableHubSpecs          CableHubSpecs?
   laptopCoolingBaseSpecs LaptopCoolingBaseSpecs?
   backpackSpecs          BackpackSpecs?
+  powerProtectionSpecs   PowerProtectionSpecs?
   storageSpecs           StorageSpecs?
   stockAlertStates       StockAlertState[]
   orderItems             OrderItem[]
@@ -205,6 +206,16 @@ model SoftwareSpecs {
   licenseType String
   platform    String
   product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+/// Shared by the UPS and STABILIZER categories.
+model PowerProtectionSpecs {
+  id         String  @id @default(uuid())
+  productId  String  @unique
+  brand      String?
+  outletType String?
+  wattage    Int?
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model MonitorSpecs {

@@ -88,7 +88,11 @@ const PRODUCT_GROUPS: Record<string, Array<{ label: string; value: string }>> = 
     { label: 'Micrófono', value: 'MICROPHONE' },
     { label: 'Parlantes', value: 'SPEAKER' },
   ],
-  PROTECCION: [{ label: 'UPS / Protección eléctrica', value: 'PROTECTION' }],
+  PROTECCION: [
+    { label: 'UPS', value: 'UPS' },
+    { label: 'Estabilizador', value: 'STABILIZER' },
+    { label: 'Protección (anterior)', value: 'PROTECTION' },
+  ],
 };
 
 const CATEGORY_OPTIONS = [
@@ -250,6 +254,7 @@ export default function AdminDashboard() {
           </p>
         </div>
         <Link
+          prefetch={false}
           href="/admin/add-product"
           className="flex items-center gap-2 rounded-xl bg-black px-6 py-3 font-bold text-white transition hover:bg-gray-800"
         >
@@ -478,6 +483,7 @@ export default function AdminDashboard() {
                       <td className="p-4">
                         <div className="flex justify-center gap-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                           <Link
+                            prefetch={false}
                             href={`/admin/edit-product/${product.id}`}
                             className="rounded-lg bg-yellow-100 p-2 text-yellow-700 transition hover:bg-yellow-200"
                             title="Editar"

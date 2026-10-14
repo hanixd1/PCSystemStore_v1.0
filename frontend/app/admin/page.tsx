@@ -139,6 +139,7 @@ export default function AdminDashboardPage() {
 
           {quickLinks.map((item) => (
             <Link
+              prefetch={false}
               key={item.href}
               href={item.href}
               className="group rounded-lg border border-slate-200 bg-slate-50/80 p-5 transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-slate-100/80"

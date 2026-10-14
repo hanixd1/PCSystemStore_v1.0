@@ -48,4 +48,15 @@ describe('ProductValidationService', () => {
       }),
     ).not.toThrow();
   });
+
+  it('requires brand, outlet type and watts for UPS and stabilizers', () => {
+    const valid = { brand: 'Forza', outletType: 'Solo tomas de corriente', wattage: 500 };
+    expect(() => service.validateCategoryFields('UPS', valid)).not.toThrow();
+    expect(() => service.validateCategoryFields('STABILIZER', { ...valid, brand: '' })).toThrow(
+      'Selecciona la marca del estabilizador.',
+    );
+    expect(() => service.validateCategoryFields('UPS', { ...valid, wattage: 0 })).toThrow(
+      'Ingresa los watts que soporta el equipo del UPS.',
+    );
+  });
 });

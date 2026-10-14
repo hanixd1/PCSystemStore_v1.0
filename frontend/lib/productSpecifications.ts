@@ -49,6 +49,8 @@ const SPEC_RELATION_BY_CATEGORY: Record<string, string> = {
   CABLE_HUB: 'cableHubSpecs',
   LAPTOP_COOLING_BASE: 'laptopCoolingBaseSpecs',
   BACKPACK: 'backpackSpecs',
+  UPS: 'powerProtectionSpecs',
+  STABILIZER: 'powerProtectionSpecs',
 };
 
 const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
@@ -271,6 +273,16 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
     ['Marca', 'brand'],
     ['Color', 'color'],
     ['Tamaño laptop soportado', 'supportedLaptopSize'],
+  ],
+  UPS: [
+    ['Marca', 'brand'],
+    ['Entradas', 'outletType'],
+    ['Potencia soportada', 'wattage', 'W'],
+  ],
+  STABILIZER: [
+    ['Marca', 'brand'],
+    ['Entradas', 'outletType'],
+    ['Potencia soportada', 'wattage', 'W'],
   ],
 };
 

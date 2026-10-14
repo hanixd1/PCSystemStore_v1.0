@@ -494,6 +494,22 @@ export const PRODUCT_FILTERS_BY_CATEGORY: Record<string, ProductFilterConfig[]> 
     },
     { key: 'hasRGB', label: 'RGB', type: 'select', options: yesNoOptions() },
   ],
+  UPS: [
+    {
+      key: 'brand',
+      label: 'Marca',
+      type: 'select',
+      options: withAll(['CDP', 'Forza', 'Otro']),
+    },
+  ],
+  STABILIZER: [
+    {
+      key: 'brand',
+      label: 'Marca',
+      type: 'select',
+      options: withAll(['CDP', 'Forza', 'Otro']),
+    },
+  ],
   BACKPACK: [
     {
       key: 'brand',
@@ -559,6 +575,8 @@ export const SLUG_TO_CATEGORY: Record<string, string> = {
   mobo: 'MOTHERBOARD',
   motherboard: 'MOTHERBOARD',
   ram: 'RAM',
+  ddr4: 'RAM',
+  ddr5: 'RAM',
   graficas: 'GPU',
   gpu: 'GPU',
   nvidia: 'GPU',
@@ -572,6 +590,7 @@ export const SLUG_TO_CATEGORY: Record<string, string> = {
   pcs: 'PC_DESKTOP',
   'pc-desktop': 'PC_DESKTOP',
   desktop: 'PC_DESKTOP',
+  'pc-gaming': 'PC_DESKTOP',
   laptops: 'LAPTOP',
   monitores: 'MONITOR',
   'monitores-gamer': 'MONITOR',
@@ -605,10 +624,9 @@ export const SLUG_TO_CATEGORY: Record<string, string> = {
   'cables/ethernet': 'CABLE_HUB',
   'bases-refrigeradoras': 'LAPTOP_COOLING_BASE',
   mochilas: 'BACKPACK',
-  proteccion: 'PROTECTION',
-  ups: 'PROTECTION',
-  supresores: 'PROTECTION',
-  estabilizadores: 'PROTECTION',
+  software: 'SOFTWARE',
+  ups: 'UPS',
+  estabilizadores: 'STABILIZER',
 };
 
 function withAll(values: string[]): ProductFilterOption[] {

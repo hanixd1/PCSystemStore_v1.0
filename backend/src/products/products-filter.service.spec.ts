@@ -369,4 +369,15 @@ describe('ProductsService filtros de catalogo', () => {
     expect(result.total).toBe(1);
     expect(result.items[0]).toEqual(expect.objectContaining({ name: 'AMD Ryzen 5 9600X' }));
   });
+
+  it('pagina el catalogo publico aunque no se envien filtros', async () => {
+    const { service, prisma } = createService();
+
+    await expect(service.findAll({})).resolves.toEqual(
+      expect.objectContaining({ items: [], page: 1, limit: 24 }),
+    );
+    expect(prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 24 }),
+    );
+  });
 });

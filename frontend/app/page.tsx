@@ -9,6 +9,7 @@ import {
   getPublicBranding,
 } from '@/lib/catalog-server';
 import { buildHomeProcessorList } from '@/lib/products/cpuBrandInterleave';
+import { toProductCard } from '@/lib/public-product';
 import { organizationJsonLd, publicPageMetadata } from '@/lib/seo';
 
 const description =
@@ -41,8 +42,8 @@ export default async function HomePage() {
       <StructuredData nonce={nonce} value={organization} />
       <h1 className="sr-only">Componentes, laptops y hardware para armar tu PC</h1>
       <HomePageClient
-        initialProducts={products}
-        initialProcessors={buildHomeProcessorList(processors, 15)}
+        initialProducts={products.map(toProductCard)}
+        initialProcessors={buildHomeProcessorList(processors, 15).map(toProductCard)}
         initialBanners={banners}
       />
     </>

@@ -9,7 +9,9 @@ const publicBuildValue = (value: string | undefined, fallback: string) =>
     .slice(0, 64) || fallback;
 const appVersion = publicBuildValue(process.env.NEXT_PUBLIC_APP_VERSION, '0.1.0');
 const commitSha = publicBuildValue(
-  process.env.NEXT_PUBLIC_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA,
+  process.env.NEXT_PUBLIC_COMMIT_SHA ||
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.RAILWAY_GIT_COMMIT_SHA,
   'local',
 );
 const noStoreHeaders = [
@@ -50,6 +52,24 @@ const nextConfig: NextConfig = {
       protocol: 'https',
       hostname,
     })),
+  },
+  /* URLs of the previous WooCommerce store that still arrive from old links (Vercel logs, Oct 2026).
+     Config redirects are answered by Vercel's router without invoking a function. */
+  async redirects() {
+    return [
+      {
+        source: '/categoria-producto/procesadores',
+        destination: '/categoria/cpu',
+        permanent: true,
+      },
+      {
+        source: '/categoria-producto/:path*/:slug',
+        destination: '/categoria/:slug?search=:slug',
+        permanent: true,
+      },
+      { source: '/cart', destination: '/', permanent: true },
+      { source: '/carrito', destination: '/', permanent: true },
+    ];
   },
   async headers() {
     const headers = [

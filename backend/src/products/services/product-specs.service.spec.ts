@@ -143,4 +143,27 @@ describe('ProductSpecsService', () => {
       },
     });
   });
+
+  it.each(['UPS', 'STABILIZER'])('builds power protection specs for %s', (category) => {
+    expect(
+      service.buildCreateProductSpecsPayload({
+        category,
+        brand: 'CDP',
+        outletType: 'Tomas de corriente + USB',
+        wattage: '600',
+      } as any),
+    ).toEqual({
+      powerProtectionSpecs: {
+        create: { brand: 'CDP', outletType: 'Tomas de corriente + USB', wattage: 600 },
+      },
+    });
+  });
+
+  it('upserts power protection specs on update so legacy products gain a spec row', () => {
+    expect(
+      service.buildSpecUpdate({ category: 'UPS' }, { category: 'UPS', wattage: 900 } as any),
+    ).toEqual({
+      powerProtectionSpecs: { upsert: { create: { wattage: 900 }, update: { wattage: 900 } } },
+    });
+  });
 });

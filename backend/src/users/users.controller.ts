@@ -279,8 +279,13 @@ export class UsersController {
 
   @Roles('ADMIN', 'EDITOR')
   @Get('admin-me')
-  getAdminMe(@Req() request: AuthenticatedRequest) {
-    return this.usersService.getMe(request.user.sub);
+  async getAdminMe(@Req() request: AuthenticatedRequest) {
+    const profile = await this.usersService.getMe(request.user.sub);
+    // Lets the admin UI warn before the session cookie expires mid-form.
+    const sessionExpiresAt = request.user.exp
+      ? new Date(request.user.exp * 1000).toISOString()
+      : null;
+    return { ...profile, sessionExpiresAt };
   }
 
   @Roles('CUSTOMER')

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import ProductDetailClient from '@/components/ProductDetailClient';
 import StructuredData from '@/components/StructuredData';
 import { getProductBySlug, getRelatedProducts, type PublicProduct } from '@/lib/catalog-server';
@@ -10,10 +10,18 @@ import {
   getProductDescription,
   getProductSeoImages,
 } from '@/lib/product-seo';
+import { getLegacyProductSearchPath } from '@/lib/product-url';
 import { absoluteUrl } from '@/lib/site-url';
 import { breadcrumbJsonLd } from '@/lib/seo';
 
 type ProductPageProps = { params: Promise<{ slug: string }> };
+
+/** Unknown slugs are usually links from the old store: send them to a search instead of a 404. */
+function productNotFound(slug: string): never {
+  const searchPath = getLegacyProductSearchPath(slug);
+  if (searchPath) redirect(searchPath);
+  notFound();
+}
 
 function categoryBreadcrumb(product: PublicProduct) {
   const categories: Record<string, { name: string; path: string }> = {
@@ -40,7 +48,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       robots: { index: false, follow: false },
     };
   }
-  if (!product) notFound();
+  if (!product) productNotFound(slug);
   const name = product.name;
   const description = getProductDescription(product);
   const path = getProductCanonicalPath(product);
@@ -61,7 +69,7 @@ export default async function ProductSlugPage({ params }: ProductPageProps) {
   const { slug } = await params;
   if (!slug.trim()) notFound();
   const product = await getProductBySlug(slug);
-  if (!product) notFound();
+  if (!product) productNotFound(slug);
   const [relatedProducts, nonce] = await Promise.all([
     getRelatedProducts(product.id),
     headers().then((value) => value.get('x-csp-nonce')),

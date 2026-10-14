@@ -68,9 +68,10 @@ const DICTIONARY: Record<string, string> = {
   'laptop-accessorios': 'Accesorios para portatiles',
   'bases-refrigeradoras': 'Bases refrigeradoras',
   mochilas: 'Mochilas',
+  software: 'Software',
+  'pc-gaming': 'PC Gaming',
   proteccion: 'Proteccion electrica',
   ups: 'UPS',
-  supresores: 'Supresores de picos',
   estabilizadores: 'Estabilizadores',
 };
 
@@ -88,8 +89,11 @@ const CATEGORY_GROUPS: Record<string, string[]> = {
     'WEBCAM',
     'CAPTURE_CARD',
     'CABLE_HUB',
+    'UPS',
+    'STABILIZER',
     'PROTECTION',
   ],
+  proteccion: ['UPS', 'STABILIZER', 'PROTECTION'],
   audio: ['HEADSET', 'SPEAKER', 'MICROPHONE'],
 };
 
@@ -136,10 +140,11 @@ const getInitialRouteFilters = (fullSlug: string, lastSlug: string) => {
     routeFilters.platform = 'Intel';
   if (lastSlug === 'ddr4') routeFilters.ramType = 'DDR4';
   if (lastSlug === 'ddr5') routeFilters.ramType = 'DDR5';
-  if (['graficas', 'gpu'].includes(categorySlug) && subSlug === 'nvidia')
+  if (fullSlug === 'nvidia' || (['graficas', 'gpu'].includes(categorySlug) && subSlug === 'nvidia'))
     routeFilters.gpuChipset = 'NVIDIA';
-  if (['graficas', 'gpu'].includes(categorySlug) && subSlug === 'amd')
+  if (fullSlug === 'amd' || (['graficas', 'gpu'].includes(categorySlug) && subSlug === 'amd'))
     routeFilters.gpuChipset = 'AMD';
+  if (fullSlug === 'pc-gaming') routeFilters.hasDedicatedGpu = 'true';
   if (lastSlug === 'solido') routeFilters.storageType = 'SSD';
   if (lastSlug === 'sata') routeFilters.storageType = 'SATA';
   if (lastSlug === 'liquida') routeFilters.coolerType = 'AIO';
@@ -410,10 +415,9 @@ export default function CategoryPage() {
 
     const controller = new AbortController();
 
-    fetchFreshPublicJson<FilterOptions>(
-      `/products/filter-options?${filterOptionsQueryString}`,
-      { signal: controller.signal },
-    )
+    fetchFreshPublicJson<FilterOptions>(`/products/filter-options?${filterOptionsQueryString}`, {
+      signal: controller.signal,
+    })
       .then((data) => {
         if (!controller.signal.aborted) setFilterOptions(data || {});
       })
@@ -612,6 +616,8 @@ export default function CategoryPage() {
       selectedCategory === 'GAMING_DESK' ||
       selectedCategory === 'LAPTOP_COOLING_BASE' ||
       selectedCategory === 'BACKPACK' ||
+      selectedCategory === 'UPS' ||
+      selectedCategory === 'STABILIZER' ||
       selectedCategory === 'HEADSET' ||
       selectedCategory === 'MICROPHONE' ||
       selectedCategory === 'SPEAKER'
