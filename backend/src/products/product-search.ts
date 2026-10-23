@@ -229,6 +229,17 @@ export function expandProductSearchQuery(query: unknown): ProductSearchExpansion
   const candidateCategories = new Set<string>();
   const rankingCategories = new Set<string>();
   const terms = new Set<string>([normalizedQuery, ...tokens].filter(Boolean));
+  // An empty query names nothing; without this every alias "starts with" it and matches all categories.
+  if (!tokens.length) {
+    return {
+      normalizedQuery,
+      compactQuery: compactSearchText(normalizedQuery),
+      tokens,
+      terms: Array.from(terms),
+      candidateCategories: [],
+      rankingCategories: [],
+    };
+  }
 
   const aliasMatches = SEARCH_DICTIONARY.map((entry) => {
     const aliases = entry.categoryAliases.map(normalizeSearchText);

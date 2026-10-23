@@ -182,6 +182,15 @@ describe('AiService chat catalog', () => {
     expect(changed.search).toMatchObject({ text: 'mouse', categories: ['MOUSE'] });
   });
 
+  it.each(['hola', 'buenas tardes', 'gracias'])(
+    'no convierte el saludo "%s" en una busqueda de categorias',
+    async (message) => {
+      const payload = await sentPayload(message);
+      expect(payload.search).toMatchObject({ text: '', categories: [], matched: false });
+      expect(payload.catalog).toEqual([]);
+    },
+  );
+
   afterAll(() => {
     delete process.env.AI_SERVICE_URL;
   });

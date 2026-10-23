@@ -327,3 +327,22 @@ def test_product_search_drops_the_build_anchor():
     )
 
     assert second.conversationState.anchorProductId is None
+
+
+@pytest.mark.parametrize("message", ["hola", "Hola!", "buenas tardes", "que tal", "holaa"])
+def test_greetings_are_answered_without_searching(message):
+    # The backend strips greetings, so the search arrives with no text.
+    response = build_chat_response(
+        ChatRequest(message=message, catalog=[], search=SearchContext(text="", categories=["CPU", "MOTHERBOARD"]))
+    )
+
+    assert response.intent == "support"
+    assert "Puchi" in response.reply
+    assert "no tengo" not in response.reply
+
+
+def test_thanks_get_a_short_reply():
+    response = build_chat_response(ChatRequest(message="ok gracias", search=SearchContext(text="ok")))
+
+    assert response.intent == "support"
+    assert response.reply.startswith("De nada")

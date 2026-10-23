@@ -387,6 +387,22 @@ def detect_peripherals(message: str) -> bool | None:
     return None
 
 
+GREETING_PATTERN = re.compile(
+    r"^(hola+|holi|hey|hello|buenas|buen dia|buenos dias|buenas tardes|buenas noches|que tal|saludos|ayuda)\b"
+)
+THANKS_PATTERN = re.compile(r"\b(gracias|muchas gracias|grax|thank)")
+
+
+def clean_small_talk(normalized: str) -> str:
+    return re.sub(r"[^a-z0-9\s]", " ", normalized).strip()
+
+
+def is_small_talk(normalized: str) -> bool:
+    """Greetings and thanks with nothing else to search for ("hola", "buenas tardes", "ok gracias")."""
+    text = clean_small_talk(normalized)
+    return bool(text) and len(text.split()) <= 4 and bool(GREETING_PATTERN.search(text) or THANKS_PATTERN.search(text))
+
+
 def classify_intent(
     message: str,
     state: ConversationState,
@@ -403,7 +419,8 @@ def classify_intent(
         return "cart_action"
     if any(marker in normalized for marker in TOTAL_MARKERS):
         return "total_query"
-    names_category = search is not None and (search.matched or bool(search.categories))
+    # An empty search text (only a greeting or filler words) names no product.
+    names_category = search is not None and bool(search.text) and (search.matched or bool(search.categories))
     if mentions or component_query.category is not None or names_category:
         return "product_search"
     if budget is not None and ("pc" in normalized or usage is not None):
@@ -419,7 +436,7 @@ def classify_intent(
         for text in (*TOWER_ONLY_PHRASES[:2], "con monitor", "con todo")
     ):
         return state.intent
-    if normalized in ["hola", "buenas", "hello", "ayuda"]:
+    if is_small_talk(normalized):
         return "support"
     return "unknown"
 
@@ -1060,8 +1077,14 @@ def build_chat_response(payload: ChatRequest) -> ChatResponse:
         return handle_pc_build(payload, state, intent)
 
     if intent == "support":
+        thanks = THANKS_PATTERN.search(clean_small_talk(normalize_text(payload.message)))
         return ChatResponse(
-            reply="Hola, soy Puchi. Puedo ayudarte a encontrar productos del catalogo o armar una PC segun tu presupuesto.",
+            reply=(
+                "De nada. Si necesitas otro producto o armar una PC, aqui estoy."
+                if thanks
+                else "Hola, soy Puchi. Puedo ayudarte a encontrar un producto (por ejemplo: busco una RTX 5060) "
+                "o a armar una PC segun tu presupuesto (por ejemplo: tengo 3000 soles para una PC gamer)."
+            ),
             intent="support",
             conversationState=state,
             products=[],

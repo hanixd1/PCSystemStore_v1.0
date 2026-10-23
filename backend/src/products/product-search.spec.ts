@@ -94,3 +94,9 @@ describe('product public search', () => {
     expect(rankProductMatch(motherboard, expansion)).toBeGreaterThan(0);
   });
 });
+
+describe('expandProductSearchQuery with an empty query', () => {
+  it.each(['', '   ', '!!'])('names no category for %p', (query) => {
+    expect(expandProductSearchQuery(query).candidateCategories).toEqual([]);
+  });
+});
