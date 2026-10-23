@@ -36,6 +36,8 @@ class ConversationState(BaseModel):
     lastFocusedProductId: str | None = None
     awaiting: str | None = None
     lastSearchQuery: str | None = None
+    # Component a requested build is based on ("armalo con una pc").
+    anchorProductId: str | None = None
 
 
 class CatalogProduct(BaseModel):
@@ -69,6 +71,8 @@ class ChatRequest(BaseModel):
     conversationState: ConversationState | None = None
     catalog: list[CatalogProduct] = Field(default_factory=list)
     search: SearchContext | None = None
+    # Set by the backend when the customer asks to build a PC around a specific component.
+    anchorProductId: str | None = None
 
 
 class ChatProduct(BaseModel):

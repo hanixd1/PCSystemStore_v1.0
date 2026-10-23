@@ -22,5 +22,6 @@ export class ChatDto {
     lastFocusedProductId?: string | null;
     awaiting?: string | null;
     lastSearchQuery?: string | null;
+    anchorProductId?: string | null;
   };
 }

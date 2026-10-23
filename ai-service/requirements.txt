@@ -7,3 +7,4 @@ joblib
 python-dotenv
 pytest
 httpx
+httpx2

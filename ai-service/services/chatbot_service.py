@@ -145,6 +145,41 @@ CHECKOUT_MARKERS = [
 ]
 
 
+# Product-name patterns per chip vendor. Board makers (Gigabyte, ASUS...) sell both GPU brands,
+# so the vendor is read from the model name ("RTX 5050", "RX 9060 XT"), not the brand field.
+VENDOR_PATTERNS = {
+    "NVIDIA": re.compile(r"\b(nvidia|geforce|rtx|gtx)\b"),
+    "AMD": re.compile(r"\b(amd|ryzen|threadripper|radeon)\b|\brx\s?\d"),
+    "INTEL": re.compile(r"\b(intel|core\s+(?:i[3579]|ultra)|arc)\b|\bi[3579]-\d"),
+}
+VENDOR_SEARCH_TERMS = {
+    "NVIDIA": ["nvidia", "geforce", "rtx"],
+    "AMD": ["amd", "ryzen", "radeon"],
+    "INTEL": ["intel", "core i", "core ultra"],
+}
+# Brand question asked for a bare "procesador" / "tarjeta de video" query.
+BRAND_QUESTIONS = {
+    "CPU": ("cpu_brand", "un procesador", {"AMD": "AMD (Ryzen)", "INTEL": "Intel (Core)"}),
+    "GPU": (
+        "gpu_brand",
+        "una tarjeta de video",
+        {"NVIDIA": "NVIDIA (GeForce RTX)", "AMD": "AMD (Radeon RX)", "INTEL": "Intel (Arc)"},
+    ),
+}
+BRAND_AWAITING_CATEGORY = {awaiting: category for category, (awaiting, _, _) in BRAND_QUESTIONS.items()}
+
+
+def detect_vendor(normalized: str) -> str | None:
+    for vendor in ("NVIDIA", "AMD", "INTEL"):
+        if VENDOR_PATTERNS[vendor].search(normalized):
+            return vendor
+    return None
+
+
+def vendor_matches(product: CatalogProduct, vendor: str | None) -> bool:
+    return vendor is None or bool(VENDOR_PATTERNS[vendor].search(normalize_text(product.name)))
+
+
 @dataclass(frozen=True)
 class ComponentQuery:
     category: str | None = None
@@ -157,13 +192,7 @@ def detect_component_query(
 ) -> ComponentQuery:
     """Maps commercial wording to stable catalog terms without changing API payloads."""
     normalized = normalize_text(message)
-    vendor = None
-    if any(term in normalized for term in ("amd", "ryzen", "threadripper")):
-        vendor = "AMD"
-    elif any(term in normalized for term in ("intel", "core i", "core ultra")) or re.search(
-        r"\bi[3579]-\d", normalized
-    ):
-        vendor = "INTEL"
+    vendor = detect_vendor(normalized)
 
     category = None
     if re.search(
@@ -171,7 +200,7 @@ def detect_component_query(
         normalized,
     ):
         category = "CPU"
-    elif any(term in normalized for term in ("grafica", "tarjeta grafica", "gpu", "rtx", "gtx", "radeon")):
+    elif re.search(r"\b(graficas?|tarjetas? de video|gpu|vga|rtx|gtx|geforce|radeon)\b", normalized):
         category = "GPU"
     elif any(term in normalized for term in ("ram", "memoria", "ddr4", "ddr5")):
         category = "RAM"
@@ -182,14 +211,12 @@ def detect_component_query(
     elif any(term in normalized for term in ("ssd", "nvme", "disco", "almacenamiento")):
         category = "STORAGE"
 
-    if category is None and vendor and state and state.awaiting == "cpu_brand":
-        category = "CPU"
+    if category is None and vendor and state and state.awaiting in BRAND_AWAITING_CATEGORY:
+        category = BRAND_AWAITING_CATEGORY[state.awaiting]
 
     terms: list[str] = []
-    if vendor == "AMD":
-        terms.extend(["amd", "ryzen", "threadripper"])
-    elif vendor == "INTEL":
-        terms.extend(["intel", "core i", "core ultra"])
+    if vendor:
+        terms.extend(VENDOR_SEARCH_TERMS[vendor])
     if category:
         terms.append(category.lower())
     for pattern in (r"\bryzen\s+[3579]\b", r"\bi[3579]-\d+[a-z]*\b", r"\b(?:rtx|gtx|rx)\s?\d{3,4}\b", r"\bddr[45]\b", r"\b\d{3,4}w\b"):
@@ -402,6 +429,14 @@ def merge_state(
 ) -> tuple[ConversationState, list[str], ChatIntent, ComponentQuery]:
     state = request.conversationState or ConversationState()
     component_query = detect_component_query(request.message, state)
+    # The store search engine knows more category words ("capturadora de video" is not a GPU).
+    search_categories = request.search.categories if request.search else []
+    if search_categories and component_query.category not in search_categories:
+        component_query = ComponentQuery(
+            category=search_categories[0] if len(search_categories) == 1 else None,
+            vendor=component_query.vendor,
+            search_terms=component_query.search_terms,
+        )
     mentions = detect_model_mentions(request.message)
     budget = detect_budget(request.message, bool(mentions))
     usage = detect_usage(request.message)
@@ -424,8 +459,10 @@ def merge_state(
             dict.fromkeys([*state.mentionedProducts, *mentions])
         )
     state.intent = intent
-    if component_query.category == "CPU" and component_query.vendor is None and not mentions:
-        state.awaiting = "cpu_brand"
+    if request.anchorProductId:
+        state.anchorProductId = request.anchorProductId
+    elif intent == "product_search" or state.awaiting != "build_adjust":
+        state.anchorProductId = None
     return state, mentions, intent, component_query
 
 
@@ -497,14 +534,10 @@ def search_catalog(
         if len(term) > 2
     ]
     scored: list[tuple[int, CatalogProduct]] = []
-    vendor_terms = {
-        "AMD": ("amd", "ryzen", "threadripper"),
-        "INTEL": ("intel", "core i", "core ultra"),
-    }.get(vendor, ())
 
     for product in catalog:
         product_text = normalize_text(f"{product.name} {product.category}")
-        if vendor_terms and not any(term in product_text for term in vendor_terms):
+        if not vendor_matches(product, vendor):
             continue
         score = 0
         for term in search_terms:
@@ -605,8 +638,11 @@ USAGE_LABELS = {
 
 
 def recommend_pc_from_catalog(
-    catalog: list[CatalogProduct], state: ConversationState
+    catalog: list[CatalogProduct],
+    state: ConversationState,
+    anchor: CatalogProduct | None = None,
 ) -> list[CatalogProduct]:
+    """Compatible build for the budget and use. `anchor` is a part the customer already chose."""
     in_stock = [product for product in catalog if product.stock > 0]
     by_category: dict[str, list[CatalogProduct]] = {}
     for product in in_stock:
@@ -615,9 +651,12 @@ def recommend_pc_from_catalog(
     budget = float(state.budget or 0)
     tower_budget = budget * (1 - PERIPHERAL_SHARE) if budget and state.includesPeripherals else budget
     weights = BUILD_WEIGHTS.get(state.usage or "", BUILD_WEIGHTS["gaming"])
-    selected: dict[str, CatalogProduct] = {}
+    anchor_category = anchor.category.upper() if anchor else None
+    selected: dict[str, CatalogProduct] = {anchor_category: anchor} if anchor else {}
 
     for category in BUILD_ORDER:
+        if category in selected:
+            continue
         if category == "GPU" and not needs_dedicated_gpu(state, selected):
             continue
         share = weights.get(category, 0.08)
@@ -639,6 +678,8 @@ def recommend_pc_from_catalog(
     # Over budget: step down the most expensive parts while keeping the build compatible.
     if budget:
         for category in ["GPU", "CPU", "CASE", "STORAGE", "PSU", "MONITOR", "MOTHERBOARD", "RAM"]:
+            if category == anchor_category:
+                continue
             while sum(product.price for product in selected.values()) > budget and category in selected:
                 current = selected[category]
                 others = {key: value for key, value in selected.items() if key != category}
@@ -685,13 +726,7 @@ def handle_product_search(
         product.relevance is not None for product in request.catalog
     )
     if ranked_by_backend:
-        vendor_terms = {"AMD": ("amd", "ryzen", "threadripper"), "INTEL": ("intel", "core")}.get(vendor or "", ())
-        matches = [
-            product
-            for product in request.catalog
-            if not vendor_terms
-            or any(term in normalize_text(f"{product.name} {product.brand or ''}") for term in vendor_terms)
-        ][:4]
+        matches = [product for product in request.catalog if vendor_matches(product, vendor)][:4]
     else:
         matches = search_catalog(request.catalog, mentions, request.message, vendor)
 
@@ -755,9 +790,90 @@ def handle_product_search(
     )
 
 
+def find_catalog_product(catalog: list[CatalogProduct], product_id: str | None) -> CatalogProduct | None:
+    return next((product for product in catalog if product.id == product_id), None)
+
+
+def build_response(
+    products: list[CatalogProduct],
+    state: ConversationState,
+    intent: ChatIntent,
+    intro: str,
+    budget_line: str,
+    closing: str = "",
+) -> ChatResponse:
+    stored_products = [catalog_to_stored(product) for product in products]
+    state.lastRecommendedBuild = stored_products
+    state.lastRecommendedProducts = stored_products
+    state.lastFocusedProductId = None
+    chosen = {product.category.upper() for product in products}
+    missing = [category for category in ["CPU", "MOTHERBOARD", "RAM", "STORAGE", "PSU", "CASE"] if category not in chosen]
+    missing_names = [CATEGORY_NAMES.get(category, category.lower()) for category in missing]
+    missing_line = (
+        f"\nPor ahora no tengo stock de {', '.join(missing_names)}; consultanos por WhatsApp para completarla."
+        if missing
+        else ""
+    )
+    lines = "\n".join(format_product_line(product) for product in products)
+    return ChatResponse(
+        reply=f"{intro}\n{lines}\n{budget_line}{missing_line}{closing}\nSi te parece, dime 'agrega todo' y la paso al carrito.",
+        intent=intent,
+        conversationState=state,
+        products=[product_to_chat(product) for product in products],
+    )
+
+
+def budget_summary(total: float, budget: int | None) -> str:
+    if budget is None:
+        return f"Total: S/. {total:.2f}."
+    if total <= budget:
+        return f"Total: S/. {total:.2f} (dentro de tu presupuesto de S/. {budget})."
+    return f"Total: S/. {total:.2f}. Supera tu presupuesto de S/. {budget}; es lo mas ajustado con el stock actual."
+
+
+def handle_anchored_build(
+    request: ChatRequest, state: ConversationState, intent: ChatIntent, anchor: CatalogProduct
+) -> ChatResponse:
+    """Builds immediately around the chosen part; budget, use and peripherals get sensible defaults."""
+    usage = state.usage or "gaming"
+    category = anchor.category.upper()
+    # Office builds give the GPU no share; size around it as a gaming build would.
+    weight = BUILD_WEIGHTS.get(usage, {}).get(category) or BUILD_WEIGHTS["gaming"].get(category, 0.1)
+    # Without a budget, size the rest of the build to match the tier of the chosen part.
+    tower_budget = anchor.price / weight
+    implied_budget = tower_budget / (1 - PERIPHERAL_SHARE) if state.includesPeripherals else tower_budget
+    target_budget = state.budget or round(implied_budget)
+    build_state = state.model_copy(
+        update={"usage": usage, "budget": target_budget, "includesPeripherals": bool(state.includesPeripherals)}
+    )
+    products = recommend_pc_from_catalog(request.catalog, build_state, anchor)
+    state.awaiting = "build_adjust"
+
+    scope = "con perifericos" if state.includesPeripherals else "solo torre"
+    adjustments = []
+    if state.budget is None:
+        adjustments.append("si tienes un presupuesto")
+    if state.includesPeripherals is None:
+        adjustments.append("si quieres monitor, teclado y mouse")
+    if state.usage is None:
+        adjustments.append("si es para otro uso (oficina, edicion o streaming)")
+    options = ", ".join(adjustments[:-1]) + (", o " if len(adjustments) > 1 else "") + (adjustments[-1] if adjustments else "")
+    closing = f"\nDime {options} y la ajusto." if adjustments else ""
+    intro = (
+        f"Arme una PC {USAGE_LABELS.get(usage, usage)} ({scope}) alrededor de {anchor.name}, "
+        "con piezas compatibles del catalogo:"
+    )
+    total = sum(product.price for product in products)
+    return build_response(products, state, intent, intro, budget_summary(total, state.budget), closing)
+
+
 def handle_pc_build(
     request: ChatRequest, state: ConversationState, intent: ChatIntent
 ) -> ChatResponse:
+    anchor = find_catalog_product(request.catalog, state.anchorProductId)
+    if anchor is not None:
+        return handle_anchored_build(request, state, intent, anchor)
+
     if state.budget is None and state.includesPeripherals is None:
         reply = "Claro. Con que presupuesto cuentas y sera solo la torre o tambien incluye monitor, teclado y mouse?"
         state.awaiting = "budget_and_usage"
@@ -773,37 +889,11 @@ def handle_pc_build(
     else:
         products = recommend_pc_from_catalog(request.catalog, state)
         if products:
-            stored_products = [catalog_to_stored(product) for product in products]
-            state.lastRecommendedBuild = stored_products
-            state.lastRecommendedProducts = stored_products
-            state.lastFocusedProductId = None
             state.awaiting = None
-            total = sum(product.price for product in products)
             scope = "solo torre" if state.includesPeripherals is False else "con perifericos"
-            chosen = {product.category.upper() for product in products}
-            missing = [category for category in ["CPU", "MOTHERBOARD", "RAM", "STORAGE", "PSU", "CASE"] if category not in chosen]
-            budget_line = (
-                f"Total: S/. {total:.2f} (dentro de tu presupuesto de S/. {state.budget})."
-                if total <= state.budget
-                else f"Total: S/. {total:.2f}. Supera tu presupuesto de S/. {state.budget}; es lo mas ajustado con el stock actual."
-            )
-            missing_names = [CATEGORY_NAMES.get(category, category.lower()) for category in missing]
-            missing_line = (
-                f"\nPor ahora no tengo stock de {', '.join(missing_names)}; consultanos por WhatsApp para completarla."
-                if missing
-                else ""
-            )
-            lines = "\n".join(format_product_line(product) for product in products)
-            reply = (
-                f"Esta es una PC {USAGE_LABELS.get(state.usage or '', state.usage)} ({scope}) con piezas compatibles del catalogo:\n{lines}\n"
-                f"{budget_line}{missing_line}\nSi te parece, dime 'agrega todo' y la paso al carrito."
-            )
-            return ChatResponse(
-                reply=reply,
-                intent=intent,
-                conversationState=state,
-                products=[product_to_chat(product) for product in products],
-            )
+            intro = f"Esta es una PC {USAGE_LABELS.get(state.usage or '', state.usage)} ({scope}) con piezas compatibles del catalogo:"
+            total = sum(product.price for product in products)
+            return build_response(products, state, intent, intro, budget_summary(total, state.budget))
         reply = "Todavia no tengo una configuracion completa automatica con productos disponibles, pero puedo ayudarte buscando componentes compatibles del catalogo."
         state.awaiting = None
 
@@ -909,19 +999,24 @@ def handle_checkout_guidance(state: ConversationState) -> ChatResponse:
     )
 
 
-def should_ask_cpu_vendor(
-    payload: ChatRequest, component_query: ComponentQuery, mentions: list[str]
-) -> bool:
-    """Ask AMD vs Intel only for a bare "procesador" query when both brands are on offer."""
-    if component_query.category != "CPU" or component_query.vendor or mentions:
-        return False
+def brand_question(
+    payload: ChatRequest, state: ConversationState, component_query: ComponentQuery, mentions: list[str]
+) -> str | None:
+    """For a bare "procesador" / "tarjeta de video" query, ask the brand when more than one is on offer."""
+    question = BRAND_QUESTIONS.get(component_query.category or "")
+    if question is None or component_query.vendor or mentions:
+        return None
     search = payload.search
     if search is not None and (search.maxPrice or search.minPrice or search.sort):
-        return False
-    names = " ".join(normalize_text(product.name) for product in payload.catalog if product.category == "CPU")
-    if not payload.catalog:
-        return True
-    return ("amd" in names or "ryzen" in names) and ("intel" in names or "core" in names)
+        return None
+    awaiting, label, options = question
+    products = [product for product in payload.catalog if product.category == component_query.category]
+    available = [text for vendor, text in options.items() if any(vendor_matches(product, vendor) for product in products)]
+    if len(available) < 2:
+        return None
+    state.awaiting = awaiting
+    choices = f"{', '.join(available[:-1])} o {available[-1]}"
+    return f"Buscas {label}. Prefieres {choices}?"
 
 
 def build_chat_response(payload: ChatRequest) -> ChatResponse:
@@ -936,14 +1031,14 @@ def build_chat_response(payload: ChatRequest) -> ChatResponse:
     if intent == "cart_action":
         return handle_cart_action(payload, state)
 
+    if payload.anchorProductId:
+        state.intent = "pc_build"
+        return handle_pc_build(payload, state, "pc_build")
+
     if intent == "product_search":
-        if should_ask_cpu_vendor(payload, component_query, mentions):
-            return ChatResponse(
-                reply="Buscas un procesador. Prefieres AMD (Ryzen/Threadripper) o Intel (Core i/Core Ultra)?",
-                intent=intent,
-                conversationState=state,
-                products=[],
-            )
+        question = brand_question(payload, state, component_query, mentions)
+        if question:
+            return ChatResponse(reply=question, intent=intent, conversationState=state, products=[])
         return handle_product_search(
             payload,
             state,
@@ -966,14 +1061,14 @@ def build_chat_response(payload: ChatRequest) -> ChatResponse:
 
     if intent == "support":
         return ChatResponse(
-            reply="Hola, soy Alex. Puedo ayudarte a encontrar productos del catalogo o armar una PC segun tu presupuesto.",
+            reply="Hola, soy Puchi. Puedo ayudarte a encontrar productos del catalogo o armar una PC segun tu presupuesto.",
             intent="support",
             conversationState=state,
             products=[],
         )
 
     return ChatResponse(
-        reply="Soy Alex. Puedo ayudarte a buscar un producto especifico o a armar una PC por presupuesto. Por ejemplo: busco una RTX 5060, o tengo 3000 soles para una PC gamer.",
+        reply="Soy Puchi. Puedo ayudarte a buscar un producto especifico o a armar una PC por presupuesto. Por ejemplo: busco una RTX 5060, o tengo 3000 soles para una PC gamer.",
         intent="unknown",
         conversationState=state,
         products=[],

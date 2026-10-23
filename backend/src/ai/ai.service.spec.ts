@@ -55,6 +55,24 @@ describe('AiService chat catalog', () => {
       keyboardSpecs: { brand: 'Logitech' },
     }),
     product({
+      name: 'TARJETA DE VIDEO GIGABYTE RTX 5050 8GB WINDFORCE OC',
+      category: 'GPU',
+      price: 1350,
+      gpuSpecs: { brand: 'Gigabyte', gpuPowerWatts: 130 },
+    }),
+    product({
+      name: 'TARJETA DE VIDEO ASROCK RX 9060XT CHALLENGER 8GB',
+      category: 'GPU',
+      price: 1550,
+      gpuSpecs: { brand: 'ASRock' },
+    }),
+    product({
+      name: 'PROCESADOR AMD RYZEN 5 7600',
+      category: 'CPU',
+      price: 900,
+      cpuSpecs: { brand: 'AMD', socket: 'AM5' },
+    }),
+    product({
       name: 'UPS CDP R-UPR 1008',
       category: 'UPS',
       price: 320,
@@ -69,6 +87,10 @@ describe('AiService chat catalog', () => {
           const allowed: string[] | undefined =
             where?.AND?.find?.((c: any) => c.category)?.category?.in ?? where?.category?.in;
           return allowed ? catalog.filter((item) => allowed.includes(item.category)) : catalog;
+        }),
+        findFirst: jest.fn(async ({ where }: any) => {
+          const id = where?.AND?.find?.((c: any) => c.id)?.id ?? where?.id;
+          return catalog.find((item) => item.id === id) ?? null;
         }),
       },
     };
@@ -128,6 +150,36 @@ describe('AiService chat catalog', () => {
     expect(response.status).toBe('ok');
     expect(response.reply).toContain('MOUSE LOGITECH G203');
     expect(response.conversationState.lastSearchQuery).toBe('mouse logitech');
+  });
+
+  it('arma una PC alrededor del componente nombrado en el mensaje', async () => {
+    const payload = await sentPayload('esa rtx 5050 gigabyte, armalo con una pc');
+    expect(payload.anchorProductId).toBe('TARJETA DE VIDEO GIGABYTE RTX 5050 8GB WINDFORCE OC');
+    expect(payload.search).toBeNull();
+    expect(payload.catalog.map((item: any) => item.category)).toEqual(
+      expect.arrayContaining(['CPU', 'GPU']),
+    );
+  });
+
+  it('arma una PC alrededor del producto que el cliente estaba viendo', async () => {
+    const payload = await sentPayload('armame una pc con esa', {
+      lastFocusedProductId: 'PROCESADOR AMD RYZEN 5 7600',
+    });
+    expect(payload.anchorProductId).toBe('PROCESADOR AMD RYZEN 5 7600');
+  });
+
+  it('no fija componente en un armado por presupuesto', async () => {
+    const payload = await sentPayload('arma una pc gamer de 3000 soles');
+    expect(payload.anchorProductId).toBeUndefined();
+    expect(payload.search).toBeNull();
+  });
+
+  it('busca la respuesta de marca dentro de tarjetas de video', async () => {
+    const payload = await sentPayload('nvidia', { awaiting: 'gpu_brand' });
+    expect(payload.search).toMatchObject({ text: 'tarjeta de video nvidia', categories: ['GPU'] });
+
+    const changed = await sentPayload('mejor un mouse', { awaiting: 'gpu_brand' });
+    expect(changed.search).toMatchObject({ text: 'mouse', categories: ['MOUSE'] });
   });
 
   afterAll(() => {

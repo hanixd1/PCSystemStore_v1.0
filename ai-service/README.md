@@ -2,7 +2,7 @@
 
 Microservicio FastAPI modular para PCSystemStore. Contiene tres dominios separados:
 
-- `chatbot`: asistente comercial Alex basado en reglas y catalogo real.
+- `chatbot`: asistente comercial Puchi basado en reglas y catalogo real.
 - `stock_prediction`: analisis predictivo inicial de riesgo de quiebre de stock.
 - `statistics`: estructura inicial para analitica del panel admin.
 
@@ -169,5 +169,5 @@ Response:
 
 Devuelve una estructura valida aunque no existan datos reales.
 
-La implementacion actual no usa LLM. Alex responde con reglas, estado conversacional
+La implementacion actual no usa LLM. Puchi responde con reglas, estado conversacional
 y productos enviados por el backend desde el catalogo real.

@@ -32,6 +32,7 @@ interface ChatConversationState {
   lastFocusedProductId?: string | null;
   awaiting?: string | null;
   lastSearchQuery?: string | null;
+  anchorProductId?: string | null;
 }
 
 /** Product as sent to the ai-service. `attributes` lets it check build compatibility. */
@@ -82,7 +83,7 @@ interface AiServicePrediction {
 }
 
 const AI_UNAVAILABLE_REPLY =
-  'Buenas, por el momento Alex no se encuentra disponible. Puedes revisar el catálogo o usar el armador de PCs mientras el servicio vuelve a estar operativo.';
+  'Buenas, por el momento Puchi no se encuentra disponible. Puedes revisar el catálogo o usar el armador de PCs mientras el servicio vuelve a estar operativo.';
 
 const MAX_CHAT_MESSAGE_LENGTH = 500;
 const AI_REQUEST_TIMEOUT_MS = 5000;
@@ -92,9 +93,27 @@ const SEARCH_RESULT_LIMIT = 12;
 const MIN_SEARCH_SCORE = 150;
 const BUILD_CATEGORIES = ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'STORAGE', 'PSU', 'CASE'];
 const PERIPHERAL_CATEGORIES = ['MONITOR', 'KEYBOARD', 'MOUSE'];
-const BUILD_WORDS = /\b(armar|arma|armado|ensamblar|pc|computadora|setup|torre completa)\b/;
+const BUILD_WORDS =
+  /\b(armar|arma|armalo|armala|armame|armarme|armado|ensamblar|pc|computadora|setup|torre completa)\b/;
+/** "armalo con una pc", "arma una pc con esa grafica": build a PC around a chosen component. */
+const BUILD_AROUND_VERB = /\b(arm(?:a|ar|alo|ala|ame|amelo|amela|arme)|ensambl\w*)\b/;
+/** Words removed before looking up the component a build should be based on. */
+const BUILD_AROUND_FILLER =
+  /\b(arm\w*|ensambl\w*|pc|computadora|equipo|torre|completa|con|una|un|esa|ese|esta|este|eso|alrededor|de|la|el|me|lo|en|base|sobre)\b/g;
+const PREVIOUS_PRODUCT_REFERENCE = /\b(esa|ese|esta|este|eso|la misma|el mismo)\b/;
+/** Short brand answers ("nvidia", "amd") to a brand question are searched within that category. */
+const BRAND_QUESTIONS: Record<string, { prefix: string; category: string }> = {
+  cpu_brand: { prefix: 'procesador', category: 'CPU' },
+  gpu_brand: { prefix: 'tarjeta de video', category: 'GPU' },
+};
 const NO_IGPU_MODEL = /\d{3,5}K?F\b/i;
-const BUILD_AWAITING_STATES = new Set(['budget_and_usage', 'budget', 'usage', 'peripherals']);
+const BUILD_AWAITING_STATES = new Set([
+  'budget_and_usage',
+  'budget',
+  'usage',
+  'peripherals',
+  'build_adjust',
+]);
 /** Answers to the build questions ("solo la torre", "gaming", "3000") are not product searches. */
 const BUILD_ANSWER =
   /\b(solo (la )?torre|sin (monitor|teclado|mouse|perifericos)|con (monitor|todo|perifericos)|todo completo|gam\w*|jug\w*|oficina|estudi\w*|edicion|edit\w*|diseno|render|stream\w*|soles?|\d+k?)\b/;
@@ -129,6 +148,13 @@ const CHAT_PRODUCT_INCLUDE = {
 } satisfies Prisma.ProductInclude;
 
 type ChatProductRecord = Prisma.ProductGetPayload<{ include: typeof CHAT_PRODUCT_INCLUDE }>;
+
+function normalizeChatText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
 
 function toNumber(value: Prisma.Decimal | number | string | null | undefined): number {
   const parsed = Number(value?.toString() ?? 0);
@@ -238,10 +264,15 @@ export class AiService {
     const parsed = parseChatSearchQuery(message);
     let text = parsed.text;
     // "y mas barato?" / "hasta 800" refine the previous search.
+    const brandQuestion = BRAND_QUESTIONS[state?.awaiting ?? ''];
     if (isRefinementOnly(parsed) && state?.lastSearchQuery) {
       text = state.lastSearchQuery;
-    } else if (state?.awaiting === 'cpu_brand') {
-      text = `procesador ${text}`.trim();
+    } else if (brandQuestion) {
+      // "nvidia" answers the brand question; "mejor un mouse" starts a new search.
+      const named = expandProductSearchQuery(text).candidateCategories;
+      if (!named.length || named.includes(brandQuestion.category)) {
+        text = `${brandQuestion.prefix} ${text}`.trim();
+      }
     }
 
     const expansion = expandProductSearchQuery(text);
@@ -304,10 +335,92 @@ export class AiService {
     };
   }
 
+  private async findCatalogProduct(id: string): Promise<ChatCatalogProduct | null> {
+    const product = await this.prisma.product.findFirst({
+      where: withPublicProductCriteria({ id }),
+      include: CHAT_PRODUCT_INCLUDE,
+    });
+    return product ? this.toCatalogProduct(product) : null;
+  }
+
+  /**
+   * Component a requested build should be based on: the part named in the message
+   * ("esa rtx 5050 gigabyte, armalo con una pc") or the one the customer was looking at ("armame una pc con esa").
+   */
+  private async resolveBuildAnchor(
+    message: string,
+    state?: ChatConversationState,
+  ): Promise<ChatCatalogProduct | null> {
+    const normalized = normalizeChatText(message);
+    if (!BUILD_AROUND_VERB.test(normalized)) {
+      return null;
+    }
+
+    const productText = normalized.replace(BUILD_AROUND_FILLER, ' ').replace(/\s+/g, ' ').trim();
+    if (productText) {
+      const { catalog, search } = await this.searchChatCatalog(productText);
+      const top = catalog[0];
+      const namesOnlyBuildParts =
+        search.categories.length > 0 &&
+        search.categories.every((category) => BUILD_CATEGORIES.includes(category));
+      if (
+        top &&
+        search.matched &&
+        namesOnlyBuildParts &&
+        search.categories.includes(top.category)
+      ) {
+        return top;
+      }
+    }
+
+    if (!PREVIOUS_PRODUCT_REFERENCE.test(normalized)) {
+      return null;
+    }
+    const remembered = (state?.lastRecommendedProducts ?? []) as Array<{
+      id?: string;
+      category?: string;
+    }>;
+    const previousId =
+      state?.lastFocusedProductId ??
+      remembered.find((product) => BUILD_CATEGORIES.includes(product.category ?? ''))?.id;
+    const previous = previousId ? await this.findCatalogProduct(previousId) : null;
+    return previous && BUILD_CATEGORIES.includes(previous.category) ? previous : null;
+  }
+
+  /** Build catalog that is guaranteed to contain the component the build is based on. */
+  private async getBuildCatalogWith(anchorId?: string | null, anchor?: ChatCatalogProduct | null) {
+    const catalog = await this.getBuildCatalog();
+    if (anchorId && !catalog.some((product) => product.id === anchorId)) {
+      const product = anchor ?? (await this.findCatalogProduct(anchorId));
+      if (product) {
+        catalog.push(product);
+      }
+    }
+    return catalog;
+  }
+
   private async requestCommercialChat(
     message: string,
     conversationState?: ChatConversationState,
   ): Promise<CommercialChatResponse> {
+    const anchor = await this.resolveBuildAnchor(message, conversationState);
+    if (anchor) {
+      const catalog = await this.getBuildCatalogWith(anchor.id, anchor);
+      try {
+        return await this.postToAiService({
+          message,
+          conversationState,
+          catalog,
+          search: null,
+          anchorProductId: anchor.id,
+        });
+      } catch (error: unknown) {
+        const reason = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`[AI] Servicio no disponible: ${reason}`);
+        return this.buildAiUnavailableResponse(conversationState);
+      }
+    }
+
     const searchResult = await this.searchChatCatalog(message, conversationState);
     let catalog = searchResult.catalog;
     let search: ChatSearchContext | null = searchResult.search;
@@ -316,17 +429,12 @@ export class AiService {
     const namesComponent = search.categories.some((category) => category !== 'PC_DESKTOP');
     const answersBuildQuestion =
       BUILD_AWAITING_STATES.has(conversationState?.awaiting ?? '') &&
-      BUILD_ANSWER.test(
-        message
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, ''),
-      );
+      BUILD_ANSWER.test(normalizeChatText(message));
     if (
       answersBuildQuestion ||
       (!namesComponent && this.isBuildRequest(search.text, conversationState))
     ) {
-      catalog = await this.getBuildCatalog();
+      catalog = await this.getBuildCatalogWith(conversationState?.anchorProductId);
       search = null;
     }
 
@@ -435,7 +543,7 @@ export class AiService {
     if (!cleanMessage) {
       return {
         reply:
-          'Hola, soy Alex. Puedo ayudarte a encontrar productos o armar una PC segun tu presupuesto.',
+          'Hola, soy Puchi. Puedo ayudarte a encontrar productos o armar una PC segun tu presupuesto.',
         products: [],
         actions: [],
         totals: null,

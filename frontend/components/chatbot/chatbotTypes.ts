@@ -40,4 +40,6 @@ export type ConversationState = {
   lastFocusedProductId: string | null;
   awaiting: string | null;
   lastSearchQuery?: string | null;
+  /** Component a requested build is based on ("armalo con una pc"). */
+  anchorProductId?: string | null;
 };

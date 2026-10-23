@@ -22,7 +22,8 @@ CATALOG = [
     ("message", "category", "vendor"),
     [
         ("PROCE AMD", "CPU", "AMD"),
-        ("gráfica rtx", "GPU", None),
+        ("gráfica rtx", "GPU", "NVIDIA"),
+        ("tarjeta de video radeon", "GPU", "AMD"),
         ("ram ddr5", "RAM", None),
         ("fuente 750w", "PSU", None),
         ("cpu ryzen", "CPU", "AMD"),
@@ -199,3 +200,130 @@ def test_build_picks_a_cpu_that_has_a_compatible_board_in_stock():
 
     assert build["CPU"].id == "r5-8500g"
     assert build["MOTHERBOARD"].id == "b650"
+
+
+GPU_CATALOG = [
+    ranked("rtx5050", "TARJETA DE VIDEO GIGABYTE RTX 5050 8GB WINDFORCE OC", "GPU", 1350),
+    ranked("rtx5060", "TARJETA DE VIDEO GIGABYTE RTX 5060 8GB EAGLE", "GPU", 1720),
+    ranked("rx9060", "TARJETA DE VIDEO ASROCK RX 9060XT CHALLENGER 8GB", "GPU", 1550),
+]
+
+
+def gpu_search(text="tarjeta video"):
+    return SearchContext(text=text, categories=["GPU"], matched=True)
+
+
+def test_bare_gpu_query_asks_for_the_brand_first():
+    response = build_chat_response(
+        ChatRequest(message="estoy buscando tarjeta de video", catalog=GPU_CATALOG, search=gpu_search())
+    )
+
+    assert response.products == []
+    assert "NVIDIA (GeForce RTX) o AMD (Radeon RX)" in response.reply
+    assert "Intel" not in response.reply  # no Intel Arc in stock
+    assert response.conversationState.awaiting == "gpu_brand"
+
+
+@pytest.mark.parametrize(("answer", "expected"), [("nvidia", {"rtx5050", "rtx5060"}), ("amd", {"rx9060"})])
+def test_gpu_brand_answer_filters_the_results(answer, expected):
+    first = build_chat_response(
+        ChatRequest(message="tarjeta de video", catalog=GPU_CATALOG, search=gpu_search())
+    )
+    second = build_chat_response(
+        ChatRequest(
+            message=answer,
+            catalog=GPU_CATALOG,
+            search=gpu_search(f"tarjeta video {answer}"),
+            conversationState=first.conversationState,
+        )
+    )
+
+    assert second.intent == "product_search"
+    assert {product.id for product in second.products} == expected
+
+
+def test_gpu_query_with_a_model_or_price_skips_the_brand_question():
+    for message, search in [
+        ("rtx 5060", gpu_search("rtx 5060")),
+        ("tarjeta de video hasta 1600", SearchContext(text="tarjeta video", maxPrice=1600, categories=["GPU"], matched=True)),
+    ]:
+        response = build_chat_response(ChatRequest(message=message, catalog=GPU_CATALOG, search=search))
+        assert response.products, message
+
+
+def test_search_categories_override_loose_gpu_words():
+    catalog = [ranked("elgato", "CAPTURADORA DE VIDEO ELGATO HD60 X", "CAPTURE_CARD", 700)]
+    response = build_chat_response(
+        ChatRequest(
+            message="capturadora de video",
+            catalog=catalog,
+            search=SearchContext(text="capturadora video", categories=["CAPTURE_CARD"], matched=True),
+        )
+    )
+
+    assert [product.id for product in response.products] == ["elgato"]
+
+
+ANCHOR_CATALOG = [
+    *BUILD_CATALOG,
+    ranked("rtx5050", "RTX 5050 Gigabyte", "GPU", 1350, powerWatts=130),
+    ranked("rtx4090", "RTX 4090", "GPU", 9000, powerWatts=450),
+]
+
+
+def test_builds_a_pc_around_the_chosen_gpu():
+    response = build_chat_response(
+        ChatRequest(message="esa rtx 5050 gigabyte, armalo con una pc", catalog=ANCHOR_CATALOG, anchorProductId="rtx5050")
+    )
+    build = {product.id for product in response.products}
+
+    assert response.intent == "pc_build"
+    assert "rtx5050" in build and "rtx4090" not in build
+    assert {"CPU", "MOTHERBOARD", "RAM", "PSU", "CASE"} <= {
+        product.category for product in ANCHOR_CATALOG if product.id in build
+    }
+    assert "alrededor de RTX 5050 Gigabyte" in response.reply
+    assert "solo torre" in response.reply
+    assert response.conversationState.anchorProductId == "rtx5050"
+    assert response.conversationState.awaiting == "build_adjust"
+
+
+@pytest.mark.parametrize(("anchor_id", "socket"), [("i5", "LGA 1700"), ("b650", "AM5")])
+def test_anchored_build_keeps_other_parts_compatible(anchor_id, socket):
+    response = build_chat_response(
+        ChatRequest(message="armame una pc con ese", catalog=ANCHOR_CATALOG, anchorProductId=anchor_id)
+    )
+    by_id = {product.id: product for product in ANCHOR_CATALOG}
+    build = {by_id[product.id].category: by_id[product.id] for product in response.products}
+
+    assert build["CPU"].attributes["socket"] == socket
+    assert build["MOTHERBOARD"].attributes["socket"] == socket
+    assert build["RAM"].attributes["memoryType"] == build["MOTHERBOARD"].attributes["memoryType"]
+
+
+def test_anchored_build_follow_up_budget_keeps_the_chosen_part():
+    first = build_chat_response(
+        ChatRequest(message="armalo con una pc", catalog=ANCHOR_CATALOG, anchorProductId="rtx5050")
+    )
+    second = build_chat_response(
+        ChatRequest(message="con 4000 soles", catalog=ANCHOR_CATALOG, conversationState=first.conversationState)
+    )
+
+    assert "rtx5050" in {product.id for product in second.products}
+    assert "presupuesto de S/. 4000" in second.reply
+
+
+def test_product_search_drops_the_build_anchor():
+    first = build_chat_response(
+        ChatRequest(message="armalo con una pc", catalog=ANCHOR_CATALOG, anchorProductId="rtx5050")
+    )
+    second = build_chat_response(
+        ChatRequest(
+            message="mouse logitech",
+            catalog=[ranked("g203", "MOUSE LOGITECH G203", "MOUSE", 89)],
+            search=SearchContext(text="mouse logitech", categories=["MOUSE"], matched=True),
+            conversationState=first.conversationState,
+        )
+    )
+
+    assert second.conversationState.anchorProductId is None
