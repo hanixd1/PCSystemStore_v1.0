@@ -1,0 +1,60 @@
+# Mean and median MASE by model - weekly, channel total (20261024T185612Z-weekly-validation)
+
+Development span; tuned models selected on a subset of these origins (ADR-0010).
+
+|   horizon | level    | model              |   mean |   median |
+|----------:|:---------|:-------------------|-------:|---------:|
+|         1 | category | chronos_fine_tuned |  0.626 |    0.657 |
+|         1 | category | chronos_zero_shot  |  0.642 |    0.66  |
+|         1 | category | croston            |  0.686 |    0.705 |
+|         1 | category | global_gbm         |  0.772 |    0.772 |
+|         1 | category | naive              |  0.812 |    0.82  |
+|         1 | category | sba                |  0.644 |    0.685 |
+|         1 | category | ses                |  0.692 |    0.7   |
+|         1 | category | tsb                |  0.683 |    0.711 |
+|         1 | category | two_stage_trees    |  0.841 |    0.808 |
+|         1 | sku      | chronos_fine_tuned |  0.828 |    0.423 |
+|         1 | sku      | chronos_zero_shot  |  1.022 |    0.434 |
+|         1 | sku      | croston            |  2.66  |    1.661 |
+|         1 | sku      | global_gbm         |  1.059 |    0.662 |
+|         1 | sku      | naive              |  1.263 |    0.663 |
+|         1 | sku      | sba                |  2.407 |    1.539 |
+|         1 | sku      | ses                |  1.214 |    0.767 |
+|         1 | sku      | tsb                |  1.22  |    0.673 |
+|         1 | sku      | two_stage_trees    | 10.63  |    1.37  |
+|         1 | total    | chronos_fine_tuned |  0.678 |    0.678 |
+|         1 | total    | chronos_zero_shot  |  0.704 |    0.704 |
+|         1 | total    | croston            |  0.769 |    0.769 |
+|         1 | total    | global_gbm         |  1.13  |    1.13  |
+|         1 | total    | naive              |  0.787 |    0.787 |
+|         1 | total    | sba                |  0.731 |    0.731 |
+|         1 | total    | ses                |  0.755 |    0.755 |
+|         1 | total    | tsb                |  0.749 |    0.749 |
+|         1 | total    | two_stage_trees    |  1.4   |    1.4   |
+|         4 | category | chronos_fine_tuned |  0.655 |    0.68  |
+|         4 | category | chronos_zero_shot  |  0.692 |    0.701 |
+|         4 | category | croston            |  0.713 |    0.723 |
+|         4 | category | global_gbm         |  0.809 |    0.801 |
+|         4 | category | naive              |  0.845 |    0.847 |
+|         4 | category | sba                |  0.661 |    0.674 |
+|         4 | category | ses                |  0.718 |    0.728 |
+|         4 | category | tsb                |  0.716 |    0.722 |
+|         4 | category | two_stage_trees    |  0.861 |    0.814 |
+|         4 | sku      | chronos_fine_tuned |  0.969 |    0.372 |
+|         4 | sku      | chronos_zero_shot  |  1.102 |    0.387 |
+|         4 | sku      | croston            |  2.771 |    1.641 |
+|         4 | sku      | global_gbm         |  1.202 |    0.657 |
+|         4 | sku      | naive              |  1.409 |    0.668 |
+|         4 | sku      | sba                |  2.523 |    1.57  |
+|         4 | sku      | ses                |  1.43  |    0.743 |
+|         4 | sku      | tsb                |  1.383 |    0.689 |
+|         4 | sku      | two_stage_trees    | 14.12  |    1.349 |
+|         4 | total    | chronos_fine_tuned |  0.747 |    0.747 |
+|         4 | total    | chronos_zero_shot  |  0.833 |    0.833 |
+|         4 | total    | croston            |  0.805 |    0.805 |
+|         4 | total    | global_gbm         |  1.211 |    1.211 |
+|         4 | total    | naive              |  0.874 |    0.874 |
+|         4 | total    | sba                |  0.697 |    0.697 |
+|         4 | total    | ses                |  0.812 |    0.812 |
+|         4 | total    | tsb                |  0.786 |    0.786 |
+|         4 | total    | two_stage_trees    |  1.371 |    1.371 |

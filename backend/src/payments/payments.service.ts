@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -18,6 +19,13 @@ import {
 import { assertPaymentsEnabled } from './payment.config';
 
 const DEFAULT_COMMISSION_RATE = 0.04;
+/** The only order states that accept a payment; every transition out of them is atomic. */
+const PAYABLE_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.PENDING_PAYMENT,
+  OrderStatus.PENDING_REVIEW,
+];
+const ORDER_ALREADY_CLOSED = 'La orden ya fue pagada o cerrada.';
+const PAYMENT_ALREADY_REVIEWED = 'El pago ya fue revisado por otra solicitud.';
 
 @Injectable()
 export class PaymentsService {
@@ -59,16 +67,27 @@ export class PaymentsService {
       throw new ForbiddenException('No puedes pagar una orden de otro usuario');
     }
 
-    const closedStatuses: OrderStatus[] = [
-      OrderStatus.PAID,
-      OrderStatus.REJECTED,
-      OrderStatus.CANCELLED,
-    ];
-    if (closedStatuses.includes(order.status)) {
+    if (!PAYABLE_ORDER_STATUSES.includes(order.status)) {
       throw new BadRequestException('La orden ya no acepta pagos');
     }
 
     return order;
+  }
+
+  /**
+   * Row lock on the order for the rest of the transaction, so checks such as "no pending
+   * payment yet" cannot interleave with another request on the same order.
+   */
+  private async lockOrder(tx: Prisma.TransactionClient, orderId: string) {
+    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
+  }
+
+  /** Close a still-payable order as REJECTED; a PAID order is never touched. */
+  private async rejectOrderIfOpen(tx: Prisma.TransactionClient, orderId: string) {
+    await tx.order.updateMany({
+      where: { id: orderId, status: { in: PAYABLE_ORDER_STATUSES } },
+      data: { status: OrderStatus.REJECTED },
+    });
   }
 
   private async markOrderPaidWithStockDiscount(tx: Prisma.TransactionClient, orderId: string) {
@@ -81,8 +100,15 @@ export class PaymentsService {
       throw new NotFoundException('Orden no encontrada');
     }
 
-    if (order.status === OrderStatus.PAID) {
-      return [];
+    // Compare-and-set: only one transaction can move the order out of a payable state. A
+    // concurrent payment (another Idempotency-Key, a second admin approval) waits on the row
+    // lock, then matches zero rows and fails instead of discounting stock twice.
+    const claimed = await tx.order.updateMany({
+      where: { id: orderId, status: { in: PAYABLE_ORDER_STATUSES } },
+      data: { status: OrderStatus.PAID, paidAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      throw new ConflictException(ORDER_ALREADY_CLOSED);
     }
 
     const stockChanges: Array<{
@@ -125,14 +151,6 @@ export class PaymentsService {
         after: product.stock - item.quantity,
       });
     }
-
-    await tx.order.update({
-      where: { id: orderId },
-      data: {
-        status: OrderStatus.PAID,
-        paidAt: new Date(),
-      },
-    });
 
     return stockChanges;
   }
@@ -194,10 +212,7 @@ export class PaymentsService {
           });
         }
       } else {
-        await tx.order.update({
-          where: { id: order.id },
-          data: { status: OrderStatus.REJECTED },
-        });
+        await this.rejectOrderIfOpen(tx, order.id);
       }
 
       return tx.payment.findUnique({
@@ -220,20 +235,37 @@ export class PaymentsService {
     const commissionRate = this.getCommissionRate();
     const providerResult = this.manualProvider.createPayment();
 
-    return this.prisma.payment.create({
-      data: {
-        orderId: order.id,
-        provider: providerResult.provider,
-        method: data.method,
-        status: providerResult.status,
-        amount,
-        currency: order.currency,
-        commissionRate,
-        commissionAmount: amount * commissionRate,
-        operationCode: data.operationCode.trim(),
-        customerNote: data.customerNote,
-      },
-      include: this.paymentInclude,
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockOrder(tx, order.id);
+      const current = await tx.order.findUnique({
+        where: { id: order.id },
+        select: { status: true },
+      });
+      if (!current || !PAYABLE_ORDER_STATUSES.includes(current.status)) {
+        throw new ConflictException(ORDER_ALREADY_CLOSED);
+      }
+      const pending = await tx.payment.count({
+        where: { orderId: order.id, status: PaymentStatus.PENDING_REVIEW },
+      });
+      if (pending > 0) {
+        throw new ConflictException('La orden ya tiene un pago en revision.');
+      }
+
+      return tx.payment.create({
+        data: {
+          orderId: order.id,
+          provider: providerResult.provider,
+          method: data.method,
+          status: providerResult.status,
+          amount,
+          currency: order.currency,
+          commissionRate,
+          commissionAmount: amount * commissionRate,
+          operationCode: data.operationCode.trim(),
+          customerNote: data.customerNote,
+        },
+        include: this.paymentInclude,
+      });
     });
   }
 
@@ -275,15 +307,19 @@ export class PaymentsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const stockChanges = await this.markOrderPaidWithStockDiscount(tx, payment.orderId);
-      await tx.payment.update({
-        where: { id },
+      // Claim the payment first: two admins approving at once cannot both win.
+      const reviewed = await tx.payment.updateMany({
+        where: { id, status: PaymentStatus.PENDING_REVIEW },
         data: {
           status: PaymentStatus.APPROVED,
           paidAt: new Date(),
           approvalCode: this.generateManualApprovalCode(),
         },
       });
+      if (reviewed.count !== 1) {
+        throw new ConflictException(PAYMENT_ALREADY_REVIEWED);
+      }
+      const stockChanges = await this.markOrderPaidWithStockDiscount(tx, payment.orderId);
 
       for (const change of stockChanges) {
         await tx.actionLog.create({
@@ -336,14 +372,16 @@ export class PaymentsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id },
+      const reviewed = await tx.payment.updateMany({
+        where: { id, status: PaymentStatus.PENDING_REVIEW },
         data: { status: PaymentStatus.REJECTED },
       });
-      await tx.order.update({
-        where: { id: payment.orderId },
-        data: { status: OrderStatus.REJECTED },
-      });
+      if (reviewed.count !== 1) {
+        throw new ConflictException(PAYMENT_ALREADY_REVIEWED);
+      }
+      // Rejecting a duplicate receipt of an order already PAID leaves the order (and its
+      // discounted stock) as it is.
+      await this.rejectOrderIfOpen(tx, payment.orderId);
 
       await tx.actionLog.create({
         data: {

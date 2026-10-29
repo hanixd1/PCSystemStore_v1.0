@@ -9,6 +9,7 @@ import { CsrfTokenService } from './csrf-token.service';
 import { PasswordHashingService } from './password-hashing.service';
 import { AdminLoginProtectionService } from './admin-login-protection.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SessionUserStatusService } from './session-user-status.service';
 
 @Global()
 @Module({
@@ -33,6 +34,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     CsrfTokenService,
     PasswordHashingService,
     AdminLoginProtectionService,
+    SessionUserStatusService,
   ],
   exports: [
     JwtModule,
@@ -42,6 +44,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     CsrfTokenService,
     PasswordHashingService,
     AdminLoginProtectionService,
+    SessionUserStatusService,
   ],
 })
 export class AuthModule {}

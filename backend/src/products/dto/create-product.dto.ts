@@ -94,6 +94,14 @@ export const POWER_PROTECTION_OUTLET_TYPES = [
   'Tomas de corriente + USB',
 ];
 
+/**
+ * Product images are rendered in <img src>: an absolute http(s) URL (Cloudinary) or a legacy
+ * file under /uploads/. Other schemes (`javascript:`, `data:`) and protocol-relative `//host`
+ * values are rejected.
+ */
+export const PRODUCT_IMAGE_URL = /^(?:https?:\/\/[^\s<>"'\\]+|\/?uploads\/[A-Za-z0-9._-]+)$/i;
+const PRODUCT_IMAGE_URL_MESSAGE = 'Cada imagen debe ser una URL https valida.';
+
 export class CreateProductDto {
   @Transform(toNormalizedSku)
   @IsString({ message: 'El SKU es obligatorio.' })
@@ -149,12 +157,15 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   @MaxLength(2048)
+  @Matches(PRODUCT_IMAGE_URL, { message: PRODUCT_IMAGE_URL_MESSAGE })
   image?: string;
 
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(5)
   @IsString({ each: true })
+  @MaxLength(2048, { each: true })
+  @Matches(PRODUCT_IMAGE_URL, { each: true, message: PRODUCT_IMAGE_URL_MESSAGE })
   images?: string[];
 
   @Transform(toTrimmedString)

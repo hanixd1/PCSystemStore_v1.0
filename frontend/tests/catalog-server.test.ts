@@ -51,9 +51,10 @@ describe('product API resolution', () => {
       price: 1499.9,
       stock: 3,
     });
+    // Short server cache (same window as the lists); the cart re-reads it uncached.
     expect(fetch).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ cache: 'no-store' }),
+      expect.objectContaining({ next: { revalidate: 15 } }),
     );
   });
 

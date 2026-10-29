@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AuditService } from '../audit/audit.service';
+import { CLOUDINARY_UPLOAD_FOLDERS, CloudinaryService } from '../uploads/cloudinary.service';
 import { ProductPricingService } from './services/product-pricing.service';
 import { ProductPayloadService } from './services/product-payload.service';
 import { ProductSpecsService } from './services/product-specs.service';
@@ -31,6 +32,10 @@ type ProductChangeLog = {
   description: string;
 };
 
+const FILTER_OPTIONS_CACHE_TTL_MS = 60_000;
+// Keys are category combinations sent by the client: bounded so they cannot grow memory.
+const FILTER_OPTIONS_CACHE_MAX_ENTRIES = 200;
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -47,6 +52,7 @@ export class ProductsService {
       prisma,
     ),
     private readonly slugs: ProductSlugService = new ProductSlugService(prisma),
+    @Optional() private readonly cloudinary?: CloudinaryService,
   ) {}
 
   private readonly productInclude = {
@@ -77,6 +83,38 @@ export class ProductsService {
     backpackSpecs: true,
     powerProtectionSpecs: true,
   } satisfies Prisma.ProductInclude;
+
+  /**
+   * `GET /products?view=card`: what a product card shows (lists, home, offers, sitemap). No
+   * description and none of the 26 spec relations, which are most of a list's bytes.
+   */
+  private readonly filterOptionsCache = new Map<
+    string,
+    { value: Awaited<ReturnType<ProductsService['computeFilterOptions']>>; expiresAt: number }
+  >();
+
+  private readonly productCardSelect = {
+    id: true,
+    sku: true,
+    slug: true,
+    name: true,
+    category: true,
+    price: true,
+    isOnSale: true,
+    salePrice: true,
+    stock: true,
+    images: true,
+    isActive: true,
+    deletedAt: true,
+    createdAt: true,
+    updatedAt: true,
+  } satisfies Prisma.ProductSelect;
+
+  private toProductCard(product: Record<string, unknown>) {
+    return Object.fromEntries(
+      Object.keys(this.productCardSelect).map((key) => [key, product[key]]),
+    );
+  }
 
   private readonly adminProductGroups: Record<string, string[]> = {
     COMPONENTES: ['CPU', 'MOTHERBOARD', 'RAM', 'GPU', 'PSU', 'CASE', 'COOLER', 'STORAGE'],
@@ -1187,20 +1225,18 @@ export class ProductsService {
       60,
     );
 
+    const cardView = this.getQueryString(query, 'view') === 'card';
     if (this.getPublicSearchQuery(query)) {
-      return this.findAllWithPublicSearch(query, page, limit);
+      return this.findAllWithPublicSearch(query, page, limit, cardView);
     }
 
     const where = withPublicProductCriteria(this.buildProductWhere(query));
     const orderBy = this.buildProductOrderBy(query);
+    const pageArgs = { where, orderBy, skip: (page - 1) * limit, take: limit };
     const [items, total] = await Promise.all([
-      this.prisma.product.findMany({
-        where,
-        include: this.productInclude,
-        orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
+      cardView
+        ? this.prisma.product.findMany({ ...pageArgs, select: this.productCardSelect })
+        : this.prisma.product.findMany({ ...pageArgs, include: this.productInclude }),
       this.prisma.product.count({ where }),
     ]);
 
@@ -1301,7 +1337,12 @@ export class ProductsService {
     );
   }
 
-  private async findAllWithPublicSearch(query: ProductQuery, page: number, limit: number) {
+  private async findAllWithPublicSearch(
+    query: ProductQuery,
+    page: number,
+    limit: number,
+    cardView = false,
+  ) {
     const search = this.getPublicSearchQuery(query) || '';
     const expansion = expandProductSearchQuery(search);
     const where = withPublicProductCriteria(this.buildProductWhere(this.omitSearchQuery(query)));
@@ -1319,7 +1360,9 @@ export class ProductsService {
     );
     const total = rankedItems.length;
     const start = (page - 1) * limit;
-    const items = rankedItems.slice(start, start + limit);
+    // Ranking reads the specs; only the page that is returned is trimmed to card fields.
+    const pageItems = rankedItems.slice(start, start + limit);
+    const items = cardView ? pageItems.map((item) => this.toProductCard(item)) : pageItems;
 
     return {
       items,
@@ -1351,10 +1394,29 @@ export class ProductsService {
     return this.getQueryString(query, 'search') || this.getQueryString(query, 'query');
   }
 
+  /**
+   * Filter options change only when the catalog does, but every category page asks for them and
+   * each answer reads up to 500 products with all their specs. They are kept 60 s per category.
+   */
   async getFilterOptions(query: ProductQuery = {}) {
     const category =
       this.getQueryString(query, 'category') || this.getQueryString(query, 'productType');
     const categories = this.getQueryList(query, 'categories');
+    const cacheKey = `${category ?? ''}|${[...categories].sort().join(',')}`;
+    const now = Date.now();
+    const cached = this.filterOptionsCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.value;
+    }
+    const value = await this.computeFilterOptions(category, categories);
+    if (this.filterOptionsCache.size >= FILTER_OPTIONS_CACHE_MAX_ENTRIES) {
+      this.filterOptionsCache.clear();
+    }
+    this.filterOptionsCache.set(cacheKey, { value, expiresAt: now + FILTER_OPTIONS_CACHE_TTL_MS });
+    return value;
+  }
+
+  private async computeFilterOptions(category: string | undefined, categories: string[]) {
     const products = await this.prisma.product.findMany({
       where: withPublicProductCriteria(
         category ? { category } : categories.length > 0 ? { category: { in: categories } } : {},
@@ -1534,35 +1596,37 @@ export class ProductsService {
     if (actorId) {
       await this.logProductChanges(actorId, currentProduct, updatedProduct, updateData);
     }
+    await this.deleteUnusedImages(currentProduct.images, updatedProduct.images);
 
     return updatedProduct;
+  }
+
+  /**
+   * Images taken out of a product are deleted from Cloudinary unless another product (a copy,
+   * or a retired product that may be restored) still shows them. Retiring a product keeps its
+   * images: remove() is a soft delete and restore() needs them.
+   */
+  private async deleteUnusedImages(before: unknown, after: unknown) {
+    if (!this.cloudinary || !Array.isArray(before)) {
+      return;
+    }
+    const kept = new Set(Array.isArray(after) ? after : []);
+    const removed = before.filter(
+      (image): image is string => typeof image === 'string' && !kept.has(image),
+    );
+    const unused: string[] = [];
+    for (const image of removed) {
+      if ((await this.prisma.product.count({ where: { images: { has: image } } })) === 0) {
+        unused.push(image);
+      }
+    }
+    await this.cloudinary.deleteImagesByUrl(unused, CLOUDINARY_UPLOAD_FOLDERS.products);
   }
 
   private async findProductForUpdateOrThrow(id: string) {
     const currentProduct = await this.prisma.product.findUnique({
       where: { id },
-      include: {
-        cpuSpecs: true,
-        motherboardSpecs: true,
-        gpuSpecs: true,
-        caseSpecs: true,
-        coolerSpecs: true,
-        storageSpecs: true,
-        laptopSpecs: true,
-        desktopSpecs: true,
-        monitorSpecs: true,
-        keyboardSpecs: true,
-        mouseSpecs: true,
-        mousepadSpecs: true,
-        chairSpecs: true,
-        gamingDeskSpecs: true,
-        webcamSpecs: true,
-        captureCardSpecs: true,
-        cableHubSpecs: true,
-        laptopCoolingBaseSpecs: true,
-        backpackSpecs: true,
-        powerProtectionSpecs: true,
-      },
+      include: this.productInclude,
     });
     if (!currentProduct) {
       throw new BadRequestException('Producto no encontrado');
@@ -1579,22 +1643,7 @@ export class ProductsService {
           ...updateData,
           ...specUpdate,
         },
-        include: {
-          cpuSpecs: true,
-          motherboardSpecs: true,
-          gpuSpecs: true,
-          caseSpecs: true,
-          coolerSpecs: true,
-          storageSpecs: true,
-          laptopSpecs: true,
-          desktopSpecs: true,
-          monitorSpecs: true,
-          keyboardSpecs: true,
-          mouseSpecs: true,
-          mousepadSpecs: true,
-          chairSpecs: true,
-          gamingDeskSpecs: true,
-        },
+        include: this.productInclude,
       });
     } catch (error) {
       this.handlePrismaProductWriteError(error);
@@ -1910,10 +1959,15 @@ export class ProductsService {
     const specRelationByCategory: Record<string, string> = {
       CPU: 'cpuSpecs',
       MOTHERBOARD: 'motherboardSpecs',
+      RAM: 'ramSpecs',
+      GPU: 'gpuSpecs',
+      PSU: 'psuSpecs',
+      CASE: 'caseSpecs',
       COOLER: 'coolerSpecs',
       STORAGE: 'storageSpecs',
       LAPTOP: 'laptopSpecs',
       PC_DESKTOP: 'desktopSpecs',
+      SOFTWARE: 'softwareSpecs',
       MONITOR: 'monitorSpecs',
       KEYBOARD: 'keyboardSpecs',
       MOUSE: 'mouseSpecs',

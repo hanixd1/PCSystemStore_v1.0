@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+# NestJS API. Railway builds from the same folder; this image is for local QA with Docker Compose.
+FROM node:22-slim AS build
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+# prisma generate (postinstall) only reads the schema; the real URL comes at runtime.
+ENV DIRECT_URL=postgresql://build:build@localhost:5432/build \
+    DATABASE_URL=postgresql://build:build@localhost:5432/build
+COPY prisma ./prisma
+COPY prisma.config.ts tsconfig.json tsconfig.build.json nest-cli.json ./
+COPY src ./src
+RUN npm ci
+RUN npm run build && npm prune --omit=dev
+
+FROM node:22-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+COPY --from=build /app/package.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/prisma.config.ts ./
+USER node
+EXPOSE 3000
+CMD ["node", "dist/src/main.js"]

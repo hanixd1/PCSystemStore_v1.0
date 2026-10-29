@@ -1,0 +1,142 @@
+{
+  "status": "frozen",
+  "frozen_at": "2026-10-26T19:39:40+00:00",
+  "tag": "v1.0.0-research-freeze",
+  "commit": "fc96b666ae3339ef240fc6fef7508ccef01003ec",
+  "package_version": "0.1.0",
+  "final_test": {
+    "start": "2026-03-01",
+    "end": "2026-08-31"
+  },
+  "configs": {
+    "protocol.yaml": "57497f5bfa36681e522b74511d898804b0e14d7803fcfc38411c8daa87147b3f",
+    "inventory.yaml": "717888fa2d37f028d02479feb3e348a5d83a4bd3cad4d49325d78e27ab88c864",
+    "models.yaml": "b264a65618ad107e3f8127514e1980d1b0400a9e9704873072b8bcc64f41f6a0",
+    "data_rules.yaml": "d081f1e597acb8813510f25a14d3000fbafb741f8f34087767d10f898dd9e347",
+    "sheet_date_overrides.yaml": "c91467f8dc76e3c320d4ede83a6a466cf3b5d60f7f8fa237ba46915f25e58344",
+    "catalog.yaml": "a876d6d48f7b01b29bceb9cccba664198caed24bf209e29cdbbb7eee3962bc82",
+    "series.yaml": "c8124a225ebebe5e69d2da2a94556c61e4c5db15da589e8b8a2733574a50f360",
+    "price_links.yaml": "5ca40385cd3404261f7305b06f62a0d0350833b9415682903cd20a6a33d84467",
+    "stats.yaml": "ec80ee6e8e58e8e2a047cce51dfb1dafb6b0ab7f734af79a9f2a9793cdaeaef1",
+    "tuning.yaml": "ddb7483c66f557a610ed960e6a19db5da71feeecbe7480d656ffcfc313c24a55",
+    "tuned.yaml": "397a87a8b8084667dc13de0349a669950945c5944282fd221d29f0a73dcb85c8"
+  },
+  "lockfile": {
+    "uv.lock": "69a6cb7f3204511d66f41cac6073f3a6c0016ac72f927109be52800bcdcdc4da"
+  },
+  "data_manifests": {
+    "data/00_raw": "fa145b6133eb0720a2575103767ce07c3f49c7257475506dbf54101cffcce607",
+    "data/01_staged": "539170aeb6306b79afa221dbe57bc8ef340a8a6f03c51f92c9143fdb1f823988",
+    "data/01_staged/retail": "8d208fcb902eab5ebf6a09a6a4a133294f6a19f6f3d43b616dc8aa06b7f6936c",
+    "data/02_clean": "11534b8fb7f5e4234241e535bb92435cf952a65397915ab059b4c7ed6e29899b",
+    "data/02_clean/prices": "ce66e8467dcfe339200ff1966973b27c3eca413a25d5f6cfdb9221b6e65a9249",
+    "data/02_clean/retail": "7a94fb294944fe910549e75604263e8952f2f847afcb9189e5121fa763ac5206",
+    "data/03_series": "b2b8522399c397b98a89e00fcf5fa38d517d8543c22e07ec3dcb6649310d764b",
+    "data/03_series/price_links": "ebddc09f36f21faa2acb968f0d08c9623eb834deb94976f5b312b1e3d9be0026"
+  },
+  "sealed_test_panel": "3ac3bb6de81cca33920263c94181d67ad2778dfe2bdfde07c18a71ac65217368",
+  "pretrained": {
+    "chronos_zero_shot": {
+      "repo": "amazon/chronos-bolt-small",
+      "revision": "772f3d25d38aec6d914c8949dab4462e2d46f5d8",
+      "files": {
+        "config.json": "9ca0ebbe049ccebacb0546361e8aa728f0cf104cd18d1838d78d296aa317bd21",
+        "model.safetensors": "06a6a19bbe74bc10a9cd193bd4bf2bf638ae07f7e0d51653ae7ab8ea968a21dd"
+      }
+    },
+    "chronos_fine_tuned": {
+      "repo": "amazon/chronos-bolt-small",
+      "revision": "772f3d25d38aec6d914c8949dab4462e2d46f5d8",
+      "files": {
+        "config.json": "9ca0ebbe049ccebacb0546361e8aa728f0cf104cd18d1838d78d296aa317bd21",
+        "model.safetensors": "06a6a19bbe74bc10a9cd193bd4bf2bf638ae07f7e0d51653ae7ab8ea968a21dd"
+      }
+    }
+  },
+  "reconciliation": {
+    "receipts": 1151,
+    "receipts_reconciled": 1151,
+    "max_receipt_gap": 0.005000000001018634,
+    "vecinos_blocks": {
+      "match": 564,
+      "mismatch": 1,
+      "no_total_row": 1,
+      "total_not_numeric": 1
+    }
+  },
+  "development_runs": {
+    "hyperparameter_search-monthly": "20261024T185418Z-monthly-tuning",
+    "hyperparameter_search-weekly": "20261024T184717Z-weekly-tuning",
+    "internal_validation-monthly": "20261024T151231Z-monthly-validation",
+    "internal_validation-monthly-expanding": "20261026T050302Z-monthly-validation-expanding",
+    "internal_validation-monthly-full": "20261026T045600Z-monthly-validation",
+    "internal_validation-monthly-truncated": "20261026T050111Z-monthly-validation-truncated",
+    "internal_validation-weekly": "20261024T153911Z-weekly-validation",
+    "internal_validation-weekly-expanding": "20261026T042353Z-weekly-validation-expanding",
+    "internal_validation-weekly-full": "20261026T041019Z-weekly-validation",
+    "internal_validation-weekly-truncated": "20261026T041826Z-weekly-validation-truncated",
+    "inventory_simulation-monthly": "20261026T045106Z-monthly-inventory",
+    "inventory_simulation-weekly": "20261026T043607Z-weekly-inventory",
+    "monthly": "20261026T050744Z-monthly",
+    "weekly": "20261026T044413Z-weekly"
+  },
+  "checks": [
+    {
+      "name": "configs_frozen",
+      "passed": true,
+      "detail": "all frozen"
+    },
+    {
+      "name": "data_manifests",
+      "passed": true,
+      "detail": "all outputs match"
+    },
+    {
+      "name": "pretrained_weights",
+      "passed": true,
+      "detail": "2 pinned and cached"
+    },
+    {
+      "name": "reconciliation",
+      "passed": true,
+      "detail": "receipts 1151/1151; vecinos blocks matching 564/567 (exceptions reported)"
+    },
+    {
+      "name": "test_span_unused",
+      "passed": true,
+      "detail": "no record used the test span"
+    },
+    {
+      "name": "commit",
+      "passed": true,
+      "detail": "checked out fc96b666ae3339ef240fc6fef7508ccef01003ec, given fc96b666ae3339ef240fc6fef7508ccef01003ec"
+    }
+  ],
+  "test_span_used": false,
+  "environment": {
+    "python": "3.14.9",
+    "implementation": "CPython",
+    "system": "Darwin",
+    "release": "27.0.0",
+    "machine": "arm64",
+    "processor": "arm",
+    "cpu_count": 10,
+    "memory_total_gb": 16.0,
+    "in_container": false,
+    "packages": {
+      "pcsforecast": "0.1.0",
+      "numpy": "2.5.4",
+      "pandas": "3.0.6",
+      "pyarrow": "26.0.0",
+      "pydantic": "2.14.1",
+      "pandera": "0.34.1",
+      "statsforecast": null,
+      "mlforecast": null,
+      "lightgbm": "4.7.0",
+      "scikit-learn": null,
+      "torch": "2.14.1",
+      "chronos-forecasting": "2.3.2",
+      "scipy": "1.18.1"
+    }
+  }
+}

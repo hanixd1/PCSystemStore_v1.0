@@ -1,4 +1,5 @@
-export type ProductImportCategoryGroup = 'COMPONENTES' | 'ORDENADORES' | 'PERIFERICOS' | 'AUDIO';
+export type ProductImportCategoryGroup =
+  'COMPONENTES' | 'ORDENADORES' | 'PERIFERICOS' | 'AUDIO' | 'PROTECCION';
 
 export type ProductImportAction = 'create' | 'update';
 export type ProductImportRowStatus = 'valid' | 'invalid';
@@ -55,4 +56,6 @@ export type PreparedImportRow = {
 
 export type PreparedImport = ProductImportPreviewResult & {
   preparedRows: PreparedImportRow[];
+  /** Images of the ZIP, decompressed (and signature-checked) once, by normalized file name. */
+  zipImages: Map<string, Buffer>;
 };

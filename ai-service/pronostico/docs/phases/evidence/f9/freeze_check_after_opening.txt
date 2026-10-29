@@ -1,0 +1,5 @@
+OK    configs_frozen       all frozen
+OK    data_manifests       all outputs match
+OK    pretrained_weights   2 pinned and cached
+OK    reconciliation       receipts 1151/1151; vecinos blocks matching 564/567 (exceptions reported)
+TODO  test_span_unused     test span used by: outputs/runs/20261026T215847Z-weekly-test/run.json, outputs/runs/20261026T220258Z-weekly-test-truncated/run.json, outputs/runs/20261026T220603Z-weekly-test-expanding/run.json, outputs/runs/20261026T221437Z-weekly-test-inventory/run.json, outputs/runs/20261026T222639Z-monthly-test/run.json, outputs/runs/20261026T222957Z-monthly-test-truncated/run.json, outputs/runs/20261026T223128Z-monthly-test-expanding/run.json, outputs/runs/20261026T223529Z-monthly-test-inventory/run.json, outputs/stats/20261026T222639Z-weekly-test/stats.json, outputs/stats/20261026T224039Z-monthly-test/stats.json

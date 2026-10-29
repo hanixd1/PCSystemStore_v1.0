@@ -77,6 +77,63 @@ describe('ProductsService update specs', () => {
     expect(parseBooleanLike(input)).toBe(expected);
   });
 
+  it('lee y devuelve todas las tablas de specs al actualizar', async () => {
+    const { service, prisma } = createService(createCpuProduct());
+
+    await service.update('cpu-1', { stock: 5 });
+
+    const fullInclude = (service as any).productInclude;
+    expect(Object.keys(fullInclude)).toHaveLength(26);
+    expect(prisma.product.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ include: fullInclude }),
+    );
+    expect(prisma.product.update).toHaveBeenCalledWith(
+      expect.objectContaining({ include: fullInclude }),
+    );
+  });
+
+  it.each([
+    ['RAM', 'ramSpecs'],
+    ['GPU', 'gpuSpecs'],
+    ['PSU', 'psuSpecs'],
+    ['CASE', 'caseSpecs'],
+    ['SOFTWARE', 'softwareSpecs'],
+  ])('audita cambios de specs de %s', (category, relation) => {
+    const { service } = createService(createCpuProduct());
+    const logs = (service as any).collectSpecProductChangeLogs(
+      { category, [relation]: { capacity: 8 } },
+      { category, name: 'Producto', [relation]: { capacity: 16 } },
+    );
+    expect(logs).toEqual([expect.objectContaining({ action: 'UPDATE_PRODUCT_SPECS' })]);
+  });
+
+  it('borra de Cloudinary las imagenes quitadas que ningun otro producto usa', async () => {
+    const current = createCpuProduct({ images: ['keep.png', 'shared.png', 'gone.png'] });
+    const { prisma } = createService(current);
+    const cloudinary = { deleteImagesByUrl: jest.fn(async () => undefined) };
+    (prisma.product as any).count = jest.fn(async ({ where }: any) =>
+      where.images.has === 'shared.png' ? 1 : 0,
+    );
+    const service = new ProductsService(
+      prisma as any,
+      { log: jest.fn(async (args) => args) } as any,
+      new ProductPricingService(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      cloudinary as any,
+    );
+
+    await service.update('cpu-1', { images: ['keep.png'] });
+
+    expect(cloudinary.deleteImagesByUrl).toHaveBeenCalledWith(
+      ['gone.png'],
+      'pcsystemstore/products',
+    );
+  });
+
   it('persiste integratedGraphics e includesCooler de true a false', async () => {
     const { service, prisma } = createService(createCpuProduct());
 

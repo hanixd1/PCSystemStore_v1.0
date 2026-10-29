@@ -1,0 +1,153 @@
+# Raw sources and cleaning rules (phase F1). Every rule the code applies has an id here and
+# every application is logged with the original value. Raw files are never edited.
+# Columns G onwards of the vecinos sheets are the shop's own purchases and expenses and are never
+# read (rule R109, "row dates in column G or later", was withdrawn on 2026-10-21).
+status: frozen
+delivery_dir: datos
+
+sources:
+  - id: vecinos_daily_sheets
+    channel: vecinos
+    description: Daily sales sheets to neighbouring shops (one worksheet per day).
+    file_glob: "VENTAS_INTERNAS_*.xlsx"
+    expected_columns: [CANT, PRODUCTO, MONTO, PASE, SERIE, OBS]
+  - id: retail_receipts
+    channel: facturado
+    description: >-
+      SUNAT electronic receipts of retail sales (facturas and boletas), one PDF each, filed by
+      the owner under year/month/kind folders. Issued under the former RUC until 2025-12 and
+      under the current RUC from 2026-01.
+    file_glob: "Boletas y Facturas/**/*.pdf"
+  - id: price_list
+    channel: reference
+    description: >-
+      Distributor price list - current prices to neighbours (final customers pay somewhat more),
+      one workbook per delivery date.
+    file_glob: "LISTA DISTRIBUCION*.xlsx"
+    expected_columns: [PART NUMBER, DESCRIPCIÓN, PRECIO]
+
+# Codes written in the OBS column, grouped into movement types. Meanings were confirmed by the
+# record's owner on 2026-10-21 (docs/process/company_clarifications.md); `confirmed: false`
+# marks a type still pending confirmation.
+movement_types:
+  sale_paid:
+    codes: [PAGO, PG, P, PAGP, T]   # T = ticket, paid
+    confirmed: true
+  sale_credit:
+    codes: [DEBE]                   # credit sale, paid later
+    confirmed: true
+  return:
+    codes: [DEV, CONTR]             # CONTR: owner's best guess (old return code)
+    confirmed: true
+  warranty:
+    codes: [GARANTIA, GAR, REEMP GARANTIA]
+    confirmed: true
+  damaged:
+    codes: [DAÑADA]
+    confirmed: true
+  not_sold:
+    codes: []                       # empty OBS: taken to sell, not sold, not marked returned
+    confirmed: true
+# Movement type of a line whose OBS is empty.
+empty_code_type: not_sold
+
+rules:
+  # Sheet dates
+  - id: R101
+    description: Parse the sheet name as day-month-year after removing spaces, a trailing copy suffix "(n)" and trailing punctuation.
+    reason: Sheet names are the only date of each daily sheet.
+  - id: R102
+    description: Parse multi-day names ("dd AL dd mm-yy", "dd-dd-mm-yy") as a date range.
+    reason: Some sheets accumulate several days.
+  - id: R103
+    description: Complete a missing or malformed year from the nearest anchor sheets in workbook order.
+    reason: Names such as "16-01", "10-12-2" or "12-10-244" lack a valid year.
+  - id: R104
+    description: Swap day and month when the month is greater than 12 and the swapped date is valid.
+    reason: Typing error such as "03-25-24".
+  - id: R105
+    description: Anchors are the longest chronological run of valid, non-copy sheet dates in workbook order; other dates are checked against their neighbouring anchors.
+    reason: Detects typing errors and moved tabs without trusting any single name.
+  - id: R106
+    description: An out-of-sequence date that collides with another sheet's date is repaired with the month of a neighbouring anchor when exactly one repair fits between the anchors; otherwise the sheet gets the interval between its anchors.
+    reason: "Example: \"12-10-24\" placed between 11-01-24 and 13-01-24 while 12-10-24 exists in October."
+  - id: R107
+    description: An out-of-sequence date that collides with no other sheet is kept (moved tab), with medium confidence.
+    reason: Tabs can be reordered by hand; the name is then still the best evidence.
+  - id: R108
+    description: A copy sheet "(n)" is dated n-1 days after its name date; if that day already has its own sheet, it is dated on its name date (same day as the original).
+    reason: Confirmed by the record's owner on 2026-10-21 - copies hold the following day's sales, or else belong to the same day.
+  - id: R110
+    description: A confirmed override in configs/sheet_date_overrides.yaml replaces any inferred sheet date.
+    reason: The company confirms dates that rules cannot resolve.
+  - id: R111
+    description: Sheets with no recoverable date and no lines are excluded.
+    reason: Nothing is lost and they cannot be placed in the calendar.
+  # Lines
+  - id: R201
+    description: Rows with a quantity but no product and no amount are template rows and are excluded.
+    reason: Daily sheets are pre-filled with CANT=1 rows.
+  - id: R202
+    description: Rows with an amount but no product are excluded.
+    reason: A sale without a product cannot be assigned to a series.
+  - id: R203
+    description: Rows between a TOTAL row and the next header are excluded.
+    reason: They are outside the sales block of the sheet.
+  - id: R204
+    description: A missing quantity on a row with a product is set to 1 and flagged.
+    reason: Each such row carries one serial number or one product.
+  - id: R205
+    description: A non-numeric amount (blank text, ".") is set to missing.
+    reason: The quantity is still valid demand; the amount is unknown.
+  - id: R206
+    description: Text fields are trimmed, internal spaces collapsed, non-breaking spaces removed and upper-cased; raw values are kept next to the normalised ones.
+    reason: The same product or customer is typed with different spacing and case.
+  - id: R207
+    description: OBS codes are mapped to movement types (movement_types above); an empty OBS becomes empty_code_type and any other unmapped code becomes "unspecified".
+    reason: Returns, warranties, damaged and unsold products must be separated from gross sales.
+  - id: R208
+    description: Customer names are replaced by keyed-hash codes at extraction (pcs stage); the key and the name-to-code table exist only in data/private/ (mode 700/600).
+    reason: Confidentiality (plan 2.5.2-C, Law 29733).
+  - id: R209
+    description: Lines whose OBS holds a date instead of a code are excluded.
+    reason: Confirmed by the record's owner on 2026-10-21 - they are an order placed with a neighbour and the date is its payment date, not a sale.
+
+  # Retail receipts (facturas and boletas)
+  - id: R301
+    description: A receipt's date is its printed issue date; the year/month folder it was filed in is ignored and a mismatch is logged.
+    reason: "Filing errors: the folder 2024/Noviembre/Factura holds receipts issued in October 2024."
+  - id: R302
+    description: A receipt's kind (factura or boleta) is read from its printed title, not from its folder.
+    reason: The folder 2024/Marzo/Boleta holds facturas as well as boletas.
+  - id: R303
+    description: A receipt is identified by issuer RUC, series and number; a repeated identifier is kept once and the repetition logged.
+    reason: The same receipt may be filed twice.
+  - id: R304
+    description: "Item lines must add up to the printed totals (facturas - quantity x unit value = sale value; boletas - sale amounts = total); a receipt that does not reconcile is excluded."
+    reason: Proves that every item was read, including descriptions and items continued on a second page.
+  - id: R305
+    description: The customer's address is never read; name and DNI/RUC are read only to compute the customer code and stay in data/private/.
+    reason: Data minimisation (Law 29733); the study needs only a stable customer code and the customer type.
+  - id: R306
+    description: Customers are coded by keyed hash of their document number (DNI or RUC), or of their name when the receipt shows no document; customer kind is person (DNI, RUC 10/15/17) or company (RUC 20).
+    reason: The document number identifies a customer across name spellings.
+  - id: R307
+    description: Gaps in each series' numbering are reported as missing receipts by month (completeness); they are not imputed.
+    reason: Measures how much of the retail channel the delivered receipts cover.
+
+  # Distributor price list (reference data)
+  - id: R401
+    description: Each price-list item takes the family named by the last block heading in column A of its sheet.
+    reason: The list is organised in blocks (e.g. PROCESADORES AMD, MEMORIAS RAM PC) without a family column.
+  - id: R402
+    description: Part numbers are kept without surrounding parentheses or spaces.
+    reason: Some part numbers are written as "(920-004428)" or with a trailing space.
+  - id: R403
+    description: Items whose price is empty or 0 stay in the list (they describe products the shop sells) but are flagged has_price = false and never value anything.
+    reason: A price of 0 marks items without a current price.
+  - id: R404
+    description: Values written right of the price column are kept as text in extra_cells and not used.
+    reason: Two items carry a second number outside the table (meaning unknown).
+  - id: R405
+    description: A part number shared by several items is flagged and not used for exact part-number links.
+    reason: Colour variants and copy errors share part numbers in the list.

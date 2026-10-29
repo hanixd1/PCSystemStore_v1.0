@@ -205,7 +205,9 @@ function storageRow(overrides: Record<string, unknown> = {}) {
 function createService(existingProduct: any = null) {
   const prisma = {
     product: {
-      findUnique: jest.fn(async () => existingProduct),
+      findMany: jest.fn(async ({ where }: any) =>
+        existingProduct ? where.sku.in.map((sku: string) => ({ ...existingProduct, sku })) : [],
+      ),
     },
   };
   const productsService = {
@@ -327,6 +329,36 @@ describe('ProductImportService', () => {
 
     expect(result.totalRows).toBe(2);
     expect(result.validRows).toBe(2);
+  });
+
+  it('consulta todos los SKU del Excel en una sola query', async () => {
+    const { service, prisma } = createService();
+    await service.preview(
+      { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+      {
+        excel: [await excelFile([cpuRow(), cpuRow({ sku: 'CPU-QA-2', nombre: 'CPU QA 2' })])],
+        imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])],
+      },
+    );
+
+    expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.product.findMany.mock.calls[0][0].where.sku.in).toHaveLength(2);
+  });
+
+  it('rechaza SKU repetidos dentro del mismo Excel', async () => {
+    const { service } = createService();
+    const result = await service.preview(
+      { category: 'COMPONENTES', productType: 'Procesador (CPU)' },
+      {
+        excel: [await excelFile([cpuRow(), cpuRow({ nombre: 'CPU QA duplicado' })])],
+        imagesZip: [zipFile(['cpu.jpg', 'cpu-2.jpg'])],
+      },
+    );
+
+    expect(result.validRows).toBe(1);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ row: 3, field: 'sku', message: expect.stringContaining('fila 2') }),
+    ]);
   });
 
   it('rechaza un archivo renombrado y un libro corrupto', async () => {

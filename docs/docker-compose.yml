@@ -1,20 +1,53 @@
+# Local QA stack (production uses Railway + Neon + Cloudinary, see DEPLOYMENT.md).
+#
+#   docker compose -f docs/docker-compose.yml --env-file backend/.env up --build
+#   docker compose -f docs/docker-compose.yml --profile local-db up --build   # with PostgreSQL
+#
+# Paths are relative to this file (docs/). The forecast data is never in Git: mount the folder
+# written by `python -m pcsforecast.service.bundle` with FORECAST_DATA_DIR.
 services:
   backend:
     container_name: pcsystemstore-backend
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      PORT: ${BACKEND_PORT:-3002}
-      DATABASE_URL: ${DATABASE_URL:-}
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:-postgresql://pcsystemstore:pcsystemstore_password@postgres:5432/pcsystemstore_qa}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://pcsystemstore:pcsystemstore_password@postgres:5432/pcsystemstore_qa}
       JWT_SECRET: ${JWT_SECRET:-change-this-only-for-local-qa}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE:-python3}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+      CSRF_ALLOWED_ORIGINS: ${CSRF_ALLOWED_ORIGINS:-http://localhost:3001}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
+      AI_SERVICE_URL: http://ai-service:8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-this-only-for-local-qa}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     ports:
-      - "${BACKEND_PORT:-3002}:3002"
+      - "${BACKEND_PORT:-3000}:3000"
+    depends_on:
+      - ai-service
+    networks:
+      - pcsystemstore-network
+    restart: unless-stopped
+
+  ai-service:
+    container_name: pcsystemstore-ai-service
+    build:
+      context: ../ai-service
+      dockerfile: Dockerfile
+    environment:
+      ENVIRONMENT: ${AI_ENVIRONMENT:-production}
+      PORT: 8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change-this-only-for-local-qa}
+      FORECAST_WARM_UP: ${FORECAST_WARM_UP:-true}
+      PCS_SERVICE_SERIES: /data/forecast
+    volumes:
+      - ${FORECAST_DATA_DIR:-../ai-service/pronostico/data/service/03_series}:/data/forecast:ro
+    # Not published: only the backend calls it.
+    expose:
+      - "8000"
     networks:
       - pcsystemstore-network
     restart: unless-stopped
@@ -22,16 +55,15 @@ services:
   frontend:
     container_name: pcsystemstore-frontend
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3002}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
     environment:
-      NODE_ENV: ${NODE_ENV:-production}
-      PORT: ${FRONTEND_PORT:-3000}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3002}
+      NODE_ENV: production
+      PORT: 3000
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT:-3001}:3000"
     depends_on:
       - backend
     networks:

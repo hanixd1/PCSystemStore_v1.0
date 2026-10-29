@@ -1,5 +1,12 @@
 import request from 'supertest';
-import { closeQaApp, createQaApp, describeWithTestDb, E2eContext } from './e2e-test-utils';
+import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE } from '../../src/auth/auth-cookies';
+import {
+  closeQaApp,
+  createQaApp,
+  describeWithTestDb,
+  E2eContext,
+  getSessionCookieToken,
+} from './e2e-test-utils';
 import { qaUsers } from '../fixtures/seed-qa';
 
 describeWithTestDb('Auth HTTP E2E real', () => {
@@ -19,7 +26,8 @@ describeWithTestDb('Auth HTTP E2E real', () => {
       .send(qaUsers.customer)
       .expect(201);
 
-    expect(res.body.token).toBeTruthy();
+    expect(res.body.token).toBeUndefined();
+    expect(getSessionCookieToken(res, CUSTOMER_SESSION_COOKIE)).toBeTruthy();
     expect(res.body.user.role).toBe('CUSTOMER');
   });
 
@@ -29,7 +37,8 @@ describeWithTestDb('Auth HTTP E2E real', () => {
       .send(qaUsers.admin)
       .expect(201);
 
-    expect(res.body.token).toBeTruthy();
+    expect(res.body.token).toBeUndefined();
+    expect(getSessionCookieToken(res, ADMIN_SESSION_COOKIE)).toBeTruthy();
     expect(res.body.user.role).toBe('ADMIN');
   });
 

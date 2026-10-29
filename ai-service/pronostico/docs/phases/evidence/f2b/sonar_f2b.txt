@@ -1,0 +1,6 @@
+SonarQube 26.9 (local) - 2026-10-23 - phase F2b
+Quality gate: PASSED
+Bugs 0, vulnerabilities 0, code smells 0, security hotspots 0
+Ratings: reliability 1.0, security 1.0, maintainability 1.0 (1.0 = A)
+Coverage 98.7 %, duplication 0.0 %, 4768 lines of code
+Findings fixed during the phase: 3 regular-expression findings (operator precedence, possible backtracking), outputs verified identical after the fixes.

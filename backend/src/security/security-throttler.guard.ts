@@ -4,6 +4,11 @@ import {
   type ThrottlerLimitDetail,
   type ThrottlerRequest,
 } from '@nestjs/throttler';
+import { MEMORY_THROTTLE_PREFIX } from './hybrid-throttler.storage';
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+/** Reads under these prefixes stay on the shared PostgreSQL counters (account-related). */
+const SHARED_LIMIT_PREFIXES = ['/users', '/orders', '/payments', '/ai'];
 
 @Injectable()
 export class SecurityThrottlerGuard extends ThrottlerGuard {
@@ -14,6 +19,21 @@ export class SecurityThrottlerGuard extends ThrottlerGuard {
       return `user:${user.sub}`;
     }
     return `ip:${String(request.ip ?? 'unknown')}`;
+  }
+
+  /** Public reads are counted in memory (HybridThrottlerStorage); see its doc comment. */
+  protected generateKey(context: ExecutionContext, suffix: string, name: string): string {
+    const key = super.generateKey(context, suffix, name);
+    const request = context.switchToHttp().getRequest<{
+      method?: string;
+      originalUrl?: string;
+      url?: string;
+    }>();
+    const path = String(request.originalUrl ?? request.url ?? '').split('?')[0];
+    const isPublicRead =
+      SAFE_METHODS.has(String(request.method ?? '').toUpperCase()) &&
+      !SHARED_LIMIT_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+    return isPublicRead ? `${MEMORY_THROTTLE_PREFIX}${key}` : key;
   }
 
   protected async handleRequest(properties: ThrottlerRequest): Promise<boolean> {

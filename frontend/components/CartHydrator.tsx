@@ -6,6 +6,7 @@ import {
   LEGACY_CART_STORAGE_KEYS,
   MAX_CART_ITEM_QUANTITY,
   type CartItem,
+  resetCartState,
   useCartStore,
 } from '@/store/useCartStore';
 import { useCustomerSession } from '@/lib/customerSession';
@@ -99,6 +100,7 @@ export default function CartHydrator() {
   const items = useCartStore((state) => state.items);
   const replaceItems = useCartStore((state) => state.replaceItems);
   const { customer, isCheckingCustomer } = useCustomerSession();
+  const lastOwnerRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (hasHydratedRef.current || isCheckingCustomer) {
@@ -212,6 +214,16 @@ export default function CartHydrator() {
     if (!hasHydratedRef.current || !canPersistRef.current || isCheckingCustomer) {
       return;
     }
+
+    // A signed-in customer's cart is never re-labelled as a guest cart: when the session goes
+    // away (expiry, 401, another tab), the cart goes with it, so the next account cannot adopt it.
+    const owner = customer?.id ?? null;
+    if (lastOwnerRef.current && lastOwnerRef.current !== owner) {
+      lastOwnerRef.current = owner;
+      resetCartState();
+      return;
+    }
+    lastOwnerRef.current = owner;
 
     try {
       window.localStorage.setItem(

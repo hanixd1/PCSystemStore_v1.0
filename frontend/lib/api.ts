@@ -7,7 +7,11 @@ const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 let csrfToken: string | null = null;
 let csrfRequest: Promise<string> | null = null;
 const CSRF_REJECTION_MESSAGE = 'Solicitud de seguridad invalida.';
-const csrfRetriedRequests = new WeakSet<object>();
+// Marker on the request config: axios copies the config on api.request(), so a WeakSet of
+// configs would not recognise the retry (custom config keys survive the copy).
+const CSRF_RETRY_FLAG = '__pcsCsrfRetried';
+type CsrfRetryConfig = { [CSRF_RETRY_FLAG]?: boolean };
+const isCsrfRetry = (config: object) => Boolean((config as CsrfRetryConfig)[CSRF_RETRY_FLAG]);
 
 function readCsrfCookie(): string | null {
   if (typeof document === 'undefined') return null;
@@ -19,10 +23,8 @@ function readCsrfCookie(): string | null {
   return raw ? decodeURIComponent(raw) : null;
 }
 
-async function getCsrfToken(): Promise<string> {
-  const cookieToken = readCsrfCookie();
-  if (cookieToken) return cookieToken;
-  if (csrfToken) return csrfToken;
+/** Always asks the API: used after a CSRF rejection, when the local cookie is not trusted. */
+async function fetchCsrfToken(): Promise<string> {
   if (!csrfRequest) {
     csrfRequest = axios
       .get<{ csrfToken: string }>(`${API_URL}/auth/csrf-token`, { withCredentials: true })
@@ -33,6 +35,13 @@ async function getCsrfToken(): Promise<string> {
   }
   csrfToken = await csrfRequest;
   return csrfToken;
+}
+
+async function getCsrfToken(): Promise<string> {
+  const cookieToken = readCsrfCookie();
+  if (cookieToken) return cookieToken;
+  if (csrfToken) return csrfToken;
+  return fetchCsrfToken();
 }
 
 function getApiConfigurationError(): string | null {
@@ -98,7 +107,13 @@ api.interceptors.request.use(async (config) => {
     return Promise.reject(new Error(configurationError));
   }
 
-  if (typeof window !== 'undefined' && MUTATING_METHODS.has(config.method?.toLowerCase() ?? '')) {
+  // A retry after a CSRF rejection already carries the token fetched from the API; reading the
+  // (possibly stale) cookie again would resend the token that was just rejected.
+  if (
+    typeof window !== 'undefined' &&
+    MUTATING_METHODS.has(config.method?.toLowerCase() ?? '') &&
+    !isCsrfRetry(config)
+  ) {
     config.headers.set('X-CSRF-Token', await getCsrfToken());
   }
   return config;
@@ -110,7 +125,7 @@ api.interceptors.response.use(
     if (typeof rotatedToken === 'string' && rotatedToken) csrfToken = rotatedToken;
     return response;
   },
-  (error) => {
+  async (error) => {
     if (axios.isAxiosError(error)) {
       // Another tab or a login may have replaced the CSRF cookie: refresh the token and retry once.
       const config = error.config;
@@ -118,10 +133,15 @@ api.interceptors.response.use(
         config &&
         error.response?.status === 403 &&
         error.response.data?.message === CSRF_REJECTION_MESSAGE &&
-        !csrfRetriedRequests.has(config)
+        !isCsrfRetry(config)
       ) {
-        csrfRetriedRequests.add(config);
+        (config as CsrfRetryConfig)[CSRF_RETRY_FLAG] = true;
         csrfToken = null;
+        try {
+          config.headers.set('X-CSRF-Token', await fetchCsrfToken());
+        } catch {
+          return Promise.reject(error);
+        }
         return api.request(config);
       }
 

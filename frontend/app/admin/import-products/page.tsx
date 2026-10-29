@@ -12,7 +12,7 @@ import {
 } from 'react-icons/fi';
 import { api, getApiErrorMessage } from '@/lib/api';
 
-type CategoryGroup = 'COMPONENTES' | 'ORDENADORES' | 'PERIFERICOS' | 'AUDIO';
+type CategoryGroup = 'COMPONENTES' | 'ORDENADORES' | 'PERIFERICOS' | 'AUDIO' | 'PROTECCION';
 type AdminAccessState = 'checking' | 'allowed' | 'denied';
 
 type ImportIssue = {
@@ -84,6 +84,7 @@ const PRODUCT_TYPES: Record<CategoryGroup, string[]> = {
     'Cables y Hub',
   ],
   AUDIO: ['Audífono / Headset', 'Micrófono', 'Parlantes'],
+  PROTECCION: ['UPS', 'Estabilizador'],
 };
 
 function buildFormData(
@@ -434,7 +435,7 @@ export default function ImportProductsPage() {
             <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-500">
               Categoria
             </span>
-            <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
               {(Object.keys(PRODUCT_TYPES) as CategoryGroup[]).map((item) => {
                 const active = category === item;
                 return (

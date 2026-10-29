@@ -2,11 +2,20 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
+import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE } from '../../src/auth/auth-cookies';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { qaUsers, resetQaDatabase, seedQaDatabase } from '../fixtures/seed-qa';
 
 export const hasDatabaseUrlTest = Boolean(process.env.DATABASE_URL_TEST?.trim());
 export const describeWithTestDb = hasDatabaseUrlTest ? describe : describe.skip;
+
+/** Session JWT from the httpOnly Set-Cookie header (the JSON body never carries it). */
+export function getSessionCookieToken(response: request.Response, cookieName: string): string {
+  const header = response.headers['set-cookie'] as unknown as string[] | string | undefined;
+  const cookies = Array.isArray(header) ? header : header ? [header] : [];
+  const cookie = cookies.find((value) => value.startsWith(`${cookieName}=`));
+  return cookie ? decodeURIComponent(cookie.slice(cookieName.length + 1).split(';')[0]) : '';
+}
 
 export type E2eContext = {
   app: INestApplication;
@@ -58,9 +67,9 @@ export async function createQaApp(): Promise<E2eContext> {
     app,
     prisma,
     tokens: {
-      admin: adminLogin.body.token,
-      editor: editorLogin.body.token,
-      customer: customerLogin.body.token,
+      admin: getSessionCookieToken(adminLogin, ADMIN_SESSION_COOKIE),
+      editor: getSessionCookieToken(editorLogin, ADMIN_SESSION_COOKIE),
+      customer: getSessionCookieToken(customerLogin, CUSTOMER_SESSION_COOKIE),
     },
   };
 }

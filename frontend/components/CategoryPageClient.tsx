@@ -145,10 +145,13 @@ const getInitialRouteFilters = (fullSlug: string, lastSlug: string) => {
   if (fullSlug === 'amd' || (['graficas', 'gpu'].includes(categorySlug) && subSlug === 'amd'))
     routeFilters.gpuChipset = 'AMD';
   if (fullSlug === 'pc-gaming') routeFilters.hasDedicatedGpu = 'true';
-  if (lastSlug === 'solido') routeFilters.storageType = 'SSD';
-  if (lastSlug === 'sata') routeFilters.storageType = 'SATA';
-  if (lastSlug === 'liquida') routeFilters.coolerType = 'AIO';
-  if (lastSlug === 'torre') routeFilters.coolerType = 'AIR';
+  // Same values as the filter dropdowns and the product form (productFiltersConfig.ts), so the
+  // selected option shows up and the API matches the stored specs.
+  if (lastSlug === 'solido') routeFilters.storageType = 'Sólido M.2';
+  // SATA is the drive interface ("generation" filter), not a storage type.
+  if (lastSlug === 'sata') routeFilters.generation = 'SATA';
+  if (lastSlug === 'liquida') routeFilters.coolerType = 'Líquida';
+  if (lastSlug === 'torre') routeFilters.coolerType = 'Torre';
 
   return routeFilters;
 };
@@ -291,6 +294,10 @@ export default function CategoryPage() {
     const query = new URLSearchParams(searchParamString);
     query.set('page', shouldInterleaveCpuProducts ? '1' : query.get('page') || '1');
     query.set('limit', shouldInterleaveCpuProducts ? String(CPU_RECOMMENDED_FETCH_LIMIT) : '24');
+    // Product cards only; CPU interleaving reads the brand from cpuSpecs, so it keeps them.
+    if (!shouldInterleaveCpuProducts) {
+      query.set('view', 'card');
+    }
 
     if (shouldInterleaveCpuProducts) {
       query.delete('sortBy');

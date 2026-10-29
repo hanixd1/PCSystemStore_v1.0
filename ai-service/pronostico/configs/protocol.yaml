@@ -1,0 +1,33 @@
+# Temporal validation protocol (thesis plan v2, Table 17).
+# Status: DRAFT. Values are confirmed after the F1/F2 record audit (length and
+# continuity only) and frozen in F8 before the final test span is opened.
+status: frozen
+study_period:
+  start: 2024-01-01
+  end: 2026-09-30
+# Channel-composition break (amendment v3, D4): component shortage dated by the owner.
+structural_break: 2025-05-01
+final_test:
+  # Target dates inside the last six complete months are sealed until F9.
+  last_complete_months: 6
+frequencies:
+  weekly:
+    min_train_periods: 52
+    horizons: [1, 4]
+    origin_step: 1
+    window:
+      primary: rolling
+      length: 52
+      contrast: expanding
+    # HE3 truncated history (amendment v3): rolling window of half the primary length.
+    truncated_length: 26
+  monthly:
+    min_train_periods: 18
+    horizons: [1]
+    sensitivity_horizons: [3]
+    origin_step: 1
+    window:
+      primary: rolling
+      length: 18
+      contrast: expanding
+    truncated_length: 9

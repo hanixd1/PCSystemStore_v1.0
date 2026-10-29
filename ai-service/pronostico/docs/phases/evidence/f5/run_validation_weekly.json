@@ -1,0 +1,87 @@
+{
+  "run_id": "20261024T155307Z-weekly-validation",
+  "mode": "internal_validation",
+  "condition": "full",
+  "frequency": "weekly",
+  "window": {
+    "primary": "rolling",
+    "length": 52,
+    "contrast": "expanding"
+  },
+  "horizons": [
+    1,
+    4
+  ],
+  "min_train_periods": 52,
+  "package_version": "0.1.0",
+  "started_at": "2026-10-24T15:53:07+00:00",
+  "finished_at": "2026-10-24T15:57:09+00:00",
+  "inputs": {
+    "panel_development": "e46f16430403759494b4f551588720273b4b327e84fcc91d0f8773b59fda3456",
+    "protocol.yaml": "01dc819304f071c7a28360bdddb72d0aa97bb79f26881a79f27ab0763322fef1",
+    "models.yaml": "3bd691637f34a2a0ffafd012e8b5224ccae85652921f5d1c4ef0f408ef721c27"
+  },
+  "series": 1728,
+  "series_by_level": {
+    "category": 56,
+    "sku": 1668,
+    "total": 4
+  },
+  "series_by_channel": {
+    "facturado": 420,
+    "total": 457,
+    "total_dedup": 457,
+    "vecinos": 394
+  },
+  "origins": 60,
+  "models": [
+    "naive",
+    "ses",
+    "croston",
+    "sba",
+    "tsb",
+    "two_stage_trees",
+    "global_gbm",
+    "chronos_zero_shot"
+  ],
+  "not_implemented": [
+    "chronos_fine_tuned"
+  ],
+  "seconds_by_model": {
+    "naive": 0.218,
+    "ses": 13.341,
+    "croston": 0.395,
+    "sba": 0.393,
+    "tsb": 0.744,
+    "two_stage_trees": 95.657,
+    "global_gbm": 92.749,
+    "chronos_zero_shot": 32.369
+  },
+  "failures": [],
+  "test_span_used": false,
+  "environment": {
+    "python": "3.14.9",
+    "implementation": "CPython",
+    "system": "Darwin",
+    "release": "27.0.0",
+    "machine": "arm64",
+    "processor": "arm",
+    "cpu_count": 10,
+    "in_container": false,
+    "packages": {
+      "pcsforecast": "0.1.0",
+      "numpy": "2.5.4",
+      "pandas": "3.0.6",
+      "pyarrow": "26.0.0",
+      "pydantic": "2.14.1",
+      "pandera": "0.34.1",
+      "statsforecast": null,
+      "mlforecast": null,
+      "lightgbm": "4.7.0",
+      "scikit-learn": null,
+      "torch": "2.14.1",
+      "chronos-forecasting": "2.3.2",
+      "scipy": "1.18.1"
+    }
+  }
+}

@@ -1,0 +1,4 @@
+# Tests (CI and local); never installed in the production image.
+-r requirements.txt
+pytest
+httpx

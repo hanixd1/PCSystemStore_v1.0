@@ -1,0 +1,5 @@
+TODO  configs_frozen       still draft: catalog.yaml, data_rules.yaml, inventory.yaml, models.yaml, price_links.yaml, protocol.yaml, series.yaml, sheet_date_overrides.yaml, stats.yaml, tuned.yaml, tuning.yaml
+OK    data_manifests       all outputs match
+OK    pretrained_weights   2 pinned and cached
+OK    reconciliation       receipts 1151/1151; vecinos blocks matching 564/567 (exceptions reported)
+OK    test_span_unused     no record used the test span

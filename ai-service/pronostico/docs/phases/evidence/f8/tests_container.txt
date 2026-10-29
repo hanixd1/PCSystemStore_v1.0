@@ -1,0 +1,172 @@
+docker build -t pcsforecast:dev .
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.23kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 18.7s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#3 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e done
+#3 CACHED
+
+#4 [internal] load metadata for ghcr.io/astral-sh/uv:0.13.4
+#4 ...
+
+#5 [internal] load metadata for docker.io/library/python:3.14.9-slim-trixie
+#5 DONE 3.1s
+
+#4 [internal] load metadata for ghcr.io/astral-sh/uv:0.13.4
+#4 DONE 3.5s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 176B done
+#6 DONE 0.0s
+
+#7 FROM ghcr.io/astral-sh/uv:0.13.4@sha256:9f130421e930bfbdc563c00740466603f8723158e90297d07957c2294640262b
+#7 resolve ghcr.io/astral-sh/uv:0.13.4@sha256:9f130421e930bfbdc563c00740466603f8723158e90297d07957c2294640262b done
+#7 DONE 0.0s
+
+#8 [base  1/11] FROM docker.io/library/python:3.14.9-slim-trixie@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8
+#8 resolve docker.io/library/python:3.14.9-slim-trixie@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8 done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 83.46kB done
+#9 DONE 0.0s
+
+#10 [base  2/11] COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uv /uvx /usr/local/bin/
+#10 CACHED
+
+#11 [base  3/11] WORKDIR /workspace
+#11 CACHED
+
+#12 [base  4/11] RUN apt-get update     && apt-get install --no-install-recommends -y libgomp1     && rm -rf /var/lib/apt/lists/*
+#12 CACHED
+
+#13 [base  5/11] COPY pyproject.toml uv.lock README.md ./
+#13 DONE 0.0s
+
+#14 [base  6/11] RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-install-project
+#14 0.126 Using CPython 3.14.9 interpreter at: /usr/local/bin/python3
+#14 0.127 Creating virtual environment at: /opt/venv
+#14 0.868 Installed 59 packages in 727ms
+#14 2.365 Bytecode compiled 5448 files in 1.49s
+#14 2.366  + annotated-doc==0.0.5
+#14 2.366  + annotated-types==0.8.0
+#14 2.366  + ast-serialize==0.13.1
+#14 2.366  + cffi==2.1.1
+#14 2.366  + cfgv==3.5.0
+#14 2.366  + charset-normalizer==3.5.2
+#14 2.366  + coverage==7.16.2
+#14 2.366  + cryptography==50.0.2
+#14 2.366  + distlib==0.4.4
+#14 2.366  + et-xmlfile==2.0.0
+#14 2.366  + filelock==4.2.4
+#14 2.366  + hypothesis==6.170.5
+#14 2.366  + identify==2.6.20
+#14 2.366  + iniconfig==2.3.1
+#14 2.366  + librt==0.16.0
+#14 2.366  + lightgbm==4.7.0
+#14 2.366  + markdown-it-py==4.2.0
+#14 2.366  + mdurl==0.1.2
+#14 2.366  + mypy==2.4.0
+#14 2.366  + mypy-extensions==1.1.0
+#14 2.366  + narwhals==2.27.1
+#14 2.366  + nodeenv==1.11.0
+#14 2.366  + numpy==2.5.4
+#14 2.366  + openpyxl==3.1.5
+#14 2.366  + packaging==26.3
+#14 2.366  + pandas==3.0.6
+#14 2.366  + pandas-stubs==3.0.5.260914
+#14 2.366  + pandera==0.34.1
+#14 2.366  + pathspec==1.1.1
+#14 2.366  + pdfminer-six==20260107
+#14 2.366  + pdfplumber==0.11.10
+#14 2.366  + pillow==12.3.0
+#14 2.366  + platformdirs==4.13.5
+#14 2.366  + pluggy==1.7.0
+#14 2.366  + pre-commit==4.7.0
+#14 2.366  + pyarrow==26.0.0
+#14 2.366  + pycparser==3.12
+#14 2.366  + pydantic==2.14.1
+#14 2.366  + pydantic-core==2.50.1
+#14 2.366  + pygments==2.21.0
+#14 2.366  + pypdfium2==5.14.0
+#14 2.366  + pytest==9.1.1
+#14 2.366  + pytest-cov==7.1.0
+#14 2.366  + python-dateutil==2.9.0.post0
+#14 2.366  + python-discovery==1.6.4
+#14 2.366  + pyyaml==6.0.3
+#14 2.367  + rich==15.0.0
+#14 2.367  + ruff==0.17.1
+#14 2.367  + scipy==1.18.1
+#14 2.367  + shellingham==1.5.4
+#14 2.367  + six==1.17.0
+#14 2.367  + sortedcontainers==2.4.0
+#14 2.367  + typeguard==4.6.0
+#14 2.367  + typer==0.27.3
+#14 2.367  + types-pyyaml==6.0.12.20260906
+#14 2.367  + typing-extensions==4.16.0
+#14 2.367  + typing-inspect==0.9.0
+#14 2.367  + typing-inspection==0.4.4
+#14 2.367  + virtualenv==21.14.12
+#14 DONE 2.5s
+
+#15 [base  7/11] COPY src ./src
+#15 DONE 0.0s
+
+#16 [base  8/11] RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen
+#16 0.099    Building pcsforecast @ file:///workspace
+#16 2.093       Built pcsforecast @ file:///workspace
+#16 2.095 Prepared 1 package in 1.99s
+#16 2.097 Installed 1 package in 2ms
+#16 2.191 Bytecode compiled 5448 files in 93ms
+#16 2.191  + pcsforecast==0.1.0 (from file:///workspace)
+#16 DONE 2.2s
+
+#17 [base  9/11] COPY configs ./configs
+#17 DONE 0.0s
+
+#18 [base 10/11] COPY tests ./tests
+#18 DONE 0.0s
+
+#19 [base 11/11] RUN useradd --create-home --uid 1000 pcs && chown -R pcs /workspace
+#19 DONE 0.2s
+
+#20 exporting to image
+#20 exporting layers
+#20 exporting layers 9.2s done
+#20 exporting manifest sha256:ddd8314a87d37bf782204acae6e7f072e6965d925d4d2aa2961aa714b7965ffa done
+#20 exporting config sha256:7ea4ba128ce34b945734e2e31d01382e21b784893bb6481d3831a6b46e03e7db done
+#20 exporting attestation manifest sha256:e9d94110341a2666bb2f81112d5e5389c88c20ddd9bf434e2701b54cc0963a54 done
+#20 exporting manifest list sha256:331629e2d07cc503a37d409235d6969761ecfc92555385025dfd7eef1cfb8edc done
+#20 naming to docker.io/library/pcsforecast:dev done
+#20 unpacking to docker.io/library/pcsforecast:dev
+#20 unpacking to docker.io/library/pcsforecast:dev 1.8s done
+#20 DONE 11.0s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/qf3bcq68frr2kgve3bcuy43mr
+docker run --rm pcsforecast:dev pytest -p no:cacheprovider -o addopts="-ra --strict-markers" -q
+........................................................................ [ 23%]
+........................................................................ [ 46%]
+..............s......................................................... [ 70%]
+........................................................................ [ 93%]
+...................                                                      [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/unit/test_foundation.py:185: the foundation extra is not installed
+306 passed, 1 skipped in 22.13s
+docker run --rm pcsforecast:dev pcs check-config
+OK       protocol.yaml  status=draft  sha256=01dc819304f071c7a28360bdddb72d0aa97bb79f26881a79f27ab0763322fef1
+OK       inventory.yaml  status=draft  sha256=8d08adc2c52ab03db8788e38de4b1b2a9e06585f56fd587b1055833a64ad0386
+OK       models.yaml  status=draft  sha256=295b46e8fae4001d25e8829ad1b195d1a567fa5df09a75590a3acd1affe0a79b
+OK       data_rules.yaml  status=draft  sha256=a7e3a5a1ed0619f10b1635f7969eb938abc80dede4baa29f07b27740d0d45167
+OK       sheet_date_overrides.yaml  status=draft  sha256=58d35561a61926aa756f9fc6e821be23960a47783601347a4c1ffbf5516a2c6c
+OK       catalog.yaml  status=draft  sha256=fd4da59ef7ab00d02b09aedb820ca9496e1a1b09a8c1d9d8788b98972a8c774b
+OK       series.yaml  status=draft  sha256=0fc61648983128e9b34bcac2a24f5cefb2553694ff96fb8b98f6f11754b3d8be
+OK       price_links.yaml  status=draft  sha256=b9b949883252acd880d2ee66151471bb9eb642745e899f9c1655d33497f4d940
+OK       stats.yaml  status=draft  sha256=e879c02f9fa7852861915c90a2fe6068a8ff659b5c7caf6fb2d8dafed10769b8
+OK       tuning.yaml  status=draft  sha256=b35083102b4dbbe8e143f7cfc728090b4f5ceca7d11abbc58fd5aa4142595de0
+OK       tuned.yaml  status=draft  sha256=c7b533a81db20d0b6298b036ebb5455b50451b26f475db1c8a85d0066070f8de

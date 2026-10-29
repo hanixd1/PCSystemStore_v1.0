@@ -11,10 +11,11 @@ describe('IdempotencyService', () => {
             return records.find((record) => record.id === where.id) ?? null;
           }
 
-          const key = where.key_route_method;
+          const key = where.userScope_key_route_method;
           return (
             records.find(
               (record) =>
+                (record.userScope ?? record.userId ?? 'anonymous') === key.userScope &&
                 record.key === key.key &&
                 record.route === key.route &&
                 record.method === key.method,
@@ -24,6 +25,7 @@ describe('IdempotencyService', () => {
         create: jest.fn(async ({ data }: any) => {
           const existing = records.find(
             (record) =>
+              record.userScope === data.userScope &&
               record.key === data.key &&
               record.route === data.route &&
               record.method === data.method,
@@ -43,6 +45,19 @@ describe('IdempotencyService', () => {
           const index = records.findIndex((record) => record.id === where.id);
           records[index] = { ...records[index], ...data };
           return records[index];
+        }),
+        updateMany: jest.fn(async ({ where, data }: any) => {
+          const index = records.findIndex(
+            (record) =>
+              record.id === where.id &&
+              record.status === where.status &&
+              (record.lockedAt?.getTime?.() ?? null) === (where.lockedAt?.getTime?.() ?? null),
+          );
+          if (index < 0) {
+            return { count: 0 };
+          }
+          records[index] = { ...records[index], ...data };
+          return { count: 1 };
         }),
         deleteMany: jest.fn(async ({ where }: any) => {
           const initialLength = records.length;
@@ -144,6 +159,7 @@ describe('IdempotencyService', () => {
       userId: 'user-1',
       requestHash: service.buildRequestHash({ orderId: 'order-1' }, 'user-1'),
       status: 'PROCESSING',
+      lockedAt: new Date(),
       expiresAt: new Date(Date.now() + 60000),
     });
 
@@ -158,6 +174,100 @@ describe('IdempotencyService', () => {
         handler: jest.fn(),
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  const runOrder = (service: any, userId: string, handler: jest.Mock) =>
+    service.run({
+      key: 'shared-key',
+      route: '/orders',
+      method: 'POST',
+      body: { items: [{ productId: 'p1', quantity: 1 }] },
+      userId,
+      successStatusCode: 201,
+      handler,
+    });
+
+  it('la misma clave de dos usuarios distintos no colisiona', async () => {
+    const { service } = createService();
+    const handler = jest.fn(async () => ({ id: 'order' }));
+
+    const first = await runOrder(service, 'user-1', handler);
+    const second = await runOrder(service, 'user-2', handler);
+
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect([first.replayed, second.replayed]).toEqual([false, false]);
+  });
+
+  it('una clave expirada se procesa de nuevo en lugar de devolver la respuesta antigua', async () => {
+    const { records, service } = createService();
+    records.push({
+      id: 'idem-expired',
+      key: 'shared-key',
+      route: '/orders',
+      method: 'POST',
+      userId: 'user-1',
+      userScope: 'user-1',
+      requestHash: 'otra-solicitud',
+      status: 'COMPLETED',
+      responseBody: { id: 'old-order' },
+      lockedAt: new Date('2026-01-01T00:00:00.000Z'),
+      expiresAt: new Date(Date.now() - 1000),
+    });
+    const handler = jest.fn(async () => ({ id: 'new-order' }));
+
+    const result = await runOrder(service, 'user-1', handler);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ replayed: false, body: { id: 'new-order' } });
+    expect(records[0].status).toBe('COMPLETED');
+  });
+
+  it('recupera un lock PROCESSING vencido de la misma solicitud', async () => {
+    const { records, service } = createService();
+    const body = { items: [{ productId: 'p1', quantity: 1 }] };
+    records.push({
+      id: 'idem-stale',
+      key: 'shared-key',
+      route: '/orders',
+      method: 'POST',
+      userId: 'user-1',
+      userScope: 'user-1',
+      requestHash: service.buildRequestHash(body, 'user-1'),
+      status: 'PROCESSING',
+      lockedAt: new Date(Date.now() - 10 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    const handler = jest.fn(async () => ({ id: 'order-retry' }));
+
+    const result = await runOrder(service, 'user-1', handler);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(result.replayed).toBe(false);
+  });
+
+  it('una peticion tardia no pisa el resultado del intento que reclamo su lock', async () => {
+    const { records, service } = createService();
+    let releaseFirst!: () => void;
+    const firstHandler = jest.fn(
+      () =>
+        new Promise<{ id: string }>((resolve) => {
+          releaseFirst = () => resolve({ id: 'order-late' });
+        }),
+    );
+    const first = runOrder(service, 'user-1', firstHandler);
+    await new Promise((resolve) => setImmediate(resolve));
+    // The first request hangs past the lock TTL; a retry reclaims the key and completes.
+    records[0].lockedAt = new Date(Date.now() - 10 * 60 * 1000);
+    await runOrder(
+      service,
+      'user-1',
+      jest.fn(async () => ({ id: 'order-retry' })),
+    );
+
+    releaseFirst();
+    await first;
+
+    expect(records[0]).toMatchObject({ status: 'COMPLETED', responseBody: { id: 'order-retry' } });
   });
 
   it('prepara limpieza de claves expiradas', async () => {

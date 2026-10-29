@@ -505,8 +505,8 @@ function MousepadSpecs() {
   return (
     <>
       <BrandSelect options={C.MOUSEPAD_BRANDS} />
-      <NumberField name="widthCm" label="Ancho (mm)" placeholder="Ej: 900" />
-      <NumberField name="lengthCm" label="Largo (mm)" placeholder="Ej: 400" />
+      <NumberField name="widthCm" label="Ancho (cm)" placeholder="Ej: 90" />
+      <NumberField name="lengthCm" label="Largo (cm)" placeholder="Ej: 40" />
       <BooleanField name="hasLed" label="Tiene LEDs" />
     </>
   );

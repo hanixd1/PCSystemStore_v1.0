@@ -1,0 +1,45 @@
+# Model families to compare (thesis plan v2, Table 20).
+# Declared configuration of every model (candidate 0 of the search). Hyperparameter grids and
+# budgets are in tuning.yaml; the selection (`pcs tune`) is in tuned.yaml. All frozen in F8.
+status: frozen
+families:
+  baseline:
+    - name: naive
+    - name: ses                     # alpha chosen on the training window (grid 0.05-0.95)
+  intermittent:
+    - name: croston
+      params: {alpha: 0.1}
+    - name: sba
+      params: {alpha: 0.1}
+    - name: tsb
+      params: {alpha_d: 0.1, alpha_p: 0.1}
+  machine_learning:
+    - name: two_stage_trees
+      params: {seed: 20260101}      # LightGBM seed (deterministic mode, 2 threads; ADR-0005)
+    - name: global_gbm
+      params: {seed: 20260101}
+  pretrained:
+    - name: chronos_zero_shot
+      # Chronos-Bolt small (48M parameters, Apache-2.0), weights pinned to a revision (F5).
+      # Needs `uv sync --extra foundation`; without it the model is reported as not available.
+      hf_repo: amazon/chronos-bolt-small
+      hf_revision: 772f3d25d38aec6d914c8949dab4462e2d46f5d8
+      params: {batch_size: 256}
+    - name: chronos_fine_tuned
+      # Light fine-tuning of the same pinned weights (Table 20, "Ajuste ligero"): AdamW on the
+      # model's quantile loss over windows of the training histories; the last `horizon` periods
+      # of every history are reserved as internal validation and the best checked step is kept
+      # (step 0 = zero-shot weights). Refitted every quarter with the histories of that origin.
+      hf_repo: amazon/chronos-bolt-small
+      hf_revision: 772f3d25d38aec6d914c8949dab4462e2d46f5d8
+      params:
+        batch_size: 256
+        learning_rate: 1.0e-5
+        max_steps: 1000
+        train_batch: 32
+        eval_every: 25
+        patience: 4
+        seed: 20261024
+      params_by_frequency:
+        weekly: {refit_every: 13, min_context: 13}
+        monthly: {refit_every: 3, min_context: 6}

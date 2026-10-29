@@ -1,0 +1,4 @@
+OK       protocol.yaml  status=draft  sha256=b1d8eae9a829597e65bc24bc22a249df7d11d4a3f8aeddabc27462d55a8b0a1d
+OK       inventory.yaml  status=draft  sha256=8d08adc2c52ab03db8788e38de4b1b2a9e06585f56fd587b1055833a64ad0386
+OK       models.yaml  status=draft  sha256=8b4dd92a73bbb1048ca357ef61b4c3165be228d52be1ce77c9ac313f577e7ccc
+OK       data_rules.yaml  status=draft  sha256=4fcd16fc6ace70f74437d431296b6f61736a90cb8b7552540fc655729bcd578c

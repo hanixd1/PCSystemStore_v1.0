@@ -1,0 +1,19 @@
+# Inventory simulation scenarios (thesis plan v2, Table 21).
+# Experimental assumptions, not company data.
+status: frozen
+policy: periodic_review_order_up_to   # (R, S)
+review_period: 1
+lead_time:
+  primary: 1
+  sensitivity: [2]
+fill_rate_target:
+  primary: 0.95
+  sensitivity: [0.90, 0.99]
+initial_stock: target_level_at_first_origin
+lost_sales_valuation:
+  primary: price_known_at_origin
+  sensitivity: mean_training_price
+safety_stock:
+  # Smallest non-negative margin on this grid that reaches the fill-rate target
+  # on internal-validation origins; then fixed for the final test.
+  grid_multipliers: [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0]

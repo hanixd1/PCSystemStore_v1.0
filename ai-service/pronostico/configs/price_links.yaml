@@ -1,0 +1,56 @@
+# Linking product texts (vecinos catalog, retail receipts) to the distributor price list
+# (phase F2b). These settings affect only the links, never the SKU keys or the series.
+status: frozen
+
+# Token replacements for linking: the price list writes products in full ("DISCO SOLIDO
+# WESTERN DIGITAL"), the sales records often abbreviate ("SSD WD").
+synonyms:
+  SSD: SOLIDO
+  WD: WESTERN
+  WESTER: WESTERN
+  TEAMGROUP: TEAM
+  AURICULARES: AUDIFONO
+  AUDIFONOS: AUDIFONO
+  AUFIFONOS: AUDIFONO
+  PLACA: MOTHERBOARD
+  CASTE: CASE
+  GABINETE: CASE
+  NEGRO: BLACK
+  BLANCO: WHITE
+  AZUL: BLUE
+  ROJO: RED
+  SATA3: SATA
+  SATAIII: SATA
+
+# Words that do not tell products apart.
+stopwords: [DE, CON, Y, EL, LA, PARA, DISCO, UNIDAD, CABLE]
+
+# Texts that are not one list product (whole computers, services): never linked.
+excluded_patterns: ['^COMPUTADORA\b', '^PC\b', '^EQUIPO\b', '^(MANTENIMIENTO|SERVICIO|ENSAMBLE|ARMADO)\b']
+
+# A part number counts when its letters and digits (at least this many) appear inside the text.
+min_part_number_length: 5
+# Token link: share of the text's token weight found in the list item (model codes such as SN350
+# or 500GB weigh 2, words 1, specifications such as GEN3 or 3200MHZ 0.5) and every model code of
+# the text must be in the item.
+min_link_score: 0.8
+# Weaker matches are listed for the owner's review only; never used to value anything.
+min_candidate_score: 0.6
+# The best item must beat the next one by this margin, unless the tied items share one price.
+min_margin: 0.1
+# Manufacturers: when a text names one, the linked item must name the same one (after synonyms).
+brands: [ACER, ADATA, AEROCOOL, AMD, ANTRYX, AOC, APACER, ASROCK, ASUS, AULA, BIOSTAR, CABLETIME,
+          CDP, CORSAIR, COUGAR, CRUCIAL, CYBERTEL, DAHUA, DEEPCOOL, DELL, EPSON, EVGA, FIFINE,
+          FORZA, GALAX, GENIUS, GIGABYTE, HALION, HAVIT, HIKVISION, HP, HYPERX, INNO3D, INTEL,
+          KINGSPEC, KINGSTON, LENOVO, LEXAR, LG, LOGITECH, MICRON, MICRONICS, MSI, NETAC, NZXT,
+          PALIT, PATRIOT, PNY, POWERCOLOR, RAZER, REDRAGON, SAMSUNG, SANDISK, SAPPHIRE, SEAGATE,
+          TEAM, TEROS, THERMALTAKE, TOSHIBA, VIEWSONIC, WESTERN, XFX, XPG, ZOTAC]
+# Attributes that exclude each other: a text naming one is never linked to an item naming another.
+exclusive_groups:
+  - [SATA, NVME]
+  - [DDR3, DDR4, DDR5]
+  - [SODIMM, DIMM]
+  - [WIRED, WIRELESS]
+  - [ATX, MATX, ITX]
+  - [RED, BLUE, BROWN]            # keyboard switches (and colours)
+  - [BLACK, WHITE, GREEN, PINK, PURPLE, GRAY]

@@ -1,89 +1,119 @@
 # PCSystemStore AI Service
 
-Microservicio FastAPI modular para PCSystemStore. Contiene tres dominios separados:
+Microservicio FastAPI de PCSystemStore. Un solo proceso (`uvicorn main:app`) sirve dos modulos
+separados:
 
-- `chatbot`: asistente comercial Puchi basado en reglas y catalogo real.
-- `stock_prediction`: analisis predictivo inicial de riesgo de quiebre de stock.
-- `statistics`: estructura inicial para analitica del panel admin.
+- `chatbot/`: asistente comercial Puchi basado en reglas y catalogo real (`/chat`).
+- `pronostico/`: sistema de pronostico de demanda de la tesis (paquete `pcsforecast`), con su
+  capa de produccion `pcsforecast/service` montada en `/forecast`.
 
 ## Estructura
 
 ```text
 ai-service/
-|-- main.py
-|-- core/
-|   `-- config.py
-|-- routers/
-|   |-- chatbot.py
-|   |-- statistics.py
-|   `-- stock_prediction.py
-|-- schemas/
-|   |-- chatbot_schema.py
-|   |-- statistics_schema.py
-|   |-- stock_prediction_schema.py
-|   `-- prediction_schema.py
-`-- services/
-    |-- chatbot_service.py
-    |-- statistics_service.py
-    `-- stock_prediction_service.py
+|-- main.py                 # monta /chat y /forecast
+|-- core/config.py
+|-- chatbot/
+|   |-- router.py
+|   |-- schemas.py
+|   |-- service.py
+|   `-- tests/
+|-- pronostico/             # proyecto de la tesis (parte del monorepo, ver su README)
+|   |-- src/pcsforecast/service/   # capa de produccion (F11)
+|   |-- data/service/03_series/    # series corregidas que usa el servicio (no van a Git)
+|   `-- models_cache/              # pesos de Chronos (no van a Git)
+`-- tests/                  # pruebas de las rutas HTTP
 ```
 
 ## Ejecucion local
 
-```powershell
+```bash
 cd ai-service
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements-forecast.txt   # con Chronos (PyTorch)
+# o: .venv/bin/pip install -r requirements.txt       # liviano, pronostico con SES
+.venv/bin/pip install -r requirements-dev.txt          # pytest + httpx para las pruebas
+.venv/bin/python -m pytest
+.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-`main.py` se mantiene como modulo ASGI importable y no ejecuta `uvicorn.run(...)`
-internamente. Esto evita enlazar el servicio a todas las interfaces desde el codigo y
-resuelve la alerta SonarQube `python:S8392`. Para ejecucion local se usa
-`127.0.0.1`; en despliegue, el proveedor debe indicar el comando de arranque
-correspondiente segun su runtime.
+`main.py` no ejecuta `uvicorn.run(...)` (alerta SonarQube `python:S8392`).
+
+Al arrancar, el servicio carga en segundo plano las series y el modelo (unos 15 s la primera
+vez). `FORECAST_WARM_UP=false` lo desactiva (por ejemplo en pruebas).
 
 ## Variables
 
 ```env
 ENVIRONMENT=development
 PORT=8000
-MODEL_PATH=
-FRONTEND_URL=http://localhost:3001
-BACKEND_URL=http://localhost:3000
+INTERNAL_API_KEY=                       # mismo valor que en el backend; obligatorio en produccion
+FORECAST_WARM_UP=true
+# Opcionales del pronostico:
+# PCS_PROJECT_ROOT=./pronostico          (por defecto)
+# PCS_SERVICE_SERIES=/ruta/a/03_series   (por defecto pronostico/data/service/03_series)
 ```
+
+## Seguridad
+
+- Solo el backend llama a este servicio. `/chat` y `/forecast/*` exigen la cabecera
+  `X-Internal-API-Key` con el valor de `INTERNAL_API_KEY`. Sin clave configurada solo quedan
+  abiertos si `ENVIRONMENT` es `development`, `dev`, `local` o `test`; cualquier otro valor
+  (`production`, `staging`, una errata) responde 503. `/health` es publico.
+- Sin CORS: ningun origen de navegador esta permitido.
+- `/docs`, `/redoc` y `/openapi.json` solo existen en esos mismos entornos de desarrollo. La
+  imagen Docker fija `ENVIRONMENT=production`.
+
+## Datos del pronostico en despliegue y CI
+
+`pronostico/data/` y `pronostico/outputs/` nunca van a Git. Las pruebas (`tests/conftest.py`)
+generan una tienda sintetica con `pcsforecast.service.synthetic`, asi que CI no necesita datos.
+En Railway, las series se suben a un volumen privado con
+`python -m pcsforecast.service.bundle <carpeta>` y `PCS_SERVICE_SERIES` apunta a el (ver
+`DEPLOYMENT.md`).
 
 ## Endpoints
 
 - `GET /health`
 - `POST /chat`
-- `POST /stock-prediction` (ruta canónica)
-- `POST /predict-stock` (legacy, compatibilidad hacia atrás)
-- `GET /stock-prediction/health`
-- `POST /stock-prediction/risk-score`
-- `POST /stock-prediction/batch-risk-score`
-- `GET /statistics/health`
-- `POST /statistics/summary`
+- `GET /forecast/health`
+- `GET /forecast/overview`: ultimo mes con datos y rango de meses pronosticables.
+- `GET /forecast/month?month=2026-12&threshold=150`: unidades esperadas (mediana y rango
+  80 %), probabilidad de vender al menos `threshold` unidades, de superar el mismo mes del ano
+  anterior, pronostico por categoria y productos con mayor probabilidad de venta.
+- `POST /forecast/stock-coverage`: stock por categoria web contra la demanda pronosticada
+  (probabilidad de quiebre). Lo usa el dashboard de inventario del backend.
+- `GET /forecast/research`: resultados de la prueba final de la tesis.
 
-## Motor de riesgo predictivo de stock
+Las rutas antiguas `/statistics`, `/stock-prediction` y `/predict-stock` (heuristica
+`HEURISTIC_V1`) se eliminaron.
 
-## Compatibilidad de rutas de stock
+## Modelo de pronostico
 
-`/stock-prediction` es el prefijo canónico. `/predict-stock` se mantiene como
-ruta legacy para clientes existentes y usa exactamente el mismo router y
-payloads. No debe eliminarse sin una deprecación versionada y coordinación con
-los consumidores.
+- Total y categorias: Chronos-Bolt con ajuste ligero (mejor modelo en la tesis, HE1). Los
+  pesos ajustados se generan con `python -m pcsforecast.service.fit` (unos 40 s) cada vez que
+  se actualizan las series. Sin PyTorch se usa SES con cuantiles empiricos.
+- Productos (SKU): probabilidad de vender al menos una unidad en el mes con TSB.
+- La exactitud se valido a 1 mes (3 meses como sensibilidad). Meses mas lejanos se marcan
+  como extrapolacion.
 
-La version actual usa `HEURISTIC_V1`: un scoring heuristico operativo, no un
-modelo ML entrenado. Combina presion de stock, velocidad de ventas cuando el
-backend la envia, riesgo por tiempo de reposicion y calidad de datos. Si no hay
-historico de ventas, el motor no eleva automaticamente el stock bajo a riesgo
-alto; solo lo marca como seguimiento (`WATCH`) salvo que el producto este sin
-stock.
+## Actualizar el pronostico con las ventas de la tienda web
 
-Este contrato queda preparado para reemplazar `HEURISTIC_V1` por `ML_MODEL`
-cuando exista historico suficiente para entrenamiento y validacion.
+Las series terminan en el ultimo mes de los registros de la empresa (agosto de 2026). Para que
+el modelo no se quede congelado, cada mes:
+
+1. Backend: `npm run export:web-sales -- --out=web_sales.csv` (ordenes `PAID` por mes de pago
+   en hora de Lima y categoria web; deja fuera el mes en curso; solo lectura).
+2. `cd ai-service/pronostico` y `python -m pcsforecast.service.web_sales ../../backend/web_sales.csv`
+   escribe `data/service/03_series/web/panel_web.parquet` (canal `web`, no cambia el pronostico).
+   Con `--add-to-total` las ventas web se suman al canal `total` que pronostica el servicio y los
+   meses nuevos se completan con cero en cada categoria. Usarlo solo si los registros propios de
+   esos meses no incluyen ya las ordenes web (las boletas de la web podrian estar en `facturado`).
+3. `python -m pcsforecast.service.fit` (reajusta Chronos), `python -m pcsforecast.service.precomputed`
+   (cuantiles de Chronos para servir sin PyTorch) y reiniciar el ai-service. En Railway, volver a
+   generar el bundle (`python -m pcsforecast.service.bundle`) y subirlo al volumen.
+
+Los SKU no se extienden: los productos web no estan enlazados a los SKU de la tesis.
 
 ## Ejemplo /chat
 
@@ -139,35 +169,6 @@ Response:
   "status": "ok"
 }
 ```
-
-## Ejemplo /predict-stock
-
-```json
-{
-  "products": [
-    {
-      "id": "1",
-      "name": "AMD Ryzen 5 7600X",
-      "category": "CPU",
-      "stock": 2,
-      "price": 1250,
-      "monthlySales": 8
-    }
-  ]
-}
-```
-
-## Ejemplo /statistics/summary
-
-```json
-{
-  "products": [],
-  "orders": [],
-  "sales": []
-}
-```
-
-Devuelve una estructura valida aunque no existan datos reales.
 
 La implementacion actual no usa LLM. Puchi responde con reglas, estado conversacional
 y productos enviados por el backend desde el catalogo real.

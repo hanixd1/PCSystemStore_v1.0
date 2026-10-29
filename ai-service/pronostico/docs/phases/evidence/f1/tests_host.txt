@@ -1,0 +1,25 @@
+
+Name                                         Stmts   Miss Branch BrPart  Cover   Missing
+----------------------------------------------------------------------------------------
+src/pcsforecast/__init__.py                      2      0      0      0   100%
+src/pcsforecast/audit/__init__.py                0      0      0      0   100%
+src/pcsforecast/audit/anonymize.py              31      0      8      0   100%
+src/pcsforecast/audit/cleaning.py               90      0     26      0   100%
+src/pcsforecast/audit/report.py                 61      0     18      0   100%
+src/pcsforecast/audit/run.py                    85      3     14      3    94%   46, 96, 99
+src/pcsforecast/audit/sheet_dates.py           183      0     56      1    99%   197->199
+src/pcsforecast/cli.py                          73      0     10      0   100%
+src/pcsforecast/config.py                      159      0     22      0   100%
+src/pcsforecast/ingest/__init__.py               0      0      0      0   100%
+src/pcsforecast/ingest/raw_registry.py          39      0      8      0   100%
+src/pcsforecast/ingest/vecinos_workbook.py      92      1     20      0    99%   136
+src/pcsforecast/manifest.py                     34      1      2      1    94%   63
+src/pcsforecast/paths.py                        42      0      2      0   100%
+src/pcsforecast/runtime.py                      16      0      2      0   100%
+src/pcsforecast/schemas/__init__.py              0      0      0      0   100%
+src/pcsforecast/schemas/extraction.py           90      0      0      0   100%
+----------------------------------------------------------------------------------------
+TOTAL                                          997      5    188      5    99%
+Coverage XML written to file reports/coverage.xml
+Required test coverage of 80.0% reached. Total coverage: 99.16%
+120 passed in 2.69s

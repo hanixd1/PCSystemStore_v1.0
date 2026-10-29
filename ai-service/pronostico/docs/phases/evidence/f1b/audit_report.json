@@ -1,0 +1,49 @@
+{
+  "completeness": {
+    "receipt_files": 1116,
+    "valid_receipts": 1116,
+    "excluded_by_reason": {},
+    "valid_by_kind": {
+      "factura": 580,
+      "boleta": 536
+    },
+    "item_lines": 3498,
+    "units": 4771.0,
+    "first_issue_date": "2024-01-03",
+    "last_issue_date": "2026-09-30"
+  },
+  "consistency": {
+    "receipts_reconciled_within_tolerance": 1116,
+    "max_abs_reconciliation_gap": 0.005000000001018634,
+    "tolerance": 0.05
+  },
+  "numbering": {
+    "missing_numbers_by_series": {
+      "factura E001, issuer 1 (2024-01 to 2025-12)": 297,
+      "boleta EB01, issuer 1 (2024-01 to 2025-12)": 358,
+      "factura E001, issuer 2 (2026-01 to 2026-09)": 55,
+      "boleta EB01, issuer 2 (2026-01 to 2026-09)": 106
+    },
+    "delivered_share_overall": 0.6399082568807339,
+    "gaps_spanning_two_months": 47
+  },
+  "traceability": {
+    "corrections_by_rule": {
+      "R301": 26,
+      "R302": 25
+    }
+  },
+  "confidentiality": {
+    "customers_coded": 702,
+    "customer_basis": {
+      "document": 1112,
+      "name": 4
+    },
+    "customer_kind": {
+      "person": 710,
+      "company": 402,
+      "unknown": 4
+    },
+    "addresses_read": 0
+  }
+}

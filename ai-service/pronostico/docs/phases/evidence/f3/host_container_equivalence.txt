@@ -1,0 +1,15 @@
+F2-F3 host vs container equivalence (2026-10-21)
+
+Full pipeline (register-raw → run-validation) on the real record, host (macOS, Apple M5)
+vs pcsforecast:dev (linux/aarch64), same anonymisation key:
+  03_series/catalog_texts: equal
+  03_series/catalog_skus: equal
+  03_series/calendar: equal
+  03_series/panel_development: equal
+  03_series/sealed/panel_sealed: equal
+  03_series/profile: cv2 differs in 5 of 2,240 rows by at most 1.1e-16 (1 ulp, float std);
+                     every other column and every pattern class identical. Not rounded.
+  weekly predictions: equal
+  weekly metrics: equal
+  monthly predictions: equal
+  monthly metrics: equal

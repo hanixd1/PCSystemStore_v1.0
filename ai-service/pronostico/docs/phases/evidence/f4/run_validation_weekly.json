@@ -1,0 +1,79 @@
+{
+  "run_id": "20261021T230132Z-weekly-validation",
+  "mode": "internal_validation",
+  "frequency": "weekly",
+  "window": {
+    "primary": "rolling",
+    "length": 52,
+    "contrast": "expanding"
+  },
+  "horizons": [
+    1,
+    4
+  ],
+  "min_train_periods": 52,
+  "package_version": "0.1.0",
+  "started_at": "2026-10-21T23:01:32+00:00",
+  "finished_at": "2026-10-21T23:02:18+00:00",
+  "inputs": {
+    "panel_development": "b3cbbf9e1f74758ff341cc24ae62700161d003b4e00d40f8facfdee968ebdabd",
+    "protocol.yaml": "b1d8eae9a829597e65bc24bc22a249df7d11d4a3f8aeddabc27462d55a8b0a1d",
+    "models.yaml": "ab512229b21547bbeb304c50c6e69bd3db40ced089ef940ce685cd61dae54166"
+  },
+  "series": 315,
+  "series_by_level": {
+    "category": 14,
+    "sku": 300,
+    "total": 1
+  },
+  "origins": 60,
+  "models": [
+    "naive",
+    "ses",
+    "croston",
+    "sba",
+    "tsb",
+    "two_stage_trees",
+    "global_gbm"
+  ],
+  "not_implemented": [
+    "chronos_zero_shot",
+    "chronos_fine_tuned"
+  ],
+  "seconds_by_model": {
+    "naive": 0.038,
+    "ses": 2.144,
+    "croston": 0.073,
+    "sba": 0.073,
+    "tsb": 0.134,
+    "two_stage_trees": 23.867,
+    "global_gbm": 19.507
+  },
+  "failures": [],
+  "test_span_used": false,
+  "environment": {
+    "python": "3.12.15",
+    "implementation": "CPython",
+    "system": "Darwin",
+    "release": "27.0.0",
+    "machine": "arm64",
+    "processor": "arm",
+    "cpu_count": 10,
+    "in_container": false,
+    "packages": {
+      "pcsforecast": "0.1.0",
+      "numpy": "2.5.4",
+      "pandas": "3.0.6",
+      "pyarrow": "26.0.0",
+      "pydantic": "2.14.1",
+      "pandera": "0.34.1",
+      "statsforecast": null,
+      "mlforecast": null,
+      "lightgbm": "4.7.0",
+      "scikit-learn": null,
+      "torch": null,
+      "chronos-forecasting": null,
+      "scipy": "1.18.1"
+    }
+  }
+}

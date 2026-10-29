@@ -1,0 +1,40 @@
+# Hyperparameter search on internal origins (thesis plan 2.6.3): "los hiperparámetros se elegirán
+# en orígenes internos anteriores a la prueba, con un presupuesto de búsqueda declarado".
+# Declared before the final test is opened; frozen in F8. `pcs tune` writes the selection to
+# tuned.yaml.
+status: frozen
+seed: 20261024
+# Candidates are ranked by the mean MASE over the series of `channel` and the protocol horizons
+# (pooled over the tuning origins); ties keep the earlier candidate, so the declared
+# configuration of models.yaml (always candidate 0) wins a tie.
+metric: mase
+channel: total
+frequencies:
+  weekly: {origin_stride: 4}     # 15 of the 60 development origins
+  monthly: {origin_stride: 1}    # all 8 development origins
+models:
+  croston:
+    grid: {alpha: [0.05, 0.1, 0.15, 0.2, 0.3]}
+    budget: 5
+  sba:
+    grid: {alpha: [0.05, 0.1, 0.15, 0.2, 0.3]}
+    budget: 5
+  tsb:                           # plan Table 20: alpha and beta selected on internal validation
+    grid:
+      alpha_d: [0.05, 0.1, 0.2, 0.3]
+      alpha_p: [0.05, 0.1, 0.2, 0.3]
+    budget: 16
+  two_stage_trees:
+    grid:
+      learning_rate: [0.03, 0.05, 0.1]
+      num_leaves: [7, 15, 31]
+      min_data_in_leaf: [20, 50]
+      rounds: [100, 200]
+    budget: 8
+  global_gbm:
+    grid:
+      learning_rate: [0.03, 0.05, 0.1]
+      num_leaves: [7, 15, 31]
+      min_data_in_leaf: [20, 50]
+      rounds: [100, 200]
+    budget: 8

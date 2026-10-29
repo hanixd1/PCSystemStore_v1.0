@@ -1,0 +1,52 @@
+{
+  "run_id": "20261024T185418Z-monthly-tuning",
+  "mode": "hyperparameter_search",
+  "frequency": "monthly",
+  "metric": "mase",
+  "channel": "total",
+  "origin_stride": 1,
+  "origins": 8,
+  "series_trained": 1728,
+  "series_scored": 457,
+  "candidates": {
+    "croston": 5,
+    "sba": 5,
+    "tsb": 16,
+    "two_stage_trees": 8,
+    "global_gbm": 8
+  },
+  "selected": {
+    "croston": {
+      "alpha": 0.2
+    },
+    "sba": {
+      "alpha": 0.3
+    },
+    "tsb": {
+      "alpha_d": 0.3,
+      "alpha_p": 0.3
+    },
+    "two_stage_trees": {
+      "learning_rate": 0.05,
+      "num_leaves": 15.0,
+      "min_data_in_leaf": 50.0,
+      "rounds": 100.0
+    },
+    "global_gbm": {
+      "learning_rate": 0.05,
+      "num_leaves": 31.0,
+      "min_data_in_leaf": 50.0,
+      "rounds": 200.0
+    }
+  },
+  "package_version": "0.1.0",
+  "started_at": "2026-10-24T18:54:18+00:00",
+  "finished_at": "2026-10-24T18:55:39+00:00",
+  "inputs": {
+    "panel_development": "e46f16430403759494b4f551588720273b4b327e84fcc91d0f8773b59fda3456",
+    "protocol.yaml": "01dc819304f071c7a28360bdddb72d0aa97bb79f26881a79f27ab0763322fef1",
+    "models.yaml": "5afef602f4f3434f69a0745a6610d2b37fdfebb250a6f4905598f014223007f1",
+    "tuning.yaml": "b35083102b4dbbe8e143f7cfc728090b4f5ceca7d11abbc58fd5aa4142595de0"
+  },
+  "test_span_used": false
+}

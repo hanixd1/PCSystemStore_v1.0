@@ -64,12 +64,14 @@ describe('storefront cache retirement policy', () => {
     expect(requiresNoStore('/icon.png')).toBe(false);
   });
 
-  it('keeps product detail and browser reads uncached with only a short server list cache', () => {
+  it('keeps browser reads uncached and server reads (lists and product detail) on a short cache', () => {
     expect(source('lib/catalog-server.ts')).toContain("cache: 'no-store'");
     expect(source('lib/catalog-server.ts')).toContain('revalidate: 15');
+    expect(source('lib/catalog-server.ts')).toContain('PRODUCT_DETAIL_REVALIDATE_SECONDS = 15');
     expect(source('lib/catalog-server.ts')).not.toMatch(/revalidate:\s*(?:[6-9]\d|\d{3,})/);
-    expect(source('lib/public-api.ts')).toContain("cache: 'no-store'");
-    expect(source('lib/public-api.ts')).toContain('_pcss_fresh');
+    // Always revalidated with the API (ETag -> 304), never a per-request cache buster.
+    expect(source('lib/public-api.ts')).toContain("cache: 'no-cache'");
+    expect(source('lib/public-api.ts')).not.toContain('_pcss_fresh');
   });
 
   it('persists only cart and builder references, not catalog snapshots', () => {

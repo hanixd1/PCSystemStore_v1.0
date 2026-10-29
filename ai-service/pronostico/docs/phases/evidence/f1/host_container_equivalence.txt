@@ -1,0 +1,16 @@
+F1 host vs container equivalence (2026-10-21, re-run after the second round of company clarifications)
+
+The full F1 pipeline (register-raw, stage, audit) was run on the real vecinos workbook
+(sha256 6e5ec18e84e13c3243429f5e163b30002b712b804af88b8e30d2f1a9ae19351e) on the host
+(macOS, Apple M5) and inside the pcsforecast:dev container (linux/aarch64).
+
+Compared with pandas DataFrame.equals:
+  01_staged/vecinos_sheets       equal
+  01_staged/vecinos_blocks       equal
+  01_staged/vecinos_lines        equal
+  02_clean/vecinos_sheet_dates   equal
+  02_clean/vecinos_lines         equal (same anonymisation key copied into the container run;
+                                 with a new key only customer_code differs, as designed)
+  02_clean/corrections           equal
+  02_clean/reconciliation        equal
+  02_clean/audit_report.json     equal

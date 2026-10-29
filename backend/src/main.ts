@@ -80,8 +80,11 @@ async function bootstrap() {
   );
 
   try {
-    const server = await app.listen(port, '0.0.0.0');
-    logger.log(`[BOOT] Listening on 0.0.0.0:${port}`);
+    // `::` is dual-stack: public traffic (IPv4) and Railway's private network (IPv6,
+    // `*.railway.internal`) reach the same server. HOST overrides it (e.g. 0.0.0.0).
+    const host = process.env.HOST?.trim() || '::';
+    const server = await app.listen(port, host);
+    logger.log(`[BOOT] Listening on ${host}:${port}`);
     logger.log(`Backend running at http://localhost:${port}`);
     logger.log(`[BOOT] Server address: ${JSON.stringify(server.address())}`);
     registerFatalErrorHandlers(app, logger);

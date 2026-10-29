@@ -115,6 +115,21 @@ describe('AiService chat catalog', () => {
     expect(payload.search).toMatchObject({ text: 'mouse logitech', categories: ['MOUSE'] });
   });
 
+  it('usa el precio de oferta vigente para el catalogo y el presupuesto', async () => {
+    const logitech = catalog.find((item) => item.name === 'MOUSE LOGITECH G203')!;
+    Object.assign(logitech, { isOnSale: true, salePrice: 65 });
+    try {
+      const payload = await sentPayload('mouse hasta 70 soles');
+      const names = payload.catalog.map((item: any) => item.name);
+      expect(names).toContain('MOUSE LOGITECH G203');
+      expect(payload.catalog.find((item: any) => item.name === 'MOUSE LOGITECH G203').price).toBe(
+        65,
+      );
+    } finally {
+      Object.assign(logitech, { isOnSale: false, salePrice: null });
+    }
+  });
+
   it('aplica el precio maximo pedido por el cliente', async () => {
     const payload = await sentPayload('mouse hasta 70 soles');
     expect(payload.catalog.map((item: any) => item.name)).toEqual(['MOUSE REDRAGON COBRA']);

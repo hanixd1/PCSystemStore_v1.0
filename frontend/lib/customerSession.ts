@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { create } from 'zustand';
 import { resetCartState } from '@/store/useCartStore';
 import { api } from '@/lib/api';
 
@@ -79,69 +80,88 @@ export function subscribeCustomerSession(listener: () => void) {
   };
 }
 
+type CustomerSessionState = {
+  customer: CustomerSessionUser | null;
+  isCheckingCustomer: boolean;
+};
+
+/**
+ * One session shared by every component: the header, cart, checkout and account pages read the
+ * same store, so a page load triggers a single GET /users/me instead of one per component.
+ */
+const useCustomerSessionStore = create<CustomerSessionState>(() => ({
+  customer: null,
+  isCheckingCustomer: true,
+}));
+
+let inFlightSync: Promise<void> | null = null;
+let listenersAttached = false;
+
+/** The session ended on its own (expired, revoked): its cart must not survive for the next user. */
+function clearStoredCustomer() {
+  resetCartState();
+  localStorage.removeItem('customerUser');
+  const rawUser = localStorage.getItem('user');
+  if (rawUser) {
+    try {
+      const parsedUser = JSON.parse(rawUser) as { role?: string };
+      if (parsedUser.role === 'CUSTOMER') {
+        localStorage.removeItem('user');
+      }
+    } catch {
+      localStorage.removeItem('user');
+    }
+  }
+}
+
+async function fetchCustomer() {
+  const storedCustomer = getCustomerSession();
+  if (!storedCustomer) {
+    useCustomerSessionStore.setState({ customer: null, isCheckingCustomer: false });
+    return;
+  }
+
+  try {
+    const res = await api.get('/users/me');
+    const user = res.data as CustomerSessionUser;
+    if (user.role !== 'CUSTOMER') {
+      throw new Error('Rol cliente invalido');
+    }
+
+    localStorage.setItem('customerUser', JSON.stringify(user));
+    localStorage.setItem('user', JSON.stringify(user));
+    useCustomerSessionStore.setState({ customer: user, isCheckingCustomer: false });
+  } catch {
+    clearStoredCustomer();
+    useCustomerSessionStore.setState({ customer: null, isCheckingCustomer: false });
+  }
+}
+
+/** Refresh the shared session; concurrent callers share the same request. */
+export function syncCustomerSession(): Promise<void> {
+  inFlightSync ??= fetchCustomer().finally(() => {
+    inFlightSync = null;
+  });
+  return inFlightSync;
+}
+
+function ensureCustomerSessionLoaded() {
+  if (listenersAttached || typeof window === 'undefined') {
+    return;
+  }
+  listenersAttached = true;
+  subscribeCustomerSession(() => {
+    void syncCustomerSession();
+  });
+  void syncCustomerSession();
+}
+
 export function useCustomerSession() {
-  const [customer, setCustomer] = useState<CustomerSessionUser | null>(null);
-  const [isCheckingCustomer, setIsCheckingCustomer] = useState(true);
+  const customer = useCustomerSessionStore((state) => state.customer);
+  const isCheckingCustomer = useCustomerSessionStore((state) => state.isCheckingCustomer);
 
   useEffect(() => {
-    let mounted = true;
-
-    const syncCustomer = async () => {
-      if (!mounted) {
-        return;
-      }
-
-      const storedCustomer = getCustomerSession();
-      if (!storedCustomer) {
-        setCustomer(null);
-        setIsCheckingCustomer(false);
-        return;
-      }
-
-      try {
-        const res = await api.get('/users/me');
-        if (!mounted) {
-          return;
-        }
-
-        const user = res.data as CustomerSessionUser;
-        if (user.role !== 'CUSTOMER') {
-          throw new Error('Rol cliente invalido');
-        }
-
-        localStorage.setItem('customerUser', JSON.stringify(user));
-        localStorage.setItem('user', JSON.stringify(user));
-        setCustomer(user);
-      } catch {
-        localStorage.removeItem('customerUser');
-        const rawUser = localStorage.getItem('user');
-        if (rawUser) {
-          try {
-            const parsedUser = JSON.parse(rawUser) as { role?: string };
-            if (parsedUser.role === 'CUSTOMER') {
-              localStorage.removeItem('user');
-            }
-          } catch {
-            localStorage.removeItem('user');
-          }
-        }
-        setCustomer(null);
-      } finally {
-        if (mounted) {
-          setIsCheckingCustomer(false);
-        }
-      }
-    };
-
-    void syncCustomer();
-    const unsubscribe = subscribeCustomerSession(() => {
-      void syncCustomer();
-    });
-
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
+    ensureCustomerSessionLoaded();
   }, []);
 
   return { customer, isCheckingCustomer };

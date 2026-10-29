@@ -187,8 +187,8 @@ const SPEC_FIELD_MAP: Record<string, Array<[string, string, string?]>> = {
   ],
   MOUSEPAD: [
     ['Marca', 'brand'],
-    ['Ancho', 'widthCm', 'mm'],
-    ['Largo', 'lengthCm', 'mm'],
+    ['Ancho', 'widthCm', 'cm'],
+    ['Largo', 'lengthCm', 'cm'],
     ['Tiene LEDs', 'hasLed'],
   ],
   CHAIR: [

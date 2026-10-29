@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { notifyCustomerSessionChanged } from '@/lib/customerSession';
+import { PASSWORD_MIN_LENGTH } from '@/lib/auth-policy';
 
 type ProfileForm = {
   name: string;
@@ -94,6 +95,20 @@ export default function AccountDataPage() {
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [emailVerified, setEmailVerified] = useState(true);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
+
+  const resendVerification = async () => {
+    setError('');
+    setIsResendingVerification(true);
+    try {
+      const res = await api.post('/users/resend-verification', { email: form.email });
+      setMessage(res.data?.message || 'Te enviamos un nuevo enlace de verificacion.');
+    } catch (error: unknown) {
+      setError(getApiErrorMessage(error, 'No se pudo reenviar el correo de verificacion.'));
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -208,8 +223,8 @@ export default function AccountDataPage() {
       return;
     }
 
-    if (passwordForm.newPassword.length < 6) {
-      setError('La nueva contrasena debe tener al menos 6 caracteres.');
+    if (passwordForm.newPassword.length < PASSWORD_MIN_LENGTH) {
+      setError(`La nueva contrasena debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`);
       return;
     }
 
@@ -257,7 +272,15 @@ export default function AccountDataPage() {
       ) : null}
       {!emailVerified ? (
         <p className="mt-5 rounded-xl bg-yellow-50 p-3 text-sm font-bold text-yellow-800">
-          Tu correo aún no está verificado. Revisa tu bandeja de entrada para activar tu cuenta.
+          Tu correo aún no está verificado. Revisa tu bandeja de entrada para activar tu cuenta.{' '}
+          <button
+            type="button"
+            onClick={resendVerification}
+            disabled={isResendingVerification || !form.email}
+            className="underline disabled:opacity-60"
+          >
+            {isResendingVerification ? 'Enviando...' : 'Reenviar correo'}
+          </button>
         </p>
       ) : null}
 

@@ -1,0 +1,26 @@
+{
+  "attempts": [
+    {
+      "started_at": "2026-10-26T21:58:47+00:00",
+      "commit": "2786a2035fc272d8223782f7f02ea6c39c6f57da",
+      "package_version": "0.1.0",
+      "status": "completed",
+      "finished_at": "2026-10-26T22:40:39+00:00",
+      "runs": [
+        "20261026T215847Z-weekly-test",
+        "20261026T220258Z-weekly-test-truncated",
+        "20261026T220603Z-weekly-test-expanding",
+        "20261026T221437Z-weekly-test-inventory",
+        "20261026T222639Z-monthly-test",
+        "20261026T222957Z-monthly-test-truncated",
+        "20261026T223128Z-monthly-test-expanding",
+        "20261026T223529Z-monthly-test-inventory"
+      ],
+      "stats": [
+        "20261026T222639Z-weekly-test",
+        "20261026T224039Z-monthly-test"
+      ]
+    }
+  ],
+  "status": "completed"
+}

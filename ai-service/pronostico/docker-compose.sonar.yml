@@ -1,0 +1,19 @@
+# Local SonarQube Community Build (quality gate for ISO/IEC 25010 maintainability,
+# reliability and security). Uses ~3 GB of RAM: do not run next to heavy model jobs.
+services:
+  sonarqube:
+    image: sonarqube:26.9.0.129388-community
+    container_name: pcs-sonarqube
+    ports:
+      - "127.0.0.1:9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:

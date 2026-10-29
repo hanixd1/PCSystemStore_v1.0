@@ -1,4 +1,4 @@
-import { shouldDisableStorefrontCaching } from './app.setup';
+import { getStorefrontCachePolicy, shouldDisableStorefrontCaching } from './app.setup';
 
 describe('storefront cache policy', () => {
   it.each([
@@ -13,6 +13,18 @@ describe('storefront cache policy', () => {
     ['/orders', false],
   ])('classifies GET %s', (path, expected) => {
     expect(shouldDisableStorefrontCaching('GET', path)).toBe(expected);
+  });
+
+  it.each([
+    ['/products', 'revalidate'],
+    ['/products/slug/producto', 'revalidate'],
+    ['/public/banners', 'revalidate'],
+    ['/ai/chat', 'no-store'],
+    ['/version', 'no-store'],
+    ['/version/x', null],
+    ['/orders', null],
+  ])('GET %s -> %s', (path, expected) => {
+    expect(getStorefrontCachePolicy('GET', path)).toBe(expected);
   });
 
   it('does not add storefront cache headers to mutation responses', () => {

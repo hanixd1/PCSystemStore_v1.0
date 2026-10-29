@@ -85,7 +85,7 @@ describe('proxy matcher', () => {
   it('skips static files that need no CSP nonce', () => {
     for (const path of [
       '/_next/static/chunks/app.js',
-      '/chatbot.png',
+      '/chatbot.webp',
       '/payment-methods.png',
       '/apple-touch-icon-precomposed.png',
       '/robots.txt',

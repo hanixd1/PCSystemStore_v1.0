@@ -119,8 +119,8 @@ export class ProductImportService {
       };
     }
 
-    const zip = this.readZip(this.getRequiredFile(files.imagesZip, 'ZIP de imagenes'));
-    const zipEntries = this.buildZipEntryMap(zip);
+    // The images prepareImport already decompressed and checked: the ZIP is not read again.
+    const zipEntries = prepared.zipImages;
     let created = 0;
     let updated = 0;
     let uploadedImages = 0;
@@ -233,7 +233,7 @@ export class ProductImportService {
     this.validateUploadedFiles(excelFile, zipFile);
 
     const rawRows = await this.readExcelRows(excelFile);
-    const zipEntries = this.buildZipEntryMap(this.readZip(zipFile));
+    const zipEntries = this.buildZipImages(this.readZip(zipFile));
     const missingColumns = this.getMissingColumns(rawRows, productCategory);
     const errors: ProductImportIssue[] = [];
     const warnings: ProductImportIssue[] = [];
@@ -252,18 +252,45 @@ export class ProductImportService {
     }
 
     if (missingColumns.length > 0) {
-      return this.buildPreparedResult(rawRows.length, zipEntries.size, errors, warnings, [], 0);
+      return this.buildPreparedResult(rawRows.length, zipEntries, errors, warnings, [], 0);
     }
 
-    for (let index = 0; index < rawRows.length; index += 1) {
+    const parsedRows = rawRows.map((rawRow, index) => {
       const rowNumber = index + 2;
-      const row = this.normalizeRow(rawRows[index]);
+      const row = this.normalizeRow(rawRow);
       const rowErrors: ProductImportIssue[] = [];
       const rowWarnings: ProductImportIssue[] = [];
       const payload = this.buildPayload(row, productCategory, rowNumber, rowErrors, rowWarnings);
       const imageFiles = this.resolveRowImages(row, rowNumber, zipEntries, rowErrors, rowWarnings);
+      return { rowNumber, rowErrors, rowWarnings, payload, imageFiles };
+    });
+    // One query for every SKU of the file instead of one per row.
+    const skus = [
+      ...new Set(parsedRows.map(({ payload }) => String(payload.sku ?? '')).filter(Boolean)),
+    ];
+    const existingBySku = new Map(
+      (
+        await this.prisma.product.findMany({
+          where: { sku: { in: skus } },
+          select: { id: true, sku: true },
+        })
+      ).map((product) => [product.sku, product]),
+    );
+    const firstRowBySku = new Map<string, number>();
+
+    for (const { rowNumber, rowErrors, rowWarnings, payload, imageFiles } of parsedRows) {
       const sku = String(payload.sku ?? '');
-      const existingProduct = sku ? await this.prisma.product.findUnique({ where: { sku } }) : null;
+      const repeatedAt = sku ? firstRowBySku.get(sku) : undefined;
+      if (repeatedAt !== undefined) {
+        rowErrors.push({
+          row: rowNumber,
+          field: 'sku',
+          message: `El SKU ${sku} ya aparece en la fila ${repeatedAt} del mismo Excel.`,
+        });
+      } else if (sku) {
+        firstRowBySku.set(sku, rowNumber);
+      }
+      const existingProduct = sku ? existingBySku.get(sku) : undefined;
       const action = existingProduct ? 'update' : 'create';
 
       if (existingProduct) {
@@ -323,17 +350,18 @@ export class ProductImportService {
       warnings,
       rows,
       preparedRows,
+      zipImages: zipEntries,
     };
   }
 
   private toPreviewResult(prepared: PreparedImport): ProductImportPreviewResult {
-    const { preparedRows: _preparedRows, ...preview } = prepared;
+    const { preparedRows: _preparedRows, zipImages: _zipImages, ...preview } = prepared;
     return preview;
   }
 
   private buildPreparedResult(
     totalRows: number,
-    imagesFound: number,
+    zipImages: Map<string, Buffer>,
     errors: ProductImportIssue[],
     warnings: ProductImportIssue[],
     rows: ProductImportPreviewResult['rows'],
@@ -345,12 +373,13 @@ export class ProductImportService {
       invalidRows: totalRows,
       newProducts: 0,
       productsToUpdate: 0,
-      imagesFound,
+      imagesFound: zipImages.size,
       imagesMissing,
       errors,
       warnings,
       rows,
       preparedRows: [],
+      zipImages,
     };
   }
 
@@ -500,8 +529,9 @@ export class ProductImportService {
     return zip;
   }
 
-  private buildZipEntryMap(zip: AdmZip) {
-    const entries = new Map<string, AdmZip.IZipEntry>();
+  /** Decompresses each allowed image once, checks its signature and keeps the bytes. */
+  private buildZipImages(zip: AdmZip) {
+    const entries = new Map<string, Buffer>();
     for (const entry of zip.getEntries()) {
       if (entry.isDirectory) {
         continue;
@@ -520,7 +550,7 @@ export class ProductImportService {
       }
       const fileName = normalizeZipFileName(entry.entryName);
       if (fileName) {
-        entries.set(fileName, entry);
+        entries.set(fileName, data);
       }
     }
     return entries;
@@ -956,6 +986,12 @@ export class ProductImportService {
         payload.hasRGB = this.requiredBoolean(row.rgb, 'rgb', rowNumber, errors);
         payload.color = normalizeText(row.color) || '';
         payload.connectivity = normalizeText(row.conectividad) || 'USB-A';
+        break;
+      case 'UPS':
+      case 'STABILIZER':
+        payload.brand = this.requiredText(row.marca, 'marca', rowNumber, errors);
+        payload.outletType = this.requiredText(row.tipotomas, 'tipoTomas', rowNumber, errors);
+        payload.wattage = this.requiredInteger(row.watts, 'watts', rowNumber, errors);
         break;
       case 'BACKPACK':
         payload.color = this.requiredText(row.color, 'color', rowNumber, errors);
@@ -1729,6 +1765,8 @@ export class ProductImportService {
       CABLE_HUB: { cableHubType: 'Cable', cableType: 'HDMI a HDMI', cableLengthMeters: 1 },
       LAPTOP_COOLING_BASE: { fanCount: 1, connectivity: 'USB-A' },
       BACKPACK: { color: '' },
+      UPS: { outletType: 'Solo tomas de corriente' },
+      STABILIZER: { outletType: 'Solo tomas de corriente' },
       CHAIR: { color: '', material: 'Cuero sintetico' },
       GAMING_DESK: { color: '', surface: '' },
       SOFTWARE: { licenseType: 'Permanente', platform: 'Windows' },
@@ -1740,7 +1778,7 @@ export class ProductImportService {
   private resolveRowImages(
     row: NormalizedRow,
     rowNumber: number,
-    zipEntries: Map<string, AdmZip.IZipEntry>,
+    zipEntries: Map<string, Buffer>,
     errors: ProductImportIssue[],
     warnings: ProductImportIssue[],
   ) {
@@ -1789,14 +1827,13 @@ export class ProductImportService {
     ).filter(Boolean);
   }
 
-  private async uploadRowImages(row: PreparedImportRow, zipEntries: Map<string, AdmZip.IZipEntry>) {
+  private async uploadRowImages(row: PreparedImportRow, zipEntries: Map<string, Buffer>) {
     const uploaded: string[] = [];
     for (const fileName of row.imageFiles) {
-      const entry = zipEntries.get(normalizeZipFileName(fileName) ?? '');
-      if (!entry) {
+      const buffer = zipEntries.get(normalizeZipFileName(fileName) ?? '');
+      if (!buffer) {
         throw new BadRequestException(`No se encontro la imagen ${fileName} en el ZIP.`);
       }
-      const buffer = entry.getData();
       const uploadedImage = await this.cloudinary.uploadImage(
         {
           buffer,

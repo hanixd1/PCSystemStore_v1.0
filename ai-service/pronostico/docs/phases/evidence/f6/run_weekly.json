@@ -1,0 +1,85 @@
+{
+  "run_id": "20261021T225258Z-weekly-inventory",
+  "mode": "inventory_simulation",
+  "frequency": "weekly",
+  "policy": "periodic_review_order_up_to",
+  "review_period": 1,
+  "scenarios": [
+    {
+      "lead_time": 1,
+      "target": 0.95,
+      "primary": true
+    },
+    {
+      "lead_time": 2,
+      "target": 0.95,
+      "primary": false
+    },
+    {
+      "lead_time": 1,
+      "target": 0.9,
+      "primary": false
+    },
+    {
+      "lead_time": 1,
+      "target": 0.99,
+      "primary": false
+    }
+  ],
+  "safety_stock_grid": [
+    0.0,
+    0.25,
+    0.5,
+    0.75,
+    1.0,
+    1.25,
+    1.5,
+    2.0,
+    2.5,
+    3.0
+  ],
+  "spans": "origins split in halves: calibration (first) and evaluation (second)",
+  "package_version": "0.1.0",
+  "started_at": "2026-10-21T22:52:58+00:00",
+  "finished_at": "2026-10-21T22:53:01+00:00",
+  "inputs": {
+    "panel_development": "b3cbbf9e1f74758ff341cc24ae62700161d003b4e00d40f8facfdee968ebdabd",
+    "protocol.yaml": "b1d8eae9a829597e65bc24bc22a249df7d11d4a3f8aeddabc27462d55a8b0a1d",
+    "models.yaml": "ab512229b21547bbeb304c50c6e69bd3db40ced089ef940ce685cd61dae54166",
+    "inventory.yaml": "8d08adc2c52ab03db8788e38de4b1b2a9e06585f56fd587b1055833a64ad0386"
+  },
+  "series": 315,
+  "models": [
+    "naive",
+    "ses",
+    "croston",
+    "sba",
+    "tsb"
+  ],
+  "test_span_used": false,
+  "environment": {
+    "python": "3.12.15",
+    "implementation": "CPython",
+    "system": "Darwin",
+    "release": "27.0.0",
+    "machine": "arm64",
+    "processor": "arm",
+    "cpu_count": 10,
+    "in_container": false,
+    "packages": {
+      "pcsforecast": "0.1.0",
+      "numpy": "2.5.4",
+      "pandas": "3.0.6",
+      "pyarrow": "26.0.0",
+      "pydantic": "2.14.1",
+      "pandera": "0.34.1",
+      "statsforecast": null,
+      "mlforecast": null,
+      "lightgbm": null,
+      "scikit-learn": null,
+      "torch": null,
+      "chronos-forecasting": null,
+      "scipy": null
+    }
+  }
+}

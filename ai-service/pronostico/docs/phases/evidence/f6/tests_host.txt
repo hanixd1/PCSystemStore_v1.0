@@ -1,0 +1,45 @@
+src/pcsforecast/audit/anonymize.py               31      0      8      0   100%
+src/pcsforecast/audit/cleaning.py                90      0     26      0   100%
+src/pcsforecast/audit/report.py                  61      0     18      0   100%
+src/pcsforecast/audit/run.py                     85      3     14      3    94%   46, 96, 99
+src/pcsforecast/audit/sheet_dates.py            183      0     56      1    99%   197->199
+src/pcsforecast/catalog/__init__.py               0      0      0      0   100%
+src/pcsforecast/catalog/build.py                 67      0      8      0   100%
+src/pcsforecast/cli.py                          103      0     10      0   100%
+src/pcsforecast/config.py                       206      3     24      1    98%   261-262, 290
+src/pcsforecast/evaluation/__init__.py            0      0      0      0   100%
+src/pcsforecast/evaluation/metrics.py            25      0      2      0   100%
+src/pcsforecast/ingest/__init__.py                0      0      0      0   100%
+src/pcsforecast/ingest/raw_registry.py           39      0      8      0   100%
+src/pcsforecast/ingest/vecinos_workbook.py       92      1     20      0    99%   136
+src/pcsforecast/inventory/__init__.py             0      0      0      0   100%
+src/pcsforecast/inventory/calibrator.py          18      0      6      0   100%
+src/pcsforecast/inventory/run.py                115      2     20      2    97%   171, 214
+src/pcsforecast/inventory/simulator.py           63      0     12      0   100%
+src/pcsforecast/manifest.py                      34      1      2      1    94%   63
+src/pcsforecast/models/__init__.py                0      0      0      0   100%
+src/pcsforecast/models/base.py                   12      0      4      0   100%
+src/pcsforecast/models/registry.py               16      0      0      0   100%
+src/pcsforecast/models/statistical.py            77      0     14      0   100%
+src/pcsforecast/paths.py                         42      0      2      0   100%
+src/pcsforecast/protocol/__init__.py              0      0      0      0   100%
+src/pcsforecast/protocol/origins.py              39      0      8      1    98%   52->50
+src/pcsforecast/protocol/windows.py              36      0      4      0   100%
+src/pcsforecast/reporting/__init__.py             0      0      0      0   100%
+src/pcsforecast/reporting/dashboard_data.py      84      1     12      1    98%   71
+src/pcsforecast/runner/__init__.py                0      0      0      0   100%
+src/pcsforecast/runner/engine.py                 44      0      8      0   100%
+src/pcsforecast/runner/run.py                    41      0      2      0   100%
+src/pcsforecast/runtime.py                       16      0      2      0   100%
+src/pcsforecast/schemas/__init__.py               0      0      0      0   100%
+src/pcsforecast/schemas/extraction.py            90      0      0      0   100%
+src/pcsforecast/series/__init__.py                0      0      0      0   100%
+src/pcsforecast/series/build.py                  57      0      4      0   100%
+src/pcsforecast/series/profile.py                40      0      8      0   100%
+src/pcsforecast/series/run.py                    64      0      8      0   100%
+src/pcsforecast/series/schemas.py                44      0      0      0   100%
+-----------------------------------------------------------------------------------------
+TOTAL                                          1916     11    310     10    99%
+Coverage XML written to file reports/coverage.xml
+Required test coverage of 80.0% reached. Total coverage: 99.06%
+183 passed in 4.30s

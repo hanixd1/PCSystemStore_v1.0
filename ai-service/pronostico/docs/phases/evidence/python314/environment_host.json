@@ -1,0 +1,25 @@
+{
+  "cpu_count": 10,
+  "implementation": "CPython",
+  "in_container": false,
+  "machine": "arm64",
+  "packages": {
+    "chronos-forecasting": null,
+    "lightgbm": "4.7.0",
+    "mlforecast": null,
+    "numpy": "2.5.4",
+    "pandas": "3.0.6",
+    "pandera": "0.34.1",
+    "pcsforecast": "0.1.0",
+    "pyarrow": "26.0.0",
+    "pydantic": "2.14.1",
+    "scikit-learn": null,
+    "scipy": "1.18.1",
+    "statsforecast": null,
+    "torch": null
+  },
+  "processor": "arm",
+  "python": "3.14.9",
+  "release": "27.0.0",
+  "system": "Darwin"
+}

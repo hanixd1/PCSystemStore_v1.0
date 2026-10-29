@@ -1,0 +1,10 @@
+F4 host vs container equivalence (2026-10-21)
+
+Full pipeline (register-raw → run-validation → simulate, weekly and monthly) on the real record,
+host (macOS, Apple M5) vs pcsforecast:dev (linux/aarch64), same anonymisation key:
+  weekly predictions: 110 of 257985 rows differ; max abs numeric difference 4.441e-16; models ['global_gbm', 'two_stage_trees']; non-numeric columns differing []
+  weekly metrics: 5 of 4410 rows differ; max abs numeric difference 1.776e-15; models ['global_gbm']; non-numeric columns differing []
+  weekly simulation: equal (8820 rows)
+  monthly predictions: 6 of 17640 rows differ; max abs numeric difference 2.220e-16; models ['global_gbm', 'two_stage_trees']; non-numeric columns differing []
+  monthly metrics: 1 of 2205 rows differ; max abs numeric difference 5.551e-17; models ['global_gbm']; non-numeric columns differing []
+  monthly simulation: equal (8820 rows)

@@ -20,15 +20,15 @@ import { AuditModule } from './audit/audit.module';
 import { StatisticsModule } from './statistics/statistics.module';
 import { SecurityModule } from './security/security.module';
 import { SecurityThrottlerGuard } from './security/security-throttler.guard';
-import { SecurityRateLimitStorage } from './security/security-rate-limit.storage';
+import { HybridThrottlerStorage } from './security/hybrid-throttler.storage';
 
 @Module({
   imports: [
     SecurityModule,
     ThrottlerModule.forRootAsync({
       imports: [SecurityModule],
-      inject: [SecurityRateLimitStorage],
-      useFactory: (storage: SecurityRateLimitStorage) => ({
+      inject: [HybridThrottlerStorage],
+      useFactory: (storage: HybridThrottlerStorage) => ({
         throttlers: [{ name: 'default', ttl: 60_000, limit: 100, blockDuration: 60_000 }],
         storage,
         errorMessage: 'Demasiadas solicitudes. Intenta nuevamente mas tarde.',

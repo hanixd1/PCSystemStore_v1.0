@@ -302,7 +302,7 @@ Instalar:
 * npm
 * PostgreSQL o conexión a Neon
 * Git
-* Python 3.11 o superior, opcional para AI Service
+* Python 3.12 o superior, opcional para AI Service
 * Cuenta de Cloudinary, si se probará carga real de imágenes
 
 ---

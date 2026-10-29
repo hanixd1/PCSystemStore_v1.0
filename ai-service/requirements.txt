@@ -1,10 +1,7 @@
 fastapi
 uvicorn[standard]
 pydantic
-pandas
-scikit-learn
-joblib
 python-dotenv
-pytest
-httpx
-httpx2
+# Sistema de pronostico (tesis). Sin PyTorch usa SES como respaldo; para Chronos instalar
+# requirements-forecast.txt (pesado: PyTorch + chronos-forecasting).
+-e ./pronostico

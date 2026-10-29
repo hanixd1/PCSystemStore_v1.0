@@ -1,0 +1,25 @@
+{
+  "step": "link_prices",
+  "package_version": "0.1.0",
+  "created_at": "2026-10-23T21:23:41+00:00",
+  "inputs": {
+    "configs/catalog.yaml": "17ba3b714a0571f99acd95964c2486833041272c707a6807b16ed0d54325158e",
+    "configs/price_links.yaml": "b9b949883252acd880d2ee66151471bb9eb642745e899f9c1655d33497f4d940",
+    "data/02_clean/prices/price_list.parquet": "33dc420ee3fedcfd7f461fb46a92b805b096f6dbe0952c31c73e2418304ef72b",
+    "data/02_clean/retail/retail_lines.parquet": "dfdb54ded09372917f2fb62e6fb639e79fd3d802ab43420c5275e1a2c7d52d68",
+    "data/03_series/catalog_texts.parquet": "2346579a563142089c6f9d6eefba0015cdcd74f1b3f1507c749f46f9441e15fd"
+  },
+  "outputs": {
+    "data/03_series/price_links/merge_proposals.parquet": "94475b3da72d74f00624b40d49eedf5c6627cbab8f0b1f14eb97bcb9c022e066",
+    "data/03_series/price_links/report.json": "d91ffd9f7096f88296d1d938453e1a7fcd7e0d29fe57eddf4ec6722bae6b9881",
+    "data/03_series/price_links/report.md": "2726e5edeabf2fec87a1c5260cda8d99653f7ab0ca4f371cdbab85305b501ee9",
+    "data/03_series/price_links/retail_catalog.parquet": "40adbb55b63d95259e2445ce56ac1ee70b778755d186735e262c9e8d7994730e",
+    "data/03_series/price_links/review.md": "9cc0b18ee56191de726ea6a6463c55691bfb1f1363e86673187fa0fddea27218",
+    "data/03_series/price_links/review_merges.md": "c266b426bfc7a12f89205cb2f816ce26108566e2727df269148af35e837bdec8",
+    "data/03_series/price_links/sku_prices.parquet": "bbc35250a171a9ee78d37c3d106c9748e656ad3ac7c53b8fe69f2764f5b7f776",
+    "data/03_series/price_links/text_links.parquet": "5b4c2901f86f7a862618a1703ec420c6b9ae245700b58c36a11f736f19a72727"
+  },
+  "details": {
+    "skus_with_list_price": 244
+  }
+}

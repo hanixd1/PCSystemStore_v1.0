@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { CLOUDINARY_UPLOAD_FOLDERS, CloudinaryService } from '../uploads/cloudinary.service';
 import { CreateBannerDto } from './dto/create-banner.dto';
 import { UpdateBannerDto } from './dto/update-banner.dto';
 import { UpdateBrandingDto } from './dto/update-branding.dto';
@@ -10,6 +11,7 @@ export class BrandingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Optional() private readonly cloudinary?: CloudinaryService,
   ) {}
 
   private isValidVisualUrl(value?: string) {
@@ -19,11 +21,15 @@ export class BrandingService {
     return /^https?:\/\/[^\s<>"']+$/i.test(value);
   }
 
+  /**
+   * Same-site path (`/ofertas`, never `//evil.com` or `/\evil.com`, which browsers resolve to
+   * another host) or an absolute http(s) URL. `javascript:` and other schemes never match.
+   */
   private isValidLink(value?: string) {
     if (!value) {
       return true;
     }
-    return value.startsWith('/') || /^https?:\/\/[^\s<>"']+$/i.test(value);
+    return /^\/(?![/\\])[^\s<>"'\\]*$/.test(value) || /^https?:\/\/[^\s<>"'\\]+$/i.test(value);
   }
 
   private validateBranding(data: UpdateBrandingDto) {
@@ -79,7 +85,8 @@ export class BrandingService {
       where: { id: branding.id },
       data: {
         storeName: data.storeName || branding.storeName,
-        logoUrl: data.logoUrl || null,
+        // Absent means "keep it"; an empty string removes the logo.
+        logoUrl: data.logoUrl !== undefined ? data.logoUrl || null : branding.logoUrl,
         logoAlt: data.logoAlt || data.storeName || branding.logoAlt || 'PCSystemStore',
       },
     });
@@ -180,6 +187,11 @@ export class BrandingService {
           : {}),
       },
     });
+    await this.deleteUnusedBannerImages(
+      [current.imageUrl, current.mobileImageUrl].filter(
+        (url) => url !== banner.imageUrl && url !== banner.mobileImageUrl,
+      ),
+    );
 
     if (actorId) {
       await this.audit.log({
@@ -226,6 +238,7 @@ export class BrandingService {
     this.validateEntityId(id);
     const banner = await this.ensureBannerExists(id);
     await this.prisma.homeBanner.delete({ where: { id } });
+    await this.deleteUnusedBannerImages([banner.imageUrl, banner.mobileImageUrl]);
 
     if (actorId) {
       await this.audit.log({
@@ -240,6 +253,29 @@ export class BrandingService {
     }
 
     return { message: 'Banner eliminado correctamente' };
+  }
+
+  /**
+   * Images of the banners folder that no banner shows any more. A URL can be pasted into
+   * several banners, so one still in use elsewhere is kept.
+   */
+  private async deleteUnusedBannerImages(urls: Array<string | null | undefined>) {
+    if (!this.cloudinary) {
+      return;
+    }
+    const unused: string[] = [];
+    for (const url of new Set(urls)) {
+      if (!url) {
+        continue;
+      }
+      const inUse = await this.prisma.homeBanner.count({
+        where: { OR: [{ imageUrl: url }, { mobileImageUrl: url }] },
+      });
+      if (inUse === 0) {
+        unused.push(url);
+      }
+    }
+    await this.cloudinary.deleteImagesByUrl(unused, CLOUDINARY_UPLOAD_FOLDERS.banners);
   }
 
   private async ensureBannerExists(id: string) {

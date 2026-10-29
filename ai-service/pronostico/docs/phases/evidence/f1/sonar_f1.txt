@@ -1,0 +1,15 @@
+SonarQube 26.9.0.129388 - F1 analysis (after the second round of clarifications), 2026-10-21T22:06:04Z
+Quality gate: OK
+branch_coverage: 97.3
+bugs: 0
+code_smells: 0
+cognitive_complexity: 182
+coverage: 99.2
+duplicated_lines_density: 0.0
+ncloc: 1299
+reliability_rating: 1.0
+security_hotspots: 0
+security_rating: 1.0
+sqale_rating: 1.0
+tests: 120
+vulnerabilities: 0

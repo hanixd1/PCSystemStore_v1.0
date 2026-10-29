@@ -1,8 +1,6 @@
 import { API_URL } from '@/lib/api';
 
-const FRESHNESS_QUERY_PARAM = '_pcss_fresh';
 const MAX_PUBLIC_PRODUCT_PAGE_SIZE = 60;
-let requestSequence = 0;
 
 export type PublicProductsPage<T = unknown> = {
   items?: T[];
@@ -30,15 +28,14 @@ function buildFreshPublicApiUrl(path: string): string {
   }
 
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const url = new URL(`${API_URL}${normalizedPath}`);
-  requestSequence += 1;
-  url.searchParams.set(FRESHNESS_QUERY_PARAM, `${Date.now()}-${requestSequence}`);
-  return url.toString();
+  return new URL(`${API_URL}${normalizedPath}`).toString();
 }
 
 /**
- * Public catalog reads must not use the browser HTTP cache. The unique query
- * value also protects clients while an upstream CDN cache rule is being fixed.
+ * Public catalog reads are never served stale: `cache: 'no-cache'` makes the browser ask the
+ * API every time, but with the ETag of its copy, so an unchanged answer is a `304` with no
+ * body (the API sends `private, no-cache` and forbids CDN caching). The URL is stable on
+ * purpose: a unique query value per request would defeat that revalidation.
  */
 export async function fetchFreshPublicJson<T>(
   path: string,
@@ -46,7 +43,7 @@ export async function fetchFreshPublicJson<T>(
 ): Promise<T> {
   const response = await fetch(buildFreshPublicApiUrl(path), {
     method: 'GET',
-    cache: 'no-store',
+    cache: 'no-cache',
     credentials: 'omit',
     headers: { Accept: 'application/json' },
     signal: options.signal,
@@ -69,11 +66,24 @@ export function getPublicProductItems<T>(value: PublicProductsPage<T> | T[]): T[
   return Array.isArray(value.items) ? value.items : [];
 }
 
+/** Filters accepted by GET /products, e.g. `{ categories: 'CPU,GPU' }` or `{ isOnSale: 'true' }`. */
+export type PublicProductFilters = Record<string, string>;
+
+function productsPagePath(page: number, filters: PublicProductFilters): string {
+  const params = new URLSearchParams({
+    ...filters,
+    page: String(page),
+    limit: String(MAX_PUBLIC_PRODUCT_PAGE_SIZE),
+  });
+  return `/products?${params.toString()}`;
+}
+
 export async function fetchAllFreshPublicProducts<T = unknown>(
-  options: PublicFetchOptions = {},
+  options: PublicFetchOptions & { filters?: PublicProductFilters } = {},
 ): Promise<T[]> {
+  const filters = options.filters ?? {};
   const first = await fetchFreshPublicJson<PublicProductsPage<T> | T[]>(
-    `/products?page=1&limit=${MAX_PUBLIC_PRODUCT_PAGE_SIZE}`,
+    productsPagePath(1, filters),
     options,
   );
   const firstItems = getPublicProductItems(first);
@@ -88,10 +98,7 @@ export async function fetchAllFreshPublicProducts<T = unknown>(
 
   const remaining = await Promise.all(
     Array.from({ length: totalPages - 1 }, (_, index) =>
-      fetchFreshPublicJson<PublicProductsPage<T>>(
-        `/products?page=${index + 2}&limit=${MAX_PUBLIC_PRODUCT_PAGE_SIZE}`,
-        options,
-      ),
+      fetchFreshPublicJson<PublicProductsPage<T>>(productsPagePath(index + 2, filters), options),
     ),
   );
 

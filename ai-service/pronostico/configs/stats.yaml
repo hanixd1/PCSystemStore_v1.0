@@ -1,0 +1,28 @@
+# Statistical comparison of the models (thesis plan 2.6.6, Tables 14 and 22; phase F7).
+# Declared before the final test is opened; frozen in F8.
+status: frozen
+alpha: 0.05
+# Pairs compared with Diebold-Mariano (per series) and Wilcoxon (across series): every model
+# against the naive benchmark, and the comparisons the plan singles out.
+pairs:
+  - [ses, naive]
+  - [croston, naive]
+  - [sba, naive]
+  - [tsb, naive]
+  - [two_stage_trees, naive]
+  - [global_gbm, naive]
+  - [chronos_zero_shot, naive]
+  - [chronos_fine_tuned, naive]
+  - [sba, croston]
+  - [tsb, croston]
+  - [global_gbm, two_stage_trees]
+  - [chronos_fine_tuned, chronos_zero_shot]
+# Spearman between the ranking by MASE and the ranking by fill rate (HE2 b): series-block
+# bootstrap; H1 is rho < spearman_threshold (fixed before observing the data, plan 1.5.3).
+bootstrap_resamples: 1000
+seed: 20261024
+spearman_threshold: 0.5
+channels: [total, vecinos, facturado, total_dedup]
+levels: [total, category, sku]
+# Inventory scenario of the main contrast (Table 21); the others are sensitivities.
+primary_scenario: {lead_time: 1, target: 0.95}

@@ -155,6 +155,13 @@ describe('Security (e2e)', () => {
       .useValue({
         getConnectionState: jest.fn(() => 'mocked'),
         ping: jest.fn(async () => true),
+        // Test tokens use ids like "admin-1": the account is ACTIVE with that role.
+        user: {
+          findUnique: jest.fn(async ({ where }: { where: { id: string } }) => ({
+            status: 'ACTIVE',
+            role: where.id.split('-')[0].toUpperCase(),
+          })),
+        },
       })
       .compile();
 

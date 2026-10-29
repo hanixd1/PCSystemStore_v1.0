@@ -1,4 +1,5 @@
-import { StatisticsService } from './statistics.service';
+import { PRODUCT_CATEGORIES } from '../products/dto/create-product.dto';
+import { CATEGORY_LABELS, StatisticsService } from './statistics.service';
 
 const createDecimal = (value: number) => ({ toString: () => String(value) }) as any;
 
@@ -54,12 +55,32 @@ function createService(products: any[]) {
   };
 }
 
+describe('CATEGORY_LABELS', () => {
+  it('tiene una etiqueta para cada categoria de producto', () => {
+    expect(PRODUCT_CATEGORIES.filter((category) => !CATEGORY_LABELS[category])).toEqual([]);
+  });
+});
+
+describe('StatisticsService inventory scope', () => {
+  it('excluye productos retirados o desactivados del dashboard', async () => {
+    const { service, prisma } = createService([createProduct({ stock: 0 })]);
+    delete process.env.AI_SERVICE_URL;
+
+    await service.getInventoryDashboard();
+
+    const scope = { deletedAt: null, isActive: true };
+    expect(prisma.product.count).toHaveBeenCalledWith({ where: scope });
+    expect(prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: scope }));
+  });
+});
+
 describe('StatisticsService', () => {
   const originalAiServiceUrl = process.env.AI_SERVICE_URL;
   const originalFetch = global.fetch;
 
   afterEach(() => {
     process.env.AI_SERVICE_URL = originalAiServiceUrl;
+    delete process.env.INTERNAL_API_KEY;
     global.fetch = originalFetch;
     jest.restoreAllMocks();
   });
@@ -78,7 +99,7 @@ describe('StatisticsService', () => {
       totalProducts: 3,
       outOfStockProducts: 1,
       lowStockProducts: 2,
-      riskProducts: null,
+      riskCategories: null,
       riskAvailable: false,
       estimatedInventoryValue: 650,
     });
@@ -129,62 +150,77 @@ describe('StatisticsService', () => {
     });
   });
 
-  it('combina riesgo de ai-service cuando esta disponible', async () => {
+  it('combina el riesgo por categoria del sistema de pronostico', async () => {
     process.env.AI_SERVICE_URL = 'http://ai-service.test';
-    global.fetch = jest.fn(async () => ({
+    process.env.INTERNAL_API_KEY = 'clave-interna-test';
+    const fetchMock = jest.fn(async () => ({
       ok: true,
+      status: 200,
       json: async () => ({
-        mode: 'HEURISTIC_V1',
-        summary: {
-          totalProducts: 1,
-          riskProducts: 1,
-          criticalProducts: 0,
-          insufficientDataProducts: 0,
-        },
+        month: '2026-11',
+        horizon: 3,
+        reliability: 'sensitivity',
+        model: 'chronos_fine_tuned',
+        lastObservedMonth: '2026-08',
         items: [
           {
-            productId: 'ai-risk',
-            name: 'Producto IA',
-            riskScore: 88,
-            riskLevel: 'HIGH',
-            status: 'RISK',
-            estimatedDaysToStockout: 5,
-            recommendedAction: 'Reponer pronto',
-            recommendedQuantity: 4,
-            signals: {
-              stockPressure: 70,
-              salesVelocity: 82,
-              replenishmentRisk: 80,
-              dataQuality: 90,
-            },
-            reasons: ['La rotacion reciente indica riesgo de quiebre.'],
+            category: 'cpu',
+            label: 'Procesador',
+            stock: 3,
+            forecastMedian: 12,
+            forecastP90: 20,
+            stockoutProbability: 0.9,
+            bound: 'above',
+            coverageMonths: 0.3,
+            riskLevel: 'CRITICAL',
+            suggestedReorder: 17,
           },
         ],
       }),
-    })) as any;
+    }));
+    global.fetch = fetchMock as any;
     const { service } = createService([
-      createProduct({ id: 'ai-risk', name: 'Producto IA', stock: 8 }),
+      createProduct({ id: 'cpu-a', category: 'CPU', stock: 1 }),
+      createProduct({ id: 'cpu-b', category: 'CPU', stock: 2 }),
     ]);
 
     const dashboard = await service.getInventoryDashboard();
 
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://ai-service.test/forecast/stock-coverage');
+    expect(init.headers).toMatchObject({ 'X-Internal-API-Key': 'clave-interna-test' });
+    expect(JSON.parse(String(init.body))).toEqual({ categories: [{ category: 'CPU', stock: 3 }] });
     expect(dashboard.aiStatus).toMatchObject({
       available: true,
       mode: 'AI_SERVICE',
+      model: 'chronos_fine_tuned',
     });
-    expect(dashboard.summary).toMatchObject({
-      riskProducts: 1,
-      riskAvailable: true,
+    expect(dashboard.summary).toMatchObject({ riskCategories: 1, riskAvailable: true });
+    expect(dashboard.forecastRisk?.items[0]).toMatchObject({
+      category: 'cpu',
+      riskLevel: 'CRITICAL',
     });
-    expect(dashboard.alerts[0]).toMatchObject({
-      productId: 'ai-risk',
-      alertType: 'PREDICTIVE_RISK',
-      status: 'PREDICTIVE_RISK',
-      risk: 88,
-      recommendation: 'Reponer pronto',
-      riskLevel: 'HIGH',
-      recommendedQuantity: 4,
-    });
+  });
+
+  it('responde 503 si el pronostico mensual no esta disponible', async () => {
+    delete process.env.AI_SERVICE_URL;
+    const { service } = createService([]);
+
+    await expect(service.getMonthForecast('2026-12')).rejects.toThrow(
+      'El sistema de pronostico no esta disponible',
+    );
+  });
+
+  it('propaga como 400 un mes fuera de rango del sistema de pronostico', async () => {
+    process.env.AI_SERVICE_URL = 'http://ai-service.test';
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 422,
+      json: async () => ({ detail: 'El mes debe estar entre 2026-09 y 2027-08.' }),
+    })) as any;
+    const { service } = createService([]);
+
+    await expect(service.getMonthForecast('2030-01')).rejects.toThrow('2026-09 y 2027-08');
   });
 
   it('no cuenta stock bajo como riesgo predictivo si ai-service no esta disponible', async () => {
@@ -195,7 +231,7 @@ describe('StatisticsService', () => {
 
     expect(dashboard.summary).toMatchObject({
       lowStockProducts: 1,
-      riskProducts: null,
+      riskCategories: null,
       riskAvailable: false,
     });
     expect(dashboard.alerts).toHaveLength(1);

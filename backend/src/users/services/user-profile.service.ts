@@ -97,7 +97,11 @@ export class UserProfileService {
     this.passwordHashing.assertPasswordPolicy(newPassword, user.role !== 'CUSTOMER');
     await this.prisma.user.update({
       where: { id },
-      data: { password: await this.passwordHashing.hashPassword(newPassword) },
+      // Revokes every other session; the controller issues a fresh one for this device.
+      data: {
+        password: await this.passwordHashing.hashPassword(newPassword),
+        passwordChangedAt: new Date(),
+      },
     });
     return { message: 'Contrasena actualizada correctamente.' };
   }

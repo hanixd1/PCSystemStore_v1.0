@@ -3,16 +3,21 @@ import {
   HttpException,
   Injectable,
   InternalServerErrorException,
+  Optional,
 } from '@nestjs/common';
-import { AccountTokenType } from '@prisma/client';
+import { AccountTokenType, Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
 import { PasswordHashingService } from '../../auth/password-hashing.service';
+import { SessionUserStatusService } from '../../auth/session-user-status.service';
 import { EmailService } from '../../common/email/email.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SecurityRateLimitStorage } from '../../security/security-rate-limit.storage';
 
 const RESET_PASSWORD_TOKEN_EXPIRES_MS = 30 * 60 * 1000;
 const ADMIN_RESET_ROLES = ['ADMIN', 'EDITOR'] as const;
+const INVALID_LINK_MESSAGE = 'El enlace no es valido o ha expirado.';
+/** Links that set a password: once one is used, the others of the same user stop working. */
+const PASSWORD_TOKEN_TYPES = [AccountTokenType.PASSWORD_RESET, AccountTokenType.SET_PASSWORD];
 
 @Injectable()
 export class PasswordResetService {
@@ -23,6 +28,7 @@ export class PasswordResetService {
     private readonly accountRateLimit: SecurityRateLimitStorage = new SecurityRateLimitStorage(
       prisma,
     ),
+    @Optional() private readonly sessionStatus?: SessionUserStatusService,
   ) {}
 
   async createAccountToken(userId: string, type: AccountTokenType) {
@@ -65,12 +71,26 @@ export class PasswordResetService {
     }
 
     const token = await this.createAccountToken(user.id, AccountTokenType.PASSWORD_RESET);
-    await this.emailService.sendPasswordResetEmail({
-      to: user.email,
-      name: user.name,
-      resetLink: `${this.getFrontendUrl(flow)}${this.getResetPasswordPath(flow)}?token=${token}`,
-      flow,
-    });
+    try {
+      await this.emailService.sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        resetLink: `${this.getFrontendUrl(flow)}${this.getResetPasswordPath(flow)}?token=${token}`,
+        flow,
+      });
+    } catch (error) {
+      // Same answer as for an unknown email: a 503 here would reveal that the account exists.
+      console.warn('[AUTH] No se pudo enviar el correo de recuperacion', {
+        userId: user.id,
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+      await this.createLog(
+        user.id,
+        'PASSWORD_RESET_EMAIL_FAILED',
+        'No se pudo enviar el correo de recuperacion.',
+      );
+      return genericResponse;
+    }
     await this.createLog(
       user.id,
       'PASSWORD_RESET_REQUESTED',
@@ -79,8 +99,50 @@ export class PasswordResetService {
     return genericResponse;
   }
 
+  /**
+   * New verification link for a customer whose first email failed or expired. The answer never
+   * says whether the email is registered or already verified.
+   */
+  async resendEmailVerification(email: string) {
+    const normalizedEmail = this.sanitizeEmail(email);
+    const genericResponse = {
+      message: 'Si la cuenta existe y no esta verificada, enviaremos un nuevo enlace.',
+    };
+    await this.accountRateLimit.consume(`email-verification:${normalizedEmail}`, 3, 60 * 60 * 1000);
+    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (!user || user.role !== 'CUSTOMER' || user.status !== 'ACTIVE' || user.emailVerified) {
+      return genericResponse;
+    }
+    // Only the newest link stays valid.
+    await this.prisma.accountToken.updateMany({
+      where: { userId: user.id, type: AccountTokenType.EMAIL_VERIFICATION, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    const token = await this.createAccountToken(user.id, AccountTokenType.EMAIL_VERIFICATION);
+    try {
+      await this.emailService.sendEmailVerificationEmail({
+        to: user.email,
+        name: user.name,
+        link: `${this.getClientFrontendUrl()}/auth/verify-email?token=${token}`,
+      });
+      await this.createLog(
+        user.id,
+        'EMAIL_VERIFICATION_RESENT',
+        'Enlace de verificacion reenviado.',
+      );
+    } catch (error) {
+      console.warn('[AUTH] No se pudo reenviar el correo de verificacion', {
+        userId: user.id,
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+    return genericResponse;
+  }
+
   async resetPassword(token: string, newPassword: string, flow?: 'client' | 'admin') {
-    const user = await this.consumeAccountToken(token, AccountTokenType.PASSWORD_RESET);
+    // Every check runs before the link is spent: a typo in the new password keeps it usable.
+    const accountToken = await this.findValidAccountToken(token, AccountTokenType.PASSWORD_RESET);
+    const user = accountToken.user;
     if (flow && !this.canUsePasswordResetFlow(user.role, flow)) {
       throw new BadRequestException('El enlace de recuperacion no es valido o ha expirado.');
     }
@@ -90,17 +152,15 @@ export class PasswordResetService {
     this.passwordHashing.assertPasswordPolicy(newPassword, administrative);
     const wasRestricted =
       user.failedLoginAttempts > 0 || Boolean(user.lockedUntil || user.failedLoginWindowStartedAt);
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: await this.passwordHashing.hashPassword(newPassword),
-        resetToken: null,
-        resetTokenExpiry: null,
-        failedLoginAttempts: 0,
-        failedLoginWindowStartedAt: null,
-        lockedUntil: null,
-        lastFailedLoginAt: null,
-      },
+    const password = await this.passwordHashing.hashPassword(newPassword);
+    await this.consumeTokenAndSetPassword(accountToken.id, user.id, {
+      password,
+      resetToken: null,
+      resetTokenExpiry: null,
+      failedLoginAttempts: 0,
+      failedLoginWindowStartedAt: null,
+      lockedUntil: null,
+      lastFailedLoginAt: null,
     });
     await this.createLog(user.id, 'UPDATE', 'Actualizacion de contrasena completada.');
     if (wasRestricted) {
@@ -117,26 +177,31 @@ export class PasswordResetService {
     if (password !== confirmPassword) {
       throw new BadRequestException('Las contrasenas no coinciden.');
     }
-    const user = await this.consumeAccountToken(token, AccountTokenType.SET_PASSWORD);
-    if (user.role !== 'CUSTOMER') {
-      throw new BadRequestException('El enlace no es valido o ha expirado.');
+    const accountToken = await this.findValidAccountToken(token, AccountTokenType.SET_PASSWORD);
+    if (accountToken.user.role !== 'CUSTOMER') {
+      throw new BadRequestException(INVALID_LINK_MESSAGE);
     }
     this.passwordHashing.assertPasswordPolicy(password);
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { password: await this.passwordHashing.hashPassword(password) },
+    await this.consumeTokenAndSetPassword(accountToken.id, accountToken.user.id, {
+      password: await this.passwordHashing.hashPassword(password),
     });
     return { message: 'Contrasena creada correctamente' };
   }
 
   async verifyEmail(token: string) {
-    const user = await this.consumeAccountToken(token, AccountTokenType.EMAIL_VERIFICATION);
-    if (user.role !== 'CUSTOMER') {
-      throw new BadRequestException('El enlace no es valido o ha expirado.');
+    const accountToken = await this.findValidAccountToken(
+      token,
+      AccountTokenType.EMAIL_VERIFICATION,
+    );
+    if (accountToken.user.role !== 'CUSTOMER') {
+      throw new BadRequestException(INVALID_LINK_MESSAGE);
     }
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    await this.prisma.$transaction(async (tx) => {
+      await this.claimAccountToken(tx, accountToken.id);
+      await tx.user.update({
+        where: { id: accountToken.user.id },
+        data: { emailVerified: true, emailVerifiedAt: new Date() },
+      });
     });
     return { message: 'Correo verificado correctamente' };
   }
@@ -145,7 +210,8 @@ export class PasswordResetService {
     return this.getRequiredFrontendUrl(process.env.FRONTEND_URL);
   }
 
-  private async consumeAccountToken(token: string, type: AccountTokenType) {
+  /** The unused, unexpired link of ``type``; reading it never spends it. */
+  private async findValidAccountToken(token: string, type: AccountTokenType) {
     const accountToken = await this.prisma.accountToken.findFirst({
       where: {
         tokenHash: this.hashToken(token),
@@ -156,13 +222,44 @@ export class PasswordResetService {
       include: { user: true },
     });
     if (!accountToken) {
-      throw new BadRequestException('El enlace no es valido o ha expirado.');
+      throw new BadRequestException(INVALID_LINK_MESSAGE);
     }
-    await this.prisma.accountToken.update({
-      where: { id: accountToken.id },
+    return accountToken;
+  }
+
+  /**
+   * Spend a link exactly once: the conditional update only matches while ``usedAt`` is null,
+   * so a second request with the same link (in parallel or later) gets no row and fails.
+   */
+  private async claimAccountToken(tx: Prisma.TransactionClient, accountTokenId: string) {
+    const claimed = await tx.accountToken.updateMany({
+      where: { id: accountTokenId, usedAt: null, expiresAt: { gt: new Date() } },
       data: { usedAt: new Date() },
     });
-    return accountToken.user;
+    if (claimed.count !== 1) {
+      throw new BadRequestException(INVALID_LINK_MESSAGE);
+    }
+  }
+
+  /**
+   * Spend the link, store the new password and revoke what the old password protected: the
+   * user's other password links and every session issued before now (passwordChangedAt).
+   */
+  private async consumeTokenAndSetPassword(
+    accountTokenId: string,
+    userId: string,
+    data: Prisma.UserUpdateInput,
+  ) {
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await this.claimAccountToken(tx, accountTokenId);
+      await tx.user.update({ where: { id: userId }, data: { ...data, passwordChangedAt: now } });
+      await tx.accountToken.updateMany({
+        where: { userId, type: { in: PASSWORD_TOKEN_TYPES }, usedAt: null },
+        data: { usedAt: now },
+      });
+    });
+    this.sessionStatus?.invalidate(userId);
   }
 
   private getFrontendUrl(flow: 'client' | 'admin') {

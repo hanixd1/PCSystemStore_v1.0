@@ -157,6 +157,29 @@ describe('UsersService auth cliente/admin', () => {
     });
   });
 
+  it('AUTH-LOCK-01 una cuenta admin bloqueada no verifica la contrasena real', async () => {
+    const lockedUntil = new Date(Date.now() + 10 * 60_000);
+    const { service } = createService({
+      id: 'admin-1',
+      name: 'Admin QA',
+      email: 'admin@test.com',
+      password: hashedPassword,
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      failedLoginAttempts: 4,
+      lockedUntil,
+    });
+    const hashing = (service as any).auth.passwordHashing;
+    const verify = jest.spyOn(hashing, 'verifyPassword');
+    const simulate = jest.spyOn(hashing, 'simulateVerification');
+
+    await expect(service.adminLogin('admin@test.com', 'secret123')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(verify).not.toHaveBeenCalled();
+    expect(simulate).toHaveBeenCalled();
+  });
+
   it('SEC-01 no autentica payload tipo SQL Injection', async () => {
     const { service } = createService(null);
 

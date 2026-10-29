@@ -1,0 +1,2 @@
+19:33:42.560 INFO  QUALITY GATE STATUS: PASSED - View details on http://host.docker.internal:9000/dashboard?id=pcsforecast
+{'coverage': '98.1', 'bugs': '0', 'code_smells': '0', 'duplicated_lines_density': '0.0', 'ncloc': '6423', 'vulnerabilities': '0', 'security_hotspots': '0'}

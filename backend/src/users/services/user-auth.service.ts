@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -120,8 +121,10 @@ export class UserAuthService {
       throw new UnauthorizedException(ADMIN_LOGIN_PUBLIC_MESSAGE);
     }
 
-    const passwordValid = await this.passwordHashing.verifyPassword(user.password, pass);
+    // A locked account is rejected before Argon2id runs; the dummy verification keeps the
+    // response time equal to a real attempt, so the lock is not observable.
     if (this.adminProtection.isLocked(user)) {
+      await this.passwordHashing.simulateVerification(pass);
       await this.logAuthEvent(
         'ADMIN_LOGIN_BLOCKED',
         user.id,
@@ -131,6 +134,7 @@ export class UserAuthService {
       throw new UnauthorizedException(ADMIN_LOGIN_PUBLIC_MESSAGE);
     }
 
+    const passwordValid = await this.passwordHashing.verifyPassword(user.password, pass);
     const administrative = ['ADMIN', 'EDITOR'].includes(user.role);
     if (!passwordValid || !administrative || user.status !== 'ACTIVE') {
       let locked = false;
@@ -345,7 +349,8 @@ export class UserAuthService {
         data: {
           name: profile.name,
           email: profile.email,
-          password: await this.hashPassword(`${profile.email}-${Date.now()}`),
+          // Google accounts never sign in with a password: store the hash of a random secret.
+          password: await this.hashPassword(randomBytes(32).toString('hex')),
           role: 'CUSTOMER',
           status: 'ACTIVE',
           emailVerified: true,
@@ -392,6 +397,11 @@ export class UserAuthService {
     if (!idToken?.trim()) {
       throw new BadRequestException('Token de Google requerido');
     }
+    // Without the client id the token audience cannot be checked: refuse instead of trusting it.
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (!clientId) {
+      throw new ServiceUnavailableException('El inicio de sesion con Google no esta configurado.');
+    }
     const response = await fetch(
       `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
     );
@@ -404,7 +414,7 @@ export class UserAuthService {
       email_verified?: string;
       name?: string;
     };
-    if (process.env.GOOGLE_CLIENT_ID && payload.aud !== process.env.GOOGLE_CLIENT_ID) {
+    if (payload.aud !== clientId) {
       throw new UnauthorizedException('El cliente de Google no coincide con la configuracion');
     }
     if (!payload.email || payload.email_verified !== 'true') {

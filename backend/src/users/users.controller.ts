@@ -37,6 +37,7 @@ import { GoogleAuthDto } from './dto/google-auth.dto';
 import { GoogleOAuthCallbackDto } from './dto/google-oauth-callback.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -47,6 +48,15 @@ import { UsersService } from './users.service';
 type AuthenticatedRequest = express.Request & { user: JwtUserPayload };
 function setSessionCookie(response: express.Response, scope: SessionScope, token: string) {
   response.cookie(getSessionCookieName(scope), token, getSessionCookieOptions(scope));
+}
+
+/** The JWT only travels in the httpOnly cookie; the JSON body never carries it. */
+function toSessionResponse(
+  session: { token: string } & Record<string, unknown>,
+  csrfToken: string,
+) {
+  const { token: _token, ...publicSession } = session;
+  return { ...publicSession, csrfToken };
 }
 
 function clearSessionCookie(response: express.Response, scope: SessionScope) {
@@ -71,7 +81,7 @@ export class UsersController {
     const session = await this.usersService.customerLogin(body.email, body.password, request);
     setSessionCookie(response, 'customer', session.token);
     const csrfToken = this.csrf.issue(response);
-    return { ...session, csrfToken };
+    return toSessionResponse(session, csrfToken);
   }
 
   @Public()
@@ -85,7 +95,7 @@ export class UsersController {
     const session = await this.usersService.customerLogin(body.email, body.password, request);
     setSessionCookie(response, 'customer', session.token);
     const csrfToken = this.csrf.issue(response);
-    return { ...session, csrfToken };
+    return toSessionResponse(session, csrfToken);
   }
 
   @Public()
@@ -99,7 +109,7 @@ export class UsersController {
     const session = await this.usersService.adminLogin(body.email, body.password, request);
     setSessionCookie(response, 'admin', session.token);
     const csrfToken = this.csrf.issue(response);
-    return { ...session, csrfToken };
+    return toSessionResponse(session, csrfToken);
   }
 
   @Public()
@@ -119,7 +129,7 @@ export class UsersController {
     const session = await this.usersService.loginWithGoogle(body.credential || body.idToken || '');
     setSessionCookie(response, 'customer', session.token);
     const csrfToken = this.csrf.issue(response);
-    return { ...session, csrfToken };
+    return toSessionResponse(session, csrfToken);
   }
 
   @Public()
@@ -132,7 +142,7 @@ export class UsersController {
     const session = await this.usersService.loginWithGoogle(body.credential || body.idToken || '');
     setSessionCookie(response, 'customer', session.token);
     const csrfToken = this.csrf.issue(response);
-    return { ...session, csrfToken };
+    return toSessionResponse(session, csrfToken);
   }
 
   @Public()
@@ -147,7 +157,7 @@ export class UsersController {
     );
     setSessionCookie(response, 'customer', session.token);
     const csrfToken = this.csrf.issue(response);
-    return { ...session, csrfToken };
+    return toSessionResponse(session, csrfToken);
   }
 
   @Public()
@@ -184,7 +194,7 @@ export class UsersController {
       setSessionCookie(response, 'customer', session.token);
       const csrfToken = this.csrf.issue(response);
       response.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, getClearGoogleOAuthStateCookieOptions());
-      return { ...session, csrfToken };
+      return toSessionResponse(session, csrfToken);
     } catch (error) {
       response.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, getClearGoogleOAuthStateCookieOptions());
       throw error;
@@ -271,6 +281,13 @@ export class UsersController {
     return this.usersService.verifyEmail(body.token);
   }
 
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60 * 60 * 1000 } })
+  @Post('resend-verification')
+  resendVerification(@Body() body: ResendVerificationDto) {
+    return this.usersService.resendEmailVerification(body.email);
+  }
+
   @Roles('CUSTOMER')
   @Get('me')
   getMe(@Req() request: AuthenticatedRequest) {
@@ -296,12 +313,19 @@ export class UsersController {
 
   @Roles('CUSTOMER')
   @Patch('me/password')
-  changePassword(@Req() request: AuthenticatedRequest, @Body() body: ChangePasswordDto) {
-    return this.usersService.changePassword(
+  async changePassword(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: ChangePasswordDto,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const { token, ...result } = await this.usersService.changePassword(
       request.user.sub,
       body.currentPassword,
       body.newPassword,
     );
+    // Older sessions (other devices, a stolen cookie) are revoked; this one is renewed.
+    setSessionCookie(response, 'customer', token);
+    return result;
   }
 
   @Roles('CUSTOMER')
@@ -360,8 +384,8 @@ export class UsersController {
 
   @Roles('ADMIN')
   @Get('audit/logs')
-  getLogs() {
-    return this.usersService.getAuditLogs();
+  getLogs(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.usersService.getAuditLogs(Number(page) || 1, Number(limit) || undefined);
   }
 
   @Roles('ADMIN')

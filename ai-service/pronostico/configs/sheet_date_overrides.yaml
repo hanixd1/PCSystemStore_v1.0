@@ -1,0 +1,10 @@
+# Sheet dates confirmed by the company (rule R110). Each entry replaces the inferred date of
+# one worksheet. Fill only with confirmed information; never with guesses.
+#
+# - sheet_name: "13-04-26 (2)"      # exact worksheet name, including spaces
+#   date_start: 2026-04-14
+#   date_end: 2026-04-18
+#   reason: "Confirmed by the store manager: sheet reused for the week of 14 April."
+#   confirmed_by: general manager
+status: frozen
+overrides: []

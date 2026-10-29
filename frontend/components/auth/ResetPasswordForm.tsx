@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { notify } from '@/lib/notify';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_LENGTH_MESSAGE } from '@/lib/auth-policy';
 
 type ResetPasswordFormProps = {
   flow: 'admin' | 'client';
@@ -55,8 +56,8 @@ export function ResetPasswordForm({
     e.preventDefault();
     setError('');
 
-    if (password.length < 6) {
-      setError('La contrasena debe tener al menos 6 caracteres.');
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setError(PASSWORD_MIN_LENGTH_MESSAGE);
       return;
     }
 
@@ -99,7 +100,7 @@ export function ResetPasswordForm({
             className={inputClassName}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
+            minLength={PASSWORD_MIN_LENGTH}
             required
           />
           <input
@@ -109,7 +110,7 @@ export function ResetPasswordForm({
             className={inputClassName}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            minLength={6}
+            minLength={PASSWORD_MIN_LENGTH}
             required
           />
           <button type="submit" disabled={!token || isSubmitting} className={buttonClassName}>

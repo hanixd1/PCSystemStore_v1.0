@@ -64,6 +64,8 @@ const STEPS = [
 ] as const;
 
 type StepId = (typeof STEPS)[number]['id'];
+
+const BUILDER_CATEGORIES = STEPS.flatMap((step) => ('category' in step ? [step.category] : []));
 type Platform = 'INTEL' | 'AMD';
 type SkippedStep = { skipped: true; reason: string };
 
@@ -628,7 +630,11 @@ export default function PCBuilderPage() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetchAllFreshPublicProducts<any>({ signal: controller.signal })
+    // Only the build categories: peripherals, laptops and the rest of the catalog are not needed.
+    fetchAllFreshPublicProducts<any>({
+      signal: controller.signal,
+      filters: { categories: BUILDER_CATEGORIES.join(',') },
+    })
       .then((responseProducts) => {
         if (controller.signal.aborted) return;
 

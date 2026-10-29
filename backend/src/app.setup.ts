@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { json, urlencoded, type NextFunction, type Request, type Response } from 'express';
+import compression from 'compression';
 import helmet from 'helmet';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { SecurityExceptionFilter } from './security/security-exception.filter';
@@ -9,23 +10,40 @@ import {
   validateSecurityEnvironment,
 } from './security/security.config';
 
-const NO_STORE_PATHS = [
-  '/products',
-  '/builder',
-  '/ai',
-  '/public/branding',
-  '/public/banners',
-  '/version',
-] as const;
+/** Public catalog reads: the browser may keep a copy but must revalidate it on every use. */
+const REVALIDATE_PATHS = ['/products', '/builder', '/public/branding', '/public/banners'] as const;
+const NO_STORE_PATHS = ['/ai', '/version'] as const;
+
+export type StorefrontCachePolicy = 'revalidate' | 'no-store' | null;
+
+function matches(routes: readonly string[], path: string, exactOnly: readonly string[] = []) {
+  return routes.some(
+    (route) => path === route || (!exactOnly.includes(route) && path.startsWith(`${route}/`)),
+  );
+}
+
+export function getStorefrontCachePolicy(method: string, path: string): StorefrontCachePolicy {
+  if (!['GET', 'HEAD'].includes(method.toUpperCase())) {
+    return null;
+  }
+  if (matches(REVALIDATE_PATHS, path)) {
+    return 'revalidate';
+  }
+  return matches(NO_STORE_PATHS, path, ['/version']) ? 'no-store' : null;
+}
 
 export function shouldDisableStorefrontCaching(method: string, path: string): boolean {
-  if (!['GET', 'HEAD'].includes(method.toUpperCase())) {
-    return false;
-  }
+  return getStorefrontCachePolicy(method, path) !== null;
+}
 
-  return NO_STORE_PATHS.some(
-    (route) => path === route || (route !== '/version' && path.startsWith(`${route}/`)),
-  );
+/**
+ * Never cached by a CDN or shared proxy, and never served stale by the browser either: with
+ * `no-cache` the browser asks every time, but sends its ETag, so an unchanged catalog page
+ * answers `304 Not Modified` with no body instead of the whole JSON again (egress).
+ */
+function applyRevalidateHeaders(response: Response): void {
+  response.setHeader('Cache-Control', 'private, no-cache, max-age=0, must-revalidate');
+  applySharedCacheBlock(response);
 }
 
 function applyNoStoreHeaders(response: Response): void {
@@ -33,6 +51,10 @@ function applyNoStoreHeaders(response: Response): void {
     'Cache-Control',
     'no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate',
   );
+  applySharedCacheBlock(response);
+}
+
+function applySharedCacheBlock(response: Response): void {
   response.setHeader('CDN-Cache-Control', 'no-store');
   response.setHeader('Cloudflare-CDN-Cache-Control', 'no-store');
   response.setHeader('Surrogate-Control', 'no-store');
@@ -90,11 +112,16 @@ export function configureHttpApplication(app: INestApplication): void {
     if (production && request.secure) {
       response.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }
-    if (shouldDisableStorefrontCaching(request.method, request.path)) {
+    const cachePolicy = getStorefrontCachePolicy(request.method, request.path);
+    if (cachePolicy === 'revalidate') {
+      applyRevalidateHeaders(response);
+    } else if (cachePolicy === 'no-store') {
       applyNoStoreHeaders(response);
     }
     next();
   });
+  // gzip/deflate for JSON responses over 1 KB: a catalog page shrinks ~85-90 % of its egress.
+  app.use(compression({ threshold: 1024 }));
   app.use(json({ limit: getBodyLimit(), strict: true }));
   app.use(urlencoded({ limit: getBodyLimit(), extended: true, parameterLimit: 1_000 }));
   app.enableCors({

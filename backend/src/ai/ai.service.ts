@@ -2,7 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { withPublicProductCriteria } from '../products/product-publication';
+import { ProductPricingService } from '../products/services/product-pricing.service';
 import { expandProductSearchQuery, rankProductMatch } from '../products/product-search';
+import { buildAiServiceHeaders, getAiServiceUrl } from './ai-service-request';
 import { isRefinementOnly, parseChatSearchQuery } from './chat-query';
 import type { ChatSearchQuery } from './chat-query';
 
@@ -11,14 +13,6 @@ type ChatRole = 'user' | 'assistant';
 interface ChatMessageInput {
   role: ChatRole;
   content: string;
-}
-
-interface AiProductInput {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-  category?: string;
 }
 
 interface ChatConversationState {
@@ -61,25 +55,6 @@ interface CommercialChatResponse {
   conversationState: ChatConversationState;
   products: unknown[];
   status: 'ok' | 'degraded';
-}
-
-interface AiPrediction {
-  id: string;
-  nombre: string;
-  stock: number;
-  estado: string;
-  mensaje_cliente: string;
-  alerta_admin: string;
-  dias_restantes_estimados?: number;
-}
-
-interface AiServicePrediction {
-  productId: string;
-  productName: string;
-  risk: 'low' | 'medium' | 'high' | 'critical';
-  probability: number;
-  message: string;
-  recommendedReorder: number;
 }
 
 const AI_UNAVAILABLE_REPLY =
@@ -156,9 +131,11 @@ function normalizeChatText(value: string) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
-function toNumber(value: Prisma.Decimal | number | string | null | undefined): number {
-  const parsed = Number(value?.toString() ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
+const pricing = new ProductPricingService();
+
+/** Price the customer pays: the sale price while an offer is active (same rule as the store). */
+function effectivePrice(product: ChatProductRecord): number {
+  return pricing.getEffectivePrice(product);
 }
 
 function findBrand(product: ChatProductRecord): string | undefined {
@@ -205,10 +182,6 @@ export class AiService {
 
   constructor(private prisma: PrismaService) {}
 
-  private getAiServiceUrl(): string {
-    return process.env.AI_SERVICE_URL?.trim().replace(/\/$/, '') || '';
-  }
-
   // ---------------------------------------------------------------------------
   // Customer chat
   // ---------------------------------------------------------------------------
@@ -222,7 +195,7 @@ export class AiService {
       slug: product.slug ?? undefined,
       category: product.category,
       brand: findBrand(product),
-      price: toNumber(product.price),
+      price: effectivePrice(product),
       stock: product.stock,
       imageUrl: firstImage || null,
       productUrl: `/producto/${product.slug || product.id}`,
@@ -265,8 +238,9 @@ export class AiService {
     let text = parsed.text;
     // "y mas barato?" / "hasta 800" refine the previous search.
     const brandQuestion = BRAND_QUESTIONS[state?.awaiting ?? ''];
-    if (isRefinementOnly(parsed) && state?.lastSearchQuery) {
-      text = state.lastSearchQuery;
+    if (isRefinementOnly(parsed) && typeof state?.lastSearchQuery === 'string') {
+      // Same bound as the message: the state comes from the client (ChatDto also limits it).
+      text = state.lastSearchQuery.slice(0, MAX_CHAT_MESSAGE_LENGTH);
     } else if (brandQuestion) {
       // "nvidia" answers the brand question; "mejor un mouse" starts a new search.
       const named = expandProductSearchQuery(text).candidateCategories;
@@ -306,13 +280,13 @@ export class AiService {
     search.matched = ranked.length > 0;
 
     const sorted = ranked
-      .filter((entry) => inPriceRange(toNumber(entry.product.price)))
+      .filter((entry) => inPriceRange(effectivePrice(entry.product)))
       .sort((left, right) => {
         const stockOrder = Number(right.product.stock > 0) - Number(left.product.stock > 0);
         if (stockOrder) {
           return stockOrder;
         }
-        const priceDiff = toNumber(left.product.price) - toNumber(right.product.price);
+        const priceDiff = effectivePrice(left.product) - effectivePrice(right.product);
         if (search.sort === 'cheapest') {
           return priceDiff;
         }
@@ -325,7 +299,7 @@ export class AiService {
     // Nothing within budget: still send the closest matches so the reply can say so.
     const results = sorted.length
       ? sorted
-      : ranked.sort((left, right) => toNumber(left.product.price) - toNumber(right.product.price));
+      : ranked.sort((left, right) => effectivePrice(left.product) - effectivePrice(right.product));
 
     return {
       catalog: results
@@ -376,7 +350,9 @@ export class AiService {
     if (!PREVIOUS_PRODUCT_REFERENCE.test(normalized)) {
       return null;
     }
-    const remembered = (state?.lastRecommendedProducts ?? []) as Array<{
+    const remembered = (
+      Array.isArray(state?.lastRecommendedProducts) ? state.lastRecommendedProducts : []
+    ) as Array<{
       id?: string;
       category?: string;
     }>;
@@ -452,7 +428,7 @@ export class AiService {
   }
 
   private async postToAiService(body: unknown): Promise<CommercialChatResponse> {
-    const aiServiceUrl = this.getAiServiceUrl();
+    const aiServiceUrl = getAiServiceUrl();
     if (!aiServiceUrl) {
       throw new Error('AI_SERVICE_URL no configurado');
     }
@@ -461,7 +437,7 @@ export class AiService {
     try {
       const response = await fetch(`${aiServiceUrl}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAiServiceHeaders(),
         body: JSON.stringify(body),
         signal: controller.signal,
       });
@@ -568,104 +544,6 @@ export class AiService {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`[AI] Chat no disponible: ${message}`);
       return this.buildAiUnavailableResponse(conversationState);
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Admin stock predictions
-  // ---------------------------------------------------------------------------
-
-  private mapRiskToEstado(risk: AiServicePrediction['risk']) {
-    const mapping: Record<AiServicePrediction['risk'], string> = {
-      low: 'BAJO',
-      medium: 'MEDIO',
-      high: 'ALTO',
-      critical: 'CRITICO',
-    };
-    return mapping[risk] ?? 'DESCONOCIDO';
-  }
-
-  private mapAiServicePrediction(
-    prediction: AiServicePrediction,
-    productById: Map<string, AiProductInput>,
-  ): AiPrediction {
-    const product = productById.get(prediction.productId);
-    return {
-      id: prediction.productId,
-      nombre: prediction.productName,
-      stock: product?.stock ?? 0,
-      estado: this.mapRiskToEstado(prediction.risk),
-      mensaje_cliente: prediction.message,
-      alerta_admin: `${prediction.message} Reposicion sugerida: ${prediction.recommendedReorder}.`,
-      dias_restantes_estimados:
-        prediction.recommendedReorder > 0
-          ? Math.max(
-              1,
-              Math.round((product?.stock ?? 0) / Math.max(1, prediction.recommendedReorder)),
-            )
-          : undefined,
-    };
-  }
-
-  private async requestStockPredictions(products: AiProductInput[]): Promise<AiPrediction[]> {
-    const aiServiceUrl = this.getAiServiceUrl();
-    if (!aiServiceUrl) {
-      this.logger.warn('AI_SERVICE_URL no configurado. Se omiten predicciones IA.');
-      return [];
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
-    try {
-      const response = await fetch(`${aiServiceUrl}/predict-stock`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          products: products.map((product) => ({
-            id: product.id,
-            name: product.name,
-            category: product.category ?? 'GENERAL',
-            stock: product.stock,
-            price: product.price,
-            monthlySales: 0,
-          })),
-        }),
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        throw new Error(`AI service respondio ${response.status}`);
-      }
-
-      const payload = (await response.json()) as { predictions?: AiServicePrediction[] };
-      const productById = new Map(products.map((product) => [product.id, product]));
-      return Array.isArray(payload.predictions)
-        ? payload.predictions.map((prediction) =>
-            this.mapAiServicePrediction(prediction, productById),
-          )
-        : [];
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  async getAiPredictions() {
-    try {
-      const products = await this.prisma.product.findMany({
-        where: withPublicProductCriteria(),
-        select: { id: true, name: true, price: true, stock: true, category: true },
-        take: 10,
-        orderBy: [{ stock: 'asc' }, { updatedAt: 'desc' }],
-      });
-      if (products.length === 0) {
-        return [];
-      }
-      return await this.requestStockPredictions(
-        products.map((product) => ({ ...product, price: toNumber(product.price) })),
-      );
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`AI service no disponible. Se aplica degradacion segura: ${errorMessage}`);
-      return [];
     }
   }
 }

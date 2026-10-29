@@ -1,0 +1,32 @@
+# Company data and derived data: never versioned
+datos/
+data/
+models_cache/
+outputs/
+
+# Secrets
+.env
+
+# Python / tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+reports/
+.scannerwork/
+*.egg-info/
+build/
+dist/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Office lock files (a document open in Word)
+~$*

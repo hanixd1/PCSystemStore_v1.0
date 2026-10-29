@@ -1,0 +1,5 @@
+SonarQube 26.9 (local) - 2026-10-24 - phases F5 and F7
+Quality gate: PASSED
+Bugs 0, vulnerabilities 0, code smells 0, security hotspots 0
+Coverage 98.1 %, duplication 0.0 %, 5721 lines of code
+Findings fixed during the phases: 2 duplicated literals in the dashboard.

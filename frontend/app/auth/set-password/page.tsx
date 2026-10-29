@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_LENGTH_MESSAGE } from '@/lib/auth-policy';
 
 function SetPasswordForm() {
   const router = useRouter();
@@ -19,8 +20,8 @@ function SetPasswordForm() {
     setMessage('');
     setError('');
 
-    if (password.length < 6) {
-      setError('La contrasena debe tener al menos 6 caracteres.');
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setError(PASSWORD_MIN_LENGTH_MESSAGE);
       return;
     }
 
@@ -69,7 +70,7 @@ function SetPasswordForm() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-brand-cyan"
-            minLength={6}
+            minLength={PASSWORD_MIN_LENGTH}
             required
           />
           <input
@@ -78,7 +79,7 @@ function SetPasswordForm() {
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-brand-cyan"
-            minLength={6}
+            minLength={PASSWORD_MIN_LENGTH}
             required
           />
           <button

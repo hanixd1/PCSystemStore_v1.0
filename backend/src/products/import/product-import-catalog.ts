@@ -67,6 +67,10 @@ export const PRODUCT_TYPES_BY_GROUP: Record<ProductImportCategoryGroup, ProductI
       aliases: ['Parlante', 'SPEAKERS', 'SPEAKER'],
     },
   ],
+  PROTECCION: [
+    { label: 'UPS', category: 'UPS', aliases: ['No break', 'Nobreak'] },
+    { label: 'Estabilizador', category: 'STABILIZER', aliases: ['Estabilizadores'] },
+  ],
 };
 
 export const REQUIRED_GENERAL_COLUMNS = [

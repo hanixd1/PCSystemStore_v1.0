@@ -1,0 +1,21 @@
+{
+  "frequency": "monthly",
+  "created_at": "2026-10-26T05:07:44+00:00",
+  "sources": {
+    "validation": "20261026T045600Z-monthly-validation",
+    "inventory": "20261026T045106Z-monthly-inventory",
+    "truncated": "20261026T050111Z-monthly-validation-truncated",
+    "expanding": "20261026T050302Z-monthly-validation-expanding"
+  },
+  "alpha": 0.05,
+  "structural_break": "2025-05-01",
+  "test_span_used": false,
+  "rows": {
+    "he1_friedman": 16,
+    "he1_nemenyi": 576,
+    "he1_diebold_mariano": 96,
+    "he2_service": 1184,
+    "he2_spearman": 12,
+    "he3_robustness": 32
+  }
+}

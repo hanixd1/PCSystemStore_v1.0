@@ -5,11 +5,10 @@ import Link from 'next/link';
 import { FiAward, FiEye, FiEyeOff, FiTruck } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { PASSWORD_MIN_LENGTH, getSafeRedirectPath } from '@/lib/auth-policy';
 import { notifyCustomerSessionChanged } from '@/lib/customerSession';
 
 type Mode = 'login' | 'register';
-
-const MIN_PASSWORD_LENGTH = 6;
 
 function isValidEmailFormat(value: string): boolean {
   const email = value.trim();
@@ -32,6 +31,11 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // Email of an account still unverified (just registered, or signed in without verifying), so
+  // its verification link can be sent again.
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
+  // Signed in with an unverified email: the session is saved and the customer chooses when to go on.
+  const [pendingRedirect, setPendingRedirect] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -39,7 +43,10 @@ export default function LoginPage() {
     confirmPassword: '',
   });
 
-  const persistSession = (user: { role: string }, redirectOverride?: string) => {
+  const persistSession = (
+    user: { role: string; email?: string; emailVerified?: boolean },
+    redirectOverride?: string,
+  ) => {
     if (user.role !== 'CUSTOMER') {
       setError('Esta cuenta no esta registrada como cliente.');
       return;
@@ -50,7 +57,15 @@ export default function LoginPage() {
 
     notifyCustomerSessionChanged();
     const redirectTo = new URLSearchParams(window.location.search).get('redirect');
-    window.location.href = redirectOverride || (redirectTo?.startsWith('/') ? redirectTo : '/');
+    const target = getSafeRedirectPath(redirectOverride || redirectTo);
+    if (user.emailVerified === false) {
+      // Checkout needs a verified email: offer the link now instead of failing later.
+      setPendingVerificationEmail(user.email || formData.email.trim());
+      setPendingRedirect(target);
+      setSuccess('Iniciaste sesion, pero tu correo aun no esta verificado.');
+      return;
+    }
+    window.location.href = target;
   };
 
   useEffect(() => {
@@ -82,21 +97,36 @@ export default function LoginPage() {
     }
   };
 
+  const resendVerification = async () => {
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const res = await api.post('/users/resend-verification', {
+        email: pendingVerificationEmail,
+      });
+      setSuccess(res.data?.message || 'Te enviamos un nuevo enlace de verificacion.');
+    } catch (error: unknown) {
+      setError(getApiErrorMessage(error, 'No se pudo reenviar el correo de verificacion.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const validateRegisterForm = (): string | null => {
     if (!isValidEmailFormat(formData.email)) {
       return 'Ingresa un correo valido con dominio completo.';
     }
 
-    if (!formData.password || formData.password.length < MIN_PASSWORD_LENGTH) {
-      return 'La contrasena debe tener al menos 6 caracteres.';
+    if (!formData.password || formData.password.length < PASSWORD_MIN_LENGTH) {
+      return `La contrasena debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`;
     }
 
     if (!formData.confirmPassword) {
       return 'Confirma tu contrasena.';
     }
 
-    if (formData.confirmPassword.length < MIN_PASSWORD_LENGTH) {
-      return 'La confirmacion debe tener al menos 6 caracteres.';
+    if (formData.confirmPassword.length < PASSWORD_MIN_LENGTH) {
+      return `La confirmacion debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`;
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -139,6 +169,7 @@ export default function LoginPage() {
       setSuccess(
         res.data.message || 'Cuenta creada correctamente. Ahora ya puedes iniciar sesion.',
       );
+      setPendingVerificationEmail(formData.email.trim());
       setMode('login');
       setFormData((current) => ({
         ...current,
@@ -241,6 +272,21 @@ export default function LoginPage() {
             {success && (
               <p className="mb-4 rounded-lg bg-green-50 p-3 text-sm font-bold text-green-700">
                 {success}
+                {pendingVerificationEmail ? (
+                  <button
+                    type="button"
+                    onClick={resendVerification}
+                    disabled={isSubmitting}
+                    className="ml-1 underline disabled:opacity-60"
+                  >
+                    Reenviar correo de verificacion
+                  </button>
+                ) : null}
+                {pendingRedirect ? (
+                  <a href={pendingRedirect} className="ml-2 underline">
+                    Continuar
+                  </a>
+                ) : null}
               </p>
             )}
 
@@ -292,7 +338,7 @@ export default function LoginPage() {
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 transition focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  minLength={6}
+                  minLength={mode === 'register' ? PASSWORD_MIN_LENGTH : undefined}
                   required
                 />
                 <button
@@ -312,7 +358,7 @@ export default function LoginPage() {
                     className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 transition focus:border-brand-cyan focus:outline-none focus:ring-1 focus:ring-brand-cyan"
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    minLength={6}
+                    minLength={PASSWORD_MIN_LENGTH}
                     required
                   />
                 </div>

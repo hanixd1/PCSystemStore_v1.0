@@ -57,5 +57,20 @@ uploads
 !backend/src/uploads/
 !backend/src/uploads/**
 backend/uploads
+# Legacy local product images: production images live in Cloudinary.
+frontend/public/uploads/
 tmp
 temp
+
+# sistema de pronostico (tesis): datos de la empresa, pesos y salidas nunca van al repo web
+ai-service/pronostico/data/
+ai-service/pronostico/datos/
+ai-service/pronostico/models_cache/
+ai-service/pronostico/outputs/
+ai-service/pronostico/reports/
+ai-service/pronostico/.venv/
+ai-service/pronostico/.env
+ai-service/pronostico/.mypy_cache/
+ai-service/pronostico/.ruff_cache/
+ai-service/pronostico/.hypothesis/
+ai-service/pronostico/.coverage

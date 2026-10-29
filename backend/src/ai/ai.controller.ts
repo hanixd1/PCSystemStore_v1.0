@@ -1,6 +1,5 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
+import { Controller, Post, Body } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
-import { Roles } from '../auth/roles.decorator';
 import { AiService } from './ai.service';
 import { ChatDto } from './dto/chat.dto';
 import { Throttle } from '@nestjs/throttler';
@@ -21,14 +20,5 @@ export class AiController {
       body.history ?? [],
       body.conversationState,
     );
-  }
-
-  // =========================================================
-  // 2. ENDPOINT PARA LAS ALERTAS DEL ADMINISTRADOR (Panel)
-  // =========================================================
-  @Roles('ADMIN', 'EDITOR')
-  @Get('predictions')
-  async getPredictions(): Promise<unknown> {
-    return this.aiService.getAiPredictions();
   }
 }

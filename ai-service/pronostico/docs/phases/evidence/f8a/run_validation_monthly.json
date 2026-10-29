@@ -1,0 +1,123 @@
+{
+  "run_id": "20261024T191817Z-monthly-validation",
+  "condition": "full",
+  "series": 1728,
+  "origins": 8,
+  "models": [
+    "naive",
+    "ses",
+    "croston",
+    "sba",
+    "tsb",
+    "two_stage_trees",
+    "global_gbm",
+    "chronos_zero_shot",
+    "chronos_fine_tuned"
+  ],
+  "not_implemented": [],
+  "params": {
+    "naive": {},
+    "ses": {},
+    "croston": {
+      "alpha": 0.2
+    },
+    "sba": {
+      "alpha": 0.3
+    },
+    "tsb": {
+      "alpha_d": 0.3,
+      "alpha_p": 0.3
+    },
+    "two_stage_trees": {
+      "learning_rate": 0.05,
+      "min_data_in_leaf": 50.0,
+      "num_leaves": 15.0,
+      "rounds": 100.0
+    },
+    "global_gbm": {
+      "learning_rate": 0.05,
+      "min_data_in_leaf": 50.0,
+      "num_leaves": 31.0,
+      "rounds": 200.0
+    },
+    "chronos_zero_shot": {
+      "batch_size": 256.0
+    },
+    "chronos_fine_tuned": {
+      "batch_size": 256.0,
+      "learning_rate": 1e-05,
+      "max_steps": 1000.0,
+      "train_batch": 32.0,
+      "eval_every": 25.0,
+      "patience": 4.0,
+      "seed": 20261024.0,
+      "refit_every": 3.0,
+      "min_context": 6.0
+    }
+  },
+  "model_details": {
+    "chronos_fine_tuned": {
+      "settings": {
+        "learning_rate": 1e-05,
+        "max_steps": 1000,
+        "train_batch": 32,
+        "eval_every": 25,
+        "patience": 4,
+        "min_context": 6,
+        "seed": 20261024
+      },
+      "refit_every": 3,
+      "refits": [
+        {
+          "call": 0,
+          "train_windows": 12914,
+          "validation_windows": 1517,
+          "steps": 425,
+          "best_step": 325,
+          "initial_validation_loss": 0.43183803387433195,
+          "best_validation_loss": 0.3733527125617589,
+          "seconds": 47.37227499999426
+        },
+        {
+          "call": 3,
+          "train_windows": 13834,
+          "validation_windows": 1538,
+          "steps": 350,
+          "best_step": 250,
+          "initial_validation_loss": 0.4175197975455707,
+          "best_validation_loss": 0.3840364347683128,
+          "seconds": 39.54966387499735
+        },
+        {
+          "call": 6,
+          "train_windows": 13577,
+          "validation_windows": 1453,
+          "steps": 575,
+          "best_step": 475,
+          "initial_validation_loss": 0.3865049597278432,
+          "best_validation_loss": 0.3609664295143041,
+          "seconds": 64.06412766699941
+        }
+      ]
+    }
+  },
+  "seconds_by_model": {
+    "naive": 0.029,
+    "ses": 0.684,
+    "croston": 0.053,
+    "sba": 0.052,
+    "tsb": 0.072,
+    "two_stage_trees": 4.076,
+    "global_gbm": 5.365,
+    "chronos_zero_shot": 8.489,
+    "chronos_fine_tuned": 159.432
+  },
+  "failures": [],
+  "test_span_used": false,
+  "inputs": {
+    "panel_development": "e46f16430403759494b4f551588720273b4b327e84fcc91d0f8773b59fda3456",
+    "protocol.yaml": "01dc819304f071c7a28360bdddb72d0aa97bb79f26881a79f27ab0763322fef1",
+    "models.yaml": "5afef602f4f3434f69a0745a6610d2b37fdfebb250a6f4905598f014223007f1",
+    "tuned.yaml": "c7b533a81db20d0b6298b036ebb5455b50451b26f475db1c8a85d0066070f8de"
+  }
+}

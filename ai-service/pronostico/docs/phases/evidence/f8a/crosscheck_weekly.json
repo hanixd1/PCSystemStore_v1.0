@@ -1,0 +1,27 @@
+{
+  "frequency": "weekly",
+  "cases": 17280,
+  "origins_sampled": 10,
+  "seed": 20261024,
+  "created_at": "2026-10-24T18:55:59+00:00",
+  "inputs": {
+    "panel_development": "e46f16430403759494b4f551588720273b4b327e84fcc91d0f8773b59fda3456"
+  },
+  "test_span_used": false,
+  "reference": "statsforecast 2.1.1, numpy 2.5.4",
+  "tolerance": 1e-09,
+  "methods_that_must_match": [
+    "naive",
+    "ses",
+    "croston",
+    "sba",
+    "tsb"
+  ],
+  "all_agree": true,
+  "package_version": "0.1.0",
+  "compared_at": "2026-10-24T18:56:06+00:00",
+  "inputs_compared": {
+    "cases.npz": "dbde661b6288e7d3265f01db216fe9bc009c0295cb25b06cfb673cf11b356add",
+    "reference.npz": "63e3f86ff30e429bbdc7c423701fc244ec2143d0c08828d420735bee0f3de64c"
+  }
+}

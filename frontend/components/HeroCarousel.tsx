@@ -7,6 +7,7 @@ import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { resolveImageUrl } from '@/lib/product-images';
+import { isSafeExternalUrl, isSafeInternalPath } from '@/lib/safe-url';
 import type { PublicBanner } from '@/lib/catalog-server';
 
 const NextArrow = (props: any) => {
@@ -109,17 +110,19 @@ function BannerContent({ banner }: { banner: PublicBanner }) {
     </div>
   );
 
-  if (!banner.linkUrl) {
-    return content;
-  }
-
-  if (banner.linkUrl.startsWith('/')) {
+  // The link comes from the database: only same-site paths and http(s) URLs become links, so a
+  // stored `javascript:` or `//evil.com` renders as a plain banner.
+  if (isSafeInternalPath(banner.linkUrl)) {
     return <Link href={banner.linkUrl}>{content}</Link>;
   }
 
-  return (
-    <a href={banner.linkUrl} target="_blank" rel="noreferrer">
-      {content}
-    </a>
-  );
+  if (isSafeExternalUrl(banner.linkUrl)) {
+    return (
+      <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer">
+        {content}
+      </a>
+    );
+  }
+
+  return content;
 }

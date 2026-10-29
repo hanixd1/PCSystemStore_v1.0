@@ -1,4 +1,4 @@
-import { Body, Controller, Get, INestApplication, Post } from '@nestjs/common';
+import { Body, Controller, Get, INestApplication, Post, Query } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SkipThrottle, Throttle, ThrottlerModule } from '@nestjs/throttler';
@@ -31,8 +31,11 @@ class SecurityTestController {
 @Controller()
 class StorefrontCacheTestController {
   @Get('products')
-  products() {
-    return [];
+  products(@Query('large') large?: string) {
+    // A catalog-sized page (several KB) to exercise compression.
+    return large
+      ? Array.from({ length: 200 }, (_, index) => ({ id: index, name: `Producto ${index}` }))
+      : [];
   }
 
   @Get('public/banners')
@@ -143,7 +146,9 @@ describe('HTTP security hardening (e2e)', () => {
     'impide cache compartida y cache local obsoleta en %s',
     async (path) => {
       const response = await request(app.getHttpServer()).get(path).expect(200);
-      expect(response.headers['cache-control']).toContain('no-store');
+      // The browser may keep it but must revalidate every time (ETag -> 304); never stale.
+      expect(response.headers['cache-control']).toContain('no-cache');
+      expect(response.headers['cache-control']).toContain('private');
       expect(response.headers['cache-control']).toContain('must-revalidate');
       expect(response.headers['cdn-cache-control']).toBe('no-store');
       expect(response.headers['cloudflare-cdn-cache-control']).toBe('no-store');
@@ -152,6 +157,24 @@ describe('HTTP security hardening (e2e)', () => {
       expect(response.headers.expires).toBe('0');
     },
   );
+
+  it('un catalogo sin cambios responde 304 sin cuerpo (ETag)', async () => {
+    const first = await request(app.getHttpServer()).get('/products').expect(200);
+    expect(first.headers.etag).toBeTruthy();
+    const second = await request(app.getHttpServer())
+      .get('/products')
+      .set('If-None-Match', first.headers.etag)
+      .expect(304);
+    expect(second.text ?? '').toBe('');
+  });
+
+  it('comprime las respuestas JSON grandes', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/products?large=1')
+      .set('Accept-Encoding', 'gzip')
+      .expect(200);
+    expect(response.headers['content-encoding']).toBe('gzip');
+  });
 
   it('devuelve 413 al exceder el limite JSON global', async () => {
     await request(app.getHttpServer())

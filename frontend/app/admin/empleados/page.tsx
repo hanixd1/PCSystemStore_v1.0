@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { FiEdit, FiShield, FiShieldOff, FiUserPlus, FiUsers, FiX } from 'react-icons/fi';
+import { STAFF_PASSWORD_MIN_LENGTH } from '@/lib/auth-policy';
 import { confirmAction, notify } from '@/lib/notify';
 
 type InternalRole = 'ADMIN' | 'EDITOR';
@@ -114,9 +115,18 @@ export default function EmpleadosPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    if (formData.password && formData.password.length < STAFF_PASSWORD_MIN_LENGTH) {
+      notify.error(
+        `La contrasena del empleado debe tener al menos ${STAFF_PASSWORD_MIN_LENGTH} caracteres.`,
+      );
+      return;
+    }
+
     try {
       if (isEditing && editingId) {
-        await api.patch(`/users/internal/${editingId}`, formData);
+        // An empty password keeps the current one (the API rejects "" as too short).
+        const { password, ...profile } = formData;
+        await api.patch(`/users/internal/${editingId}`, password ? formData : profile);
         notify.success('Empleado actualizado correctamente');
       } else {
         await api.post('/users/internal', formData);
@@ -259,7 +269,9 @@ export default function EmpleadosPage() {
                                 ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
                                 : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700'
                           }`}
-                          title={isMe ? 'No puedes bloquearte a ti mismo' : 'Clic para cambiar estado'}
+                          title={
+                            isMe ? 'No puedes bloquearte a ti mismo' : 'Clic para cambiar estado'
+                          }
                         >
                           {user.status === 'ACTIVE' ? <FiShield /> : <FiShieldOff />}
                           {user.status === 'ACTIVE' ? 'Activo' : 'Bloqueado'}
@@ -345,7 +357,9 @@ export default function EmpleadosPage() {
                 <input
                   id="employee-password"
                   required={!isEditing}
-                  type="text"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={STAFF_PASSWORD_MIN_LENGTH}
                   className="w-full rounded-xl border-2 p-3 outline-none focus:border-brand-cyan"
                   value={formData.password}
                   onChange={(event) => setFormData({ ...formData, password: event.target.value })}

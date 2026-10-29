@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { FiX, FiSend } from 'react-icons/fi';
 import { api } from '@/lib/api';
+import { isSafeInternalPath } from '@/lib/safe-url';
 import { resolveImageUrl } from '@/lib/product-images';
 import { MAX_CART_ITEM_QUANTITY, useCartStore } from '@/store/useCartStore';
 import type {
@@ -12,6 +14,9 @@ import type {
   ChatProduct,
   ConversationState,
 } from '@/components/chatbot/chatbotTypes';
+const CHAT_HISTORY_LIMIT = 20;
+const CHAT_HISTORY_CONTENT_LIMIT = 2000;
+
 const STARTER_PROMPTS = [
   'Tengo 3000 soles y quiero una PC para jugar',
   'Busco una PC para oficina con monitor',
@@ -21,7 +26,6 @@ const STARTER_PROMPTS = [
 
 const AI_UNAVAILABLE_REPLY =
   'Buenas, por el momento Puchi no se encuentra disponible. Puedes revisar el catálogo o usar el armador de PCs mientras el servicio vuelve a estar operativo.';
-
 
 function ChatProductImage({ src, alt }: { src?: string | null; alt: string }) {
   const [hasError, setHasError] = useState(false);
@@ -111,7 +115,8 @@ export default function Chatbot() {
         typeof candidate.name === 'string' &&
         typeof candidate.price === 'number' &&
         typeof candidate.stock === 'number' &&
-        typeof candidate.productUrl === 'string'
+        // Rendered as a link: only paths on this site, never `//host` or `javascript:`.
+        isSafeInternalPath(candidate.productUrl)
       );
     });
   };
@@ -166,6 +171,8 @@ export default function Chatbot() {
         name: product.name,
         price: product.price,
         qty: 1,
+        // The cart caps quantities by stock; without it the item looks unlimited.
+        stock: product.stock,
         image: product.imageUrl ?? undefined,
       });
     }
@@ -214,9 +221,10 @@ export default function Chatbot() {
       role: 'user',
     };
 
-    const historyForBackend = messages.map((message) => ({
+    // Same bounds as the API (ChatDto): the last turns, each one trimmed.
+    const historyForBackend = messages.slice(-CHAT_HISTORY_LIMIT).map((message) => ({
       role: message.role,
-      content: message.text,
+      content: message.text.slice(0, CHAT_HISTORY_CONTENT_LIMIT),
     }));
 
     setMessages((prev) => [...prev, userMessage]);
@@ -300,7 +308,7 @@ export default function Chatbot() {
         setConversationState(nextState);
       }
 
-      const responseProducts = Array.isArray(res.data?.products) ? res.data.products : [];
+      const responseProducts = normalizeRecommendedProducts(res.data?.products);
 
       const botMessage: ChatMessage = {
         id: nextMessageId('assistant'),
@@ -368,7 +376,15 @@ export default function Chatbot() {
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 z-[100] bg-brand-cyan text-gray-900 p-4 rounded-full shadow-2xl shadow-brand-cyan/40 hover:bg-cyan-400 hover:scale-110 transition-all duration-300 flex items-center justify-center"
         >
-          <img src="/chatbot.png" alt="Abrir chatbot Puchi" className="h-10 w-10 object-cover" />
+          {/* Already a 9 KB WebP: served as is, without the image optimizer's CPU cost. */}
+          <Image
+            src="/chatbot.webp"
+            alt="Abrir chatbot Puchi"
+            width={40}
+            height={40}
+            unoptimized
+            className="h-10 w-10 object-cover"
+          />
         </button>
       )}
 
@@ -380,7 +396,14 @@ export default function Chatbot() {
           <div className="bg-[#1a1f2b] text-white p-4 flex justify-between items-center shadow-md z-10">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-brand-cyan">
-                <img src="/chatbot.png" alt="Puchi" className="h-full w-full object-cover" />
+                <Image
+                  src="/chatbot.webp"
+                  alt="Puchi"
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
               </div>
               <div>
                 <h3 className="font-bold text-sm tracking-wide">Puchi</h3>

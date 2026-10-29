@@ -1,0 +1,24 @@
+{
+  "step": "audit_vecinos",
+  "package_version": "0.1.0",
+  "created_at": "2026-10-21T22:05:22+00:00",
+  "inputs": {
+    "configs/data_rules.yaml": "4f2c6e7ea4b11578bf1e9702e20081fef1b112e3202a33c631b6f5cd1a4e91d5",
+    "configs/sheet_date_overrides.yaml": "58d35561a61926aa756f9fc6e821be23960a47783601347a4c1ffbf5516a2c6c",
+    "data/01_staged/vecinos_blocks.parquet": "51d39b96a9693b6e2f6313ebd03a3e5b0a3f8844715d1302b6b67f99b7cae702",
+    "data/01_staged/vecinos_lines.parquet": "b52ee714a66dd88126aacdcbb9962daeed80fae097e8ee0aaa1976bfe7829e26",
+    "data/01_staged/vecinos_sheets.parquet": "43fe529cc3720b2b791e63ce49903df7dec29d9e631ab61184528bf590061bff"
+  },
+  "outputs": {
+    "data/02_clean/audit_report.json": "3794411f2a4b0b7128b47e85f955253f294c44deb8073468ac3c01cffb3ef5f2",
+    "data/02_clean/audit_report.md": "d2fc32c0f4938791a828671f3cb4037f163800ed7fdd5949d3d369d94433f91f",
+    "data/02_clean/corrections.parquet": "47cf265136e9d544bd4425d922a0623c6ca650985dbe3f8d4af967618ae821b1",
+    "data/02_clean/reconciliation.parquet": "18068a14c7d451ffadb65592d24221fe9946e910f91498fdc8ef5d8155476a9e",
+    "data/02_clean/vecinos_lines.parquet": "6fac27d5b468dd5f02c3a9f1e28031aa2bf35b467011ce48464d55448ed7eab6",
+    "data/02_clean/vecinos_sheet_dates.parquet": "434513389bff61d9ce32e402c84d1ffde6a58aa0bc191d2ded9cd266f6a51566"
+  },
+  "details": {
+    "valid_lines": 5087,
+    "corrections": 28
+  }
+}

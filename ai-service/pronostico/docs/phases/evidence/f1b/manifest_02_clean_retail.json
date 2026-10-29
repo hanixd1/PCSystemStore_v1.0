@@ -1,0 +1,23 @@
+{
+  "step": "audit_receipts",
+  "package_version": "0.1.0",
+  "created_at": "2026-10-23T20:24:08+00:00",
+  "inputs": {
+    "configs/data_rules.yaml": "41413c6c66e41c4fb40ae81e6299dcaf44fe817194446f70405ebdec973648df",
+    "data/01_staged/retail/receipt_lines.parquet": "81146a63cf1d8463c09368dad3d397a88c6371fd16f6470173e1372b395ddbce",
+    "data/01_staged/retail/receipts.parquet": "3e0d432909196841493a11ab881cd0e9402900e8c51f983f1c2135ddfd5c4f70"
+  },
+  "outputs": {
+    "data/02_clean/retail/audit_report.json": "e503ed97110f800d955f4e7459c5cab7e744d61e2f8e044af5d179a77c39614b",
+    "data/02_clean/retail/audit_report.md": "954f2b93d7346efc3451b6204f8072c26ddd888696ce735ff23dc08ffa536355",
+    "data/02_clean/retail/corrections.parquet": "1729a0b0385ceb4a17a9eb9f0c25746b503a15a07ff4d518efff3e01af00494e",
+    "data/02_clean/retail/coverage_by_month.parquet": "116f294be3b814b44cd5dcd6a8502276da19abb56bbf99392eea209dd82a64ad",
+    "data/02_clean/retail/numbering_gaps.parquet": "737f0ef647371fbe2b04b9230ef0805514d5e3dcfd85034ebc044f156cbbe41b",
+    "data/02_clean/retail/receipts.parquet": "fb143340737708dced92f183645cfa0e971dd32c8e41dcc5158ab511447c1b10",
+    "data/02_clean/retail/retail_lines.parquet": "dfdb54ded09372917f2fb62e6fb639e79fd3d802ab43420c5275e1a2c7d52d68"
+  },
+  "details": {
+    "valid_receipts": 1116,
+    "item_lines": 3498
+  }
+}

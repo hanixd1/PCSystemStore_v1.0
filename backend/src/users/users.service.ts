@@ -3,8 +3,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { SessionUserStatusService } from '../auth/session-user-status.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../common/email/email.service';
 import { Request } from 'express';
@@ -22,6 +24,8 @@ import { isCustomerProfileComplete, UserSessionService } from './services/user-s
 const STAFF_MANAGEMENT_ROLES = ['ADMIN', 'EDITOR'] as const;
 const PRIMARY_ADMIN_EMAIL =
   process.env.PRIMARY_ADMIN_EMAIL?.trim().toLowerCase() || 'admin@pcsystemstore.com';
+
+const AUDIT_LOG_PAGE_SIZE = 200;
 
 /** Public facade retained for controllers, guards and existing consumers. */
 @Injectable()
@@ -43,6 +47,7 @@ export class UsersService {
     ),
     private readonly profile: UserProfileService = new UserProfileService(prisma),
     private readonly addresses: UserAddressService = new UserAddressService(prisma),
+    @Optional() private readonly sessionStatus?: SessionUserStatusService,
   ) {}
 
   async login(email: string, pass: string, request?: Request) {
@@ -84,14 +89,28 @@ export class UsersService {
   async verifyEmail(token: string) {
     return this.passwordReset.verifyEmail(token);
   }
+  async resendEmailVerification(email: string) {
+    return this.passwordReset.resendEmailVerification(email);
+  }
   async getMe(id: string) {
     return this.profile.getMe(id);
   }
   async updateProfile(id: string, data: UpdateProfileDto) {
     return this.profile.updateProfile(id, data);
   }
+  /**
+   * Changes the password, which revokes every existing session, and returns a new session
+   * token so the device that made the change stays signed in.
+   */
   async changePassword(id: string, currentPassword: string, newPassword: string) {
-    return this.profile.changePassword(id, currentPassword, newPassword);
+    const result = await this.profile.changePassword(id, currentPassword, newPassword);
+    this.sessionStatus?.invalidate(id);
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    const session = await this.session.buildSession(user);
+    return { ...result, token: session.token };
   }
   getAddresses(userId: string) {
     return this.addresses.getAddresses(userId);
@@ -200,6 +219,7 @@ export class UsersService {
       data: { status },
       select: { id: true, name: true, status: true },
     });
+    this.sessionStatus?.invalidate(id);
     await this.createLog(id, 'UPDATE', `Cambio de estado de ${user.email} a ${status}`);
     return updatedUser;
   }
@@ -245,12 +265,21 @@ export class UsersService {
       data: updateData,
       select: { id: true, name: true, email: true, role: true, status: true, updatedAt: true },
     });
+    this.sessionStatus?.invalidate(id);
     await this.createLog(id, 'UPDATE', `Actualizacion de usuario ${updatedUser.email}`);
     return updatedUser;
   }
 
-  async getAuditLogs() {
+  /** Newest first, one page at a time: ActionLog grows with every sale and admin action. */
+  async getAuditLogs(page = 1, limit = AUDIT_LOG_PAGE_SIZE) {
+    const take = Math.min(
+      Math.max(Math.trunc(limit) || AUDIT_LOG_PAGE_SIZE, 1),
+      AUDIT_LOG_PAGE_SIZE,
+    );
+    const skip = (Math.max(Math.trunc(page) || 1, 1) - 1) * take;
     return this.prisma.actionLog.findMany({
+      take,
+      skip,
       where: {
         NOT: [
           { action: 'LOGIN', user: { role: 'CUSTOMER' } },

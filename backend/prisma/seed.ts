@@ -69,7 +69,7 @@ async function seedUsersAndBranding() {
   const adminPassword = getSeedPassword('SEED_ADMIN_PASSWORD', true);
   const editorPassword = getSeedPassword('SEED_EDITOR_PASSWORD', true);
   const customerPlainPassword = getSeedPassword('SEED_CUSTOMER_PASSWORD', false);
-  const [hashedPassword, hashedEditorPassword, customerPassword] = await Promise.all([
+  const [hashedAdminPassword, hashedEditorPassword, customerPassword] = await Promise.all([
     passwordHashing.hashPassword(adminPassword),
     passwordHashing.hashPassword(editorPassword),
     passwordHashing.hashPassword(customerPlainPassword),
@@ -78,14 +78,14 @@ async function seedUsersAndBranding() {
   const admin = await prisma.user.upsert({
     where: { email: 'admin@pcsystem.com' },
     update: {
-      password: hashedEditorPassword,
+      password: hashedAdminPassword,
       role: 'ADMIN',
       status: 'ACTIVE',
     },
     create: {
       email: 'admin@pcsystem.com',
       name: 'Administrador Principal',
-      password: hashedEditorPassword,
+      password: hashedAdminPassword,
       role: 'ADMIN',
       status: 'ACTIVE',
     },
@@ -95,14 +95,14 @@ async function seedUsersAndBranding() {
     where: { email: 'editor@pcsystem.com' },
     update: {
       name: 'Editor Principal',
-      password: hashedPassword,
+      password: hashedEditorPassword,
       role: 'EDITOR',
       status: 'ACTIVE',
     },
     create: {
       email: 'editor@pcsystem.com',
       name: 'Editor Principal',
-      password: hashedPassword,
+      password: hashedEditorPassword,
       role: 'EDITOR',
       status: 'ACTIVE',
     },

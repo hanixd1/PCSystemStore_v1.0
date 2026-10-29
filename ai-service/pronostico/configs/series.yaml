@@ -1,0 +1,29 @@
+# Construction of demand series (phase F2, plan 2.6.2).
+status: frozen
+
+# Demand channels (protocol amendment v3, D1). total = vecinos record + delivered receipts is the
+# primary series; vecinos and facturado are each source alone; total_dedup leaves out receipt lines
+# with a vecinos line of the same SKU and quantity within duplicate_window_days (a sensitivity).
+channels: [total, vecinos, facturado, total_dedup]
+duplicate_window_days: 3
+# Receipt unit values exclude IGV; receipt amounts are converted to the price paid.
+receipt_tax_rate: 0.18
+
+# Movement types that form gross demand (returns, warranties, damaged and not-sold are kept apart).
+demand_movements: [sale_paid, sale_credit]
+
+# Line date confidences accepted in the main series (all valid lines are high or medium after F1).
+date_confidences: [confirmed, high, medium]
+
+# Weekly periods start on Monday (ISO weeks). Only complete periods inside the recorded span are
+# used: a period after the last recorded sheet is not a zero.
+week_start: monday
+
+# SKU panel: smallest set of SKUs that accumulates this share of development-span units of total
+# demand, both channels (plan 2.4.2, amendment v3 D5). The same panel serves every channel.
+sku_volume_share: 0.80
+sku_volume_share_sensitivity: [0.70, 0.90]
+
+# Demand-pattern classification (Syntetos-Boylan-Croston cut-offs).
+adi_cutoff: 1.32
+cv2_cutoff: 0.49

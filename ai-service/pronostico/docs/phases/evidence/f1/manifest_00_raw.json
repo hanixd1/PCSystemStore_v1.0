@@ -1,0 +1,20 @@
+{
+  "step": "register_raw",
+  "package_version": "0.1.0",
+  "created_at": "2026-10-21T16:58:20+00:00",
+  "inputs": {
+    "datos/VENTAS_INTERNAS_2024_ACTUAL_11-07-26.xlsx": "6e5ec18e84e13c3243429f5e163b30002b712b804af88b8e30d2f1a9ae19351e"
+  },
+  "outputs": {
+    "data/00_raw/vecinos_daily_sheets/VENTAS_INTERNAS_2024_ACTUAL_11-07-26.xlsx": "6e5ec18e84e13c3243429f5e163b30002b712b804af88b8e30d2f1a9ae19351e"
+  },
+  "details": {
+    "files": [
+      {
+        "source_id": "vecinos_daily_sheets",
+        "channel": "vecinos",
+        "size_bytes": 1777238
+      }
+    ]
+  }
+}

@@ -1,9 +1,16 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Optional,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY, JwtUserPayload, ROLES_KEY, UserRole } from './auth.constants';
 import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE, getCookieValue } from './auth-cookies';
+import { SessionUserStatusService } from './session-user-status.service';
 
 type AuthenticatedRequest = Request & { user?: JwtUserPayload };
 
@@ -12,6 +19,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly jwtService: JwtService,
+    @Optional() private readonly sessionStatus?: SessionUserStatusService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -56,12 +64,17 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token no proporcionado');
     }
 
+    let payload: JwtUserPayload;
     try {
-      const payload = await this.jwtService.verifyAsync<JwtUserPayload>(token);
-      request.user = payload;
-      return true;
+      payload = await this.jwtService.verifyAsync<JwtUserPayload>(token);
     } catch {
       throw new UnauthorizedException('Token invalido o expirado');
     }
+    // A suspended account or a changed role revokes the session before the token expires.
+    if (this.sessionStatus && !(await this.sessionStatus.isSessionValid(payload))) {
+      throw new UnauthorizedException('Sesion revocada. Inicia sesion nuevamente.');
+    }
+    request.user = payload;
+    return true;
   }
 }

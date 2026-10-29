@@ -1,0 +1,6 @@
+F6 host vs container equivalence (2026-10-21)
+
+Full pipeline up to pcs simulate on the real record, host (macOS, Apple M5) vs
+pcsforecast:dev (linux/aarch64), same anonymisation key:
+  weekly simulation.parquet: equal (6300 rows)
+  monthly simulation.parquet: equal (6300 rows)

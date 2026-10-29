@@ -1,0 +1,15 @@
+SonarQube 26.9.0.129388 - F2/F3 analysis, 2026-10-21T22:37:23Z
+Quality gate: OK
+branch_coverage: 97.4
+bugs: 0
+code_smells: 0
+cognitive_complexity: 263
+coverage: 99.2
+duplicated_lines_density: 0.0
+ncloc: 2409
+reliability_rating: 1.0
+security_hotspots: 0
+security_rating: 1.0
+sqale_rating: 1.0
+tests: 173
+vulnerabilities: 0

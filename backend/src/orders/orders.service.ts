@@ -19,6 +19,8 @@ import { withPublicProductCriteria } from '../products/product-publication';
 
 const IGV_RATE_INCLUDED = 18 / 118;
 
+const CUSTOMER_ORDERS_LIMIT = 100;
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -139,6 +141,8 @@ export class OrdersService {
   findByUser(userId: string) {
     return this.prisma.order.findMany({
       where: { userId },
+      // Bounded: the account page shows recent orders; nothing loads a whole history at once.
+      take: CUSTOMER_ORDERS_LIMIT,
       orderBy: { createdAt: 'desc' },
       include: this.orderInclude,
     });
