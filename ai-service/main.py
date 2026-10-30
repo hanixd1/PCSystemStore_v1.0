@@ -1,14 +1,20 @@
 from contextlib import asynccontextmanager
 import os
 from pathlib import Path
+import sys
 
 from fastapi import Depends, FastAPI
 
 from core.config import settings
 from core.security import require_internal_api_key
 
+FORECAST_PROJECT = Path(__file__).resolve().parent / "pronostico"
 # The forecasting system reads its series and model weights from its own project folder.
-os.environ.setdefault("PCS_PROJECT_ROOT", str(Path(__file__).resolve().parent / "pronostico"))
+os.environ.setdefault("PCS_PROJECT_ROOT", str(FORECAST_PROJECT))
+# Production installs only its dependencies (requirements.txt); the package itself is loaded from
+# source. An installed copy (`pip install -e ./pronostico`, tests) is found first if present.
+if str(FORECAST_PROJECT / "src") not in sys.path:
+    sys.path.append(str(FORECAST_PROJECT / "src"))
 
 from chatbot.router import router as chatbot_router  # noqa: E402
 from pcsforecast.service.router import router as forecast_router  # noqa: E402

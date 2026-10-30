@@ -1,4 +1,6 @@
 # Tests (CI and local); never installed in the production image.
 -r requirements.txt
+# Installed package for the tests (main.py also finds it in pronostico/src).
+-e ./pronostico
 pytest
 httpx

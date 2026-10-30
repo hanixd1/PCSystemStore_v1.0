@@ -2,6 +2,10 @@ fastapi
 uvicorn[standard]
 pydantic
 python-dotenv
-# Sistema de pronostico (tesis). Sin PyTorch usa SES como respaldo; para Chronos instalar
-# requirements-forecast.txt (pesado: PyTorch + chronos-forecasting).
--e ./pronostico
+# Sistema de pronostico (tesis): main.py carga el paquete desde pronostico/src. Solo sus
+# dependencias de produccion (pronostico/pyproject.toml, [project] dependencies) van aqui: Railpack
+# instala este archivo antes de copiar el codigo, asi que un `-e ./pronostico` no existe aun.
+# Sin PyTorch usa SES o los cuantiles precalculados; Chronos en vivo: requirements-forecast.txt.
+numpy>=2.0
+pandas>=2.2
+pyarrow>=17
