@@ -11,7 +11,9 @@ COPY prisma ./prisma
 COPY prisma.config.ts tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 RUN npm ci
-RUN npm run build && npm prune --omit=dev
+# Dev dependencies stay: the start command runs `prisma migrate deploy`, which needs the
+# Prisma CLI and loads prisma.config.ts (TypeScript, dotenv) at runtime.
+RUN npm run build
 
 FROM node:22-slim
 WORKDIR /app
@@ -22,6 +24,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./
+# prisma.config.ts imports ./src/prisma/database-url (normalizes the Neon URLs).
+COPY --from=build /app/src/prisma/database-url.ts ./src/prisma/database-url.ts
 USER node
 EXPOSE 3000
 CMD ["node", "dist/src/main.js"]

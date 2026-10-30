@@ -235,7 +235,10 @@ En desarrollo local, `NEXT_PUBLIC_API_URL` apunta al backend NestJS en `3000`.
 
 ### Docker Compose (QA local)
 
-Hay `Dockerfile` en `backend/`, `frontend/` y `ai-service/`, y un compose en `docs/`:
+Hay `Dockerfile.local` en `backend/`, `frontend/` y `ai-service/`, y un compose en `docs/`. No
+se llaman `Dockerfile` a proposito: Railway usa automaticamente un `Dockerfile` de la carpeta del
+servicio en lugar de Railpack, y con el ejecuta el start command del panel sin shell (`$PORT` y
+`&&` dejan de funcionar). Los servicios de Railway siguen construyendose con Railpack.
 
 ```bash
 docker compose -f docs/docker-compose.yml --profile local-db up --build
@@ -282,8 +285,9 @@ Pasos en el panel de Railway (no los puede hacer el codigo):
 1. **Red privada backend -> ai-service.** En el backend: `AI_SERVICE_URL=http://<ai-service>.railway.internal:<PORT>`
    (el nombre interno sale en Settings -> Networking del ai-service). Comprobar que el dashboard de
    inventario y el chatbot responden y, recien entonces, quitar el dominio publico del ai-service
-   (Settings -> Networking -> Public Networking). Su start command es `python serve.py`
-   (`ai-service/railway.json`).
+   (Settings -> Networking -> Public Networking). Para la red privada conviene cambiar su start
+   command (Settings -> Deploy) a `python serve.py`, que escucha IPv4 e IPv6; `uvicorn --host 0.0.0.0`
+   solo escucha IPv4.
 2. **Red privada frontend -> backend (SSR).** En el frontend: `INTERNAL_API_URL=http://<backend>.railway.internal:<PORT>`.
    El backend escucha en `::` (IPv4 + IPv6). `NEXT_PUBLIC_API_URL` sigue siendo la URL publica,
    porque la usa el navegador.
